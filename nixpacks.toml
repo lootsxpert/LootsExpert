@@ -3,5 +3,5 @@ providers = ["node", "python"]
 [phases.install]
 cmds = [
   "npm install",
-  "python3 -m venv .venv && .venv/bin/pip install -r web/requirements.txt"
+  "python3 -m venv pyenv && pyenv/bin/pip install -r web/requirements.txt"
 ]
