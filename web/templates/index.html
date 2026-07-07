@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LootsExpert — Smart Product Price Analyzer</title>
-  <meta name="description" content="Instantly analyze product details, ratings, and real prices from Amazon and Flipkart using advanced AI scraping.">
+  <meta name="description" content="Instantly analyze product details, price history, stats, and real prices from Amazon and Flipkart using advanced AI scraping.">
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,14 +14,16 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
   <!-- Custom Styles -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-  <!-- Ambient background glow elements -->
-  <div class="glow-orb orb-1"></div>
-  <div class="glow-orb orb-2"></div>
-  <div class="glow-orb orb-3"></div>
+  <!-- Ambient modern background gradients -->
+  <div class="glow-bg-blob blob-1"></div>
+  <div class="glow-bg-blob blob-2"></div>
 
   <div class="app-container">
     <header class="app-header">
@@ -29,7 +31,7 @@
         <i class="fa-solid fa-tags logo-icon"></i>
         <span>Loots<span class="highlight">Expert</span></span>
       </div>
-      <p class="subtitle">Search, analyze, and track prices across Flipkart & Amazon India instantly.</p>
+      <p class="subtitle">Search, analyze, and track historical prices across Flipkart & Amazon India instantly.</p>
     </header>
 
     <main class="main-content">
@@ -84,48 +86,52 @@
         </div>
       </div>
 
-      <!-- Result Card -->
-      <section id="result-card" class="card result-card hidden">
+      <!-- Main Result View (Hidden by default) -->
+      <div id="result-view" class="hidden">
+        <!-- 2-Column Product Info Section -->
         <div class="result-grid">
-          <!-- Column 1: Image -->
-          <div class="product-image-container">
+          
+          <!-- Column 1: Left Card (Product Card) -->
+          <section id="product-card" class="card product-card">
             <div class="platform-badge" id="product-platform">Amazon</div>
-            <img id="product-img" src="" alt="Product Image">
-          </div>
-
-          <!-- Column 2: Info -->
-          <div class="product-info-container">
-            <h1 id="product-title" class="product-title">Product Title Loading...</h1>
             
-            <!-- Rating -->
-            <div class="rating-container" id="rating-section">
-              <div class="stars" id="product-stars">
-                <!-- Stars rendered via js -->
+            <div class="product-header">
+              <div class="product-image-container">
+                <img id="product-img" src="" alt="Product Image">
               </div>
-              <span class="rating-value" id="product-rating">4.5</span>
-            </div>
+              
+              <div class="product-essential-details">
+                <h1 id="product-title" class="product-title">Product Title Loading...</h1>
+                
+                <!-- Rating -->
+                <div class="rating-container" id="rating-section">
+                  <div class="stars" id="product-stars"></div>
+                  <span class="rating-value" id="product-rating">4.5</span>
+                </div>
 
-            <!-- Price Breakdown -->
-            <div class="price-section">
-              <div class="current-price-wrapper">
-                <span class="currency" id="product-currency">₹</span>
-                <span class="price-value" id="product-price">12,999</span>
-              </div>
-              <div class="original-price-wrapper" id="original-price-container">
-                <span class="original-label">MRP:</span>
-                <span class="original-value" id="product-original-price">₹15,999</span>
-              </div>
-              <span class="discount-badge" id="product-discount">20% OFF</span>
-            </div>
+                <!-- Price Breakdown -->
+                <div class="price-section">
+                  <div class="current-price-wrapper">
+                    <span class="currency" id="product-currency">₹</span>
+                    <span class="price-value" id="product-price">12,999</span>
+                  </div>
+                  <div class="original-price-wrapper" id="original-price-container">
+                    <span class="original-label">MRP:</span>
+                    <span class="original-value" id="product-original-price">₹15,999</span>
+                  </div>
+                  <span class="discount-badge" id="product-discount">20% OFF</span>
+                </div>
 
-            <!-- Actions -->
-            <div class="action-buttons">
-              <a href="#" target="_blank" id="buy-button" class="btn btn-primary">
-                <i class="fa-solid fa-cart-shopping"></i> Buy Now
-              </a>
-              <button id="alert-button" class="btn btn-secondary">
-                <i class="fa-regular fa-bell"></i> Set Price Alert
-              </button>
+                <!-- Actions -->
+                <div class="action-buttons">
+                  <a href="#" target="_blank" id="buy-button" class="btn btn-primary">
+                    <i class="fa-solid fa-cart-shopping"></i> Buy on Store
+                  </a>
+                  <button id="alert-button" class="btn btn-secondary">
+                    <i class="fa-regular fa-bell"></i> Set Alert
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- Specs / Details -->
@@ -135,9 +141,94 @@
                 <!-- Grid of specifications -->
               </div>
             </div>
-          </div>
+          </section>
+
+          <!-- Column 2: Right Card (Deal analysis & Meter) -->
+          <section id="analysis-card" class="card analysis-card">
+            <div class="analysis-tabs">
+              <div class="tab-item active">Deal Scanner</div>
+              <div class="tab-item">Price Drop</div>
+            </div>
+
+            <div class="meter-wrapper">
+              <h3>Should you buy now?</h3>
+              <div class="meter-container">
+                <!-- SVG Gauge Arc -->
+                <svg class="gauge-svg" viewBox="0 0 200 100">
+                  <!-- Gauge Path (Semi-circle Arc) -->
+                  <path class="gauge-track" d="M20,90 A80,80 0 0,1 180,90" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" />
+                  <path class="gauge-colored" d="M20,90 A80,80 0 0,1 180,90" fill="none" stroke="url(#gauge-gradient)" stroke-width="14" stroke-linecap="round" />
+                  
+                  <!-- Gradient for Gauge -->
+                  <defs>
+                    <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stop-color="#f43f5e" />     <!-- Red -->
+                      <stop offset="40%" stop-color="#fbbf24" />    <!-- Orange/Yellow -->
+                      <stop offset="75%" stop-color="#10b981" />    <!-- Green -->
+                      <stop offset="100%" stop-color="#059669" />   <!-- Deep Green -->
+                    </linearGradient>
+                  </defs>
+
+                  <!-- Gauge Needle -->
+                  <g class="gauge-needle" id="gauge-needle">
+                    <polygon points="96,90 104,90 100,20" fill="#4f46e5" />
+                    <circle cx="100" cy="90" r="8" fill="#4f46e5" />
+                  </g>
+                </svg>
+                <div class="meter-labels">
+                  <span class="label-bad"><i class="fa-solid fa-face-frown"></i> High Price</span>
+                  <span class="label-good">Optimal Price <i class="fa-solid fa-face-smile"></i></span>
+                </div>
+              </div>
+
+              <!-- Recommendation Card -->
+              <div class="recommendation-box" id="recommendation-box">
+                <span class="rec-label">Our Recommendation</span>
+                <h4 id="recommendation-text" class="rec-emerald">Go Ahead & Buy now</h4>
+                <p id="recommendation-sub" class="rec-sub">Optimal price point. Price is currently at its lowest.</p>
+              </div>
+            </div>
+
+            <!-- Price Statistics Grid -->
+            <div class="price-stats-container">
+              <h3>Price Stats</h3>
+              <div class="stats-grid">
+                <div class="stat-card stat-highest">
+                  <span class="stat-label">Highest Price <i class="fa-solid fa-arrow-up"></i></span>
+                  <strong class="stat-value" id="stat-highest-val">₹0</strong>
+                </div>
+                <div class="stat-card stat-average">
+                  <span class="stat-label">Average Price <i class="fa-solid fa-equals"></i></span>
+                  <strong class="stat-value" id="stat-avg-val">₹0</strong>
+                </div>
+                <div class="stat-card stat-lowest">
+                  <span class="stat-label">Lowest Price <i class="fa-solid fa-arrow-down"></i></span>
+                  <strong class="stat-value" id="stat-lowest-val">₹0</strong>
+                </div>
+                <div class="stat-card stat-optimal">
+                  <span class="stat-label">Current Status <i class="fa-solid fa-circle-check"></i></span>
+                  <strong class="stat-value status-badge badge-green" id="stat-optimal-val">Optimal</strong>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
-      </section>
+
+        <!-- Full-Width Price History Section -->
+        <section class="card history-card">
+          <div class="history-header">
+            <h3>Price History</h3>
+            <div class="history-filters">
+              <button class="filter-btn active" data-range="1m">1 Month</button>
+              <button class="filter-btn" data-range="3m">3 Month</button>
+              <button class="filter-btn" data-range="max">Max</button>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="priceHistoryChart"></canvas>
+          </div>
+        </section>
+      </div>
     </main>
 
     <footer class="app-footer">

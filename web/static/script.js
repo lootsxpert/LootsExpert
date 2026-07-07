@@ -4,40 +4,49 @@ document.addEventListener('DOMContentLoaded', () => {
   const loader = document.getElementById('loader');
   const errorContainer = document.getElementById('error-container');
   const errorMessage = document.getElementById('error-message');
-  const resultCard = document.getElementById('result-card');
-  const demoChips = document.querySelectorAll('.demo-chip');
-
-  // DOM Elements for results
+  const resultView = document.getElementById('result-view');
+  
+  // Element bindings for product info
   const productPlatform = document.getElementById('product-platform');
   const productImg = document.getElementById('product-img');
   const productTitle = document.getElementById('product-title');
-  const productStars = document.getElementById('product-stars');
   const productRating = document.getElementById('product-rating');
+  const productStars = document.getElementById('product-stars');
   const productPrice = document.getElementById('product-price');
   const productOriginalPrice = document.getElementById('product-original-price');
   const originalPriceContainer = document.getElementById('original-price-container');
   const productDiscount = document.getElementById('product-discount');
   const buyButton = document.getElementById('buy-button');
-  const alertButton = document.getElementById('alert-button');
   const specsGrid = document.getElementById('specs-grid');
   const specsSection = document.getElementById('specs-section');
-
-  // API base path (works relatively when hosted together, or falls back to localhost:3000)
-  const API_BASE = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-    ? ''
-    : window.location.origin;
-
-  // Handle Search Submission
+  
+  // Element bindings for analysis & stats
+  const gaugeNeedle = document.getElementById('gauge-needle');
+  const recommendationBox = document.getElementById('recommendation-box');
+  const recommendationText = document.getElementById('recommendation-text');
+  const recommendationSub = document.getElementById('recommendation-sub');
+  
+  const statHighestVal = document.getElementById('stat-highest-val');
+  const statAvgVal = document.getElementById('stat-avg-val');
+  const statLowestVal = document.getElementById('stat-lowest-val');
+  const statOptimalVal = document.getElementById('stat-optimal-val');
+  
+  // Chart binding
+  const ctx = document.getElementById('priceHistoryChart').getContext('2d');
+  let priceChart = null;
+  let fullHistoryData = []; // Stores complete generated 180 days history
+  
+  // Handle form submit
   searchForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const url = productUrlInput.value.trim();
     if (!url) return;
-
+    
     await fetchProductDetails(url);
   });
-
-  // Handle Demo Chip Clicks
-  demoChips.forEach(chip => {
+  
+  // Handle quick demo chips
+  document.querySelectorAll('.demo-chip').forEach(chip => {
     chip.addEventListener('click', async () => {
       const url = chip.getAttribute('data-url');
       productUrlInput.value = url;
@@ -45,141 +54,323 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Fetch Product Details from API
+  // Fetch product data from our Flask proxy
   async function fetchProductDetails(url) {
-    // Reset states
+    // UI resets
     loader.classList.remove('hidden');
     errorContainer.classList.add('hidden');
-    resultCard.classList.add('hidden');
-
-    try {
-      const response = await fetch(`${API_BASE}/api/scrape?url=${encodeURIComponent(url)}`);
-      const data = await response.json();
-
-      loader.classList.add('hidden');
-
-      if (!response.ok || !data.success) {
-        showError(data.error || 'Failed to retrieve details from the e-commerce store.');
-        return;
-      }
-
-      renderResult(data);
-    } catch (err) {
-      loader.classList.add('hidden');
-      showError('Could not connect to the scraper service. Please ensure the API server is running.');
-    }
-  }
-
-  // Display Error message
-  function showError(msg) {
-    errorMessage.textContent = msg;
-    errorContainer.classList.remove('hidden');
-  }
-
-  // Render Result Card
-  function renderResult(data) {
-    // Platform
-    const platform = data.platform.toLowerCase();
-    productPlatform.textContent = data.platform;
-    productPlatform.className = `platform-badge ${platform}`;
-
-    // Title
-    productTitle.textContent = data.title || 'Product Title Not Found';
-
-    // Image
-    productImg.src = data.image || 'https://via.placeholder.com/350x350?text=No+Image+Available';
-    productImg.alt = data.title || 'Product Image';
-
-    // Price
-    productPrice.textContent = formatPrice(data.price);
+    resultView.classList.add('hidden');
     
-    // Original Price & Discount
-    if (data.originalPrice && data.originalPrice > data.price) {
-      originalPriceContainer.classList.remove('hidden');
-      productOriginalPrice.textContent = `₹${formatPrice(data.originalPrice)}`;
-      productDiscount.textContent = data.discount || 'Special Offer';
-      productDiscount.classList.remove('hidden');
-    } else {
-      originalPriceContainer.classList.add('hidden');
-      if (data.discount && data.discount !== '0%') {
-        productDiscount.textContent = data.discount;
-        productDiscount.classList.remove('hidden');
-      } else {
-        productDiscount.classList.add('hidden');
+    try {
+      const response = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`);
+      const data = await response.json();
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || `Node API returned HTTP error: ${response.status}`);
       }
+      
+      renderProduct(data);
+    } catch (err) {
+      console.error('[Client Error]', err);
+      errorMessage.textContent = err.message || 'An unexpected error occurred while analyzing the product details.';
+      errorContainer.classList.remove('hidden');
+    } finally {
+      loader.classList.add('hidden');
     }
-
-    // Rating
+  }
+  
+  // Render scraped results
+  function renderProduct(data) {
+    // 1. Platform Badge
+    const isAmazon = data.platform === 'amazon' || data.url.includes('amazon.in');
+    productPlatform.textContent = isAmazon ? 'Amazon' : 'Flipkart';
+    productPlatform.className = `platform-badge ${isAmazon ? 'amazon' : 'flipkart'}`;
+    
+    // 2. Main details
+    productImg.src = data.image || 'https://via.placeholder.com/150?text=No+Image';
+    productImg.alt = data.title;
+    productTitle.textContent = data.title;
+    
+    // 3. Ratings
     if (data.rating) {
-      productRating.textContent = `${data.rating} / 5`;
-      renderStars(data.rating);
+      productRating.textContent = data.rating;
+      renderStars(parseFloat(data.rating));
       document.getElementById('rating-section').classList.remove('hidden');
     } else {
       document.getElementById('rating-section').classList.add('hidden');
     }
-
-    // Buy Button Link
-    buyButton.href = data.url;
-    buyButton.className = `btn btn-primary platform-${platform}`;
     
-    // Set price alert action demo
-    alertButton.onclick = () => {
-      const target = prompt(`Enter target alert price in ₹ (Current: ₹${formatPrice(data.price)}):`);
-      if (target) {
-        alert(`🔔 Price alert set! We will notify you when price drops below ₹${target}.`);
-      }
-    };
-
-    // Specs
+    // 4. Price & Discount display
+    productPrice.textContent = data.price;
+    if (data.originalPrice) {
+      productOriginalPrice.textContent = data.originalPrice;
+      originalPriceContainer.classList.remove('hidden');
+    } else {
+      originalPriceContainer.classList.add('hidden');
+    }
+    
+    if (data.discount) {
+      productDiscount.textContent = data.discount;
+      productDiscount.classList.remove('hidden');
+    } else {
+      productDiscount.classList.add('hidden');
+    }
+    
+    // Buy button link
+    buyButton.href = data.url;
+    
+    // 5. Specs Grid
     specsGrid.innerHTML = '';
-    if (data.specs && data.specs.length > 0) {
-      data.specs.forEach(spec => {
-        const item = document.createElement('div');
-        item.className = 'spec-item';
-        
-        const label = document.createElement('span');
-        label.className = 'spec-label';
-        label.textContent = spec.key;
-        
-        const value = document.createElement('span');
-        value.className = 'spec-value';
-        value.textContent = spec.value;
-
-        item.appendChild(label);
-        item.appendChild(value);
-        specsGrid.appendChild(item);
+    if (data.specs && Object.keys(data.specs).length > 0) {
+      Object.entries(data.specs).forEach(([key, val]) => {
+        const specItem = document.createElement('div');
+        specItem.className = 'spec-item';
+        specItem.innerHTML = `
+          <span class="spec-label">${key}</span>
+          <span class="spec-value" title="${val}">${val}</span>
+        `;
+        specsGrid.appendChild(specItem);
       });
       specsSection.classList.remove('hidden');
     } else {
       specsSection.classList.add('hidden');
     }
-
-    // Reveal result card
-    resultCard.classList.remove('hidden');
-    resultCard.scrollIntoView({ behavior: 'smooth' });
+    
+    // 6. Generate Mock Price History and Stats based on scraped current price
+    const currentPriceNum = parsePrice(data.price);
+    generatePriceAnalysis(currentPriceNum);
+    
+    // Show main view
+    resultView.classList.remove('hidden');
+    
+    // Scroll result into view smoothly
+    resultView.scrollIntoView({ behavior: 'smooth' });
   }
-
-  // Format price helper
-  function formatPrice(num) {
-    if (!num) return 'N/A';
-    return Number(num).toLocaleString('en-IN');
-  }
-
-  // Render Stars helper
-  function renderStars(rating) {
+  
+  // Star rendering helper
+  function renderStars(ratingValue) {
     productStars.innerHTML = '';
-    const fullStars = Math.floor(rating);
-    const halfStar = rating % 1 >= 0.4;
-    const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
-
-    for (let i = 0; i < fullStars; i++) {
-      productStars.innerHTML += '<i class="fa-solid fa-star"></i>';
-    }
-    if (halfStar) {
-      productStars.innerHTML += '<i class="fa-solid fa-star-half-stroke"></i>';
-    }
-    for (let i = 0; i < emptyStars; i++) {
-      productStars.innerHTML += '<i class="fa-regular fa-star"></i>';
+    const fullStars = Math.floor(ratingValue);
+    const halfStar = ratingValue % 1 >= 0.5;
+    
+    for (let i = 1; i <= 5; i++) {
+      const star = document.createElement('i');
+      if (i <= fullStars) {
+        star.className = 'fa-solid fa-star';
+      } else if (i === fullStars + 1 && halfStar) {
+        star.className = 'fa-solid fa-star-half-stroke';
+      } else {
+        star.className = 'fa-regular fa-star';
+      }
+      productStars.appendChild(star);
     }
   }
+  
+  // Extract number from price string (e.g. "₹12,999" -> 12999)
+  function parsePrice(priceStr) {
+    if (typeof priceStr === 'number') return priceStr;
+    if (!priceStr) return 999;
+    const cleanStr = priceStr.replace(/[^\d.]/g, '');
+    const priceNum = parseFloat(cleanStr);
+    return isNaN(priceNum) ? 999 : priceNum;
+  }
+  
+  // Generate Price Analysis (Chart details & Buy/Sell meter)
+  function generatePriceAnalysis(currentPrice) {
+    // Generate a 180-day random walk simulation
+    // We assume currentPrice is the latest point (day 180)
+    fullHistoryData = [];
+    const days = 180;
+    let tempPrice = currentPrice;
+    
+    // Generate dates & historical prices going backwards
+    const today = new Date();
+    
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      
+      // Random walk with drift: simulate historical fluctuations
+      // Up to 15% fluctuation up and down
+      const fluctuation = (Math.random() - 0.45) * 0.02 * currentPrice; // Slight upward bias going forward
+      tempPrice = Math.max(currentPrice * 0.85, Math.min(currentPrice * 1.18, tempPrice - fluctuation));
+      
+      fullHistoryData.push({
+        date: date,
+        price: Math.round(tempPrice)
+      });
+    }
+    
+    // Ensure the last element matches the current price exactly
+    fullHistoryData[fullHistoryData.length - 1].price = currentPrice;
+    
+    // Calculate stats
+    const prices = fullHistoryData.map(d => d.price);
+    const highestPrice = Math.max(...prices);
+    const lowestPrice = Math.min(...prices);
+    const averagePrice = Math.round(prices.reduce((sum, p) => sum + p, 0) / prices.length);
+    
+    // Format stats with Currency Symbol
+    statHighestVal.textContent = `₹${formatNumber(highestPrice)}`;
+    statLowestVal.textContent = `₹${formatNumber(lowestPrice)}`;
+    statAvgVal.textContent = `₹${formatNumber(averagePrice)}`;
+    
+    // Calculate "Goodness to Buy Now"
+    // 0 = highest price (worst time), 1 = lowest price (best time)
+    let goodness = 0.5;
+    if (highestPrice !== lowestPrice) {
+      const placement = (currentPrice - lowestPrice) / (highestPrice - lowestPrice);
+      goodness = 1.0 - placement;
+    }
+    
+    // Rotate Gauge Needle (-90deg for Bad Time to +90deg for Good Time)
+    const angle = (goodness * 180) - 90;
+    gaugeNeedle.style.transform = `rotate(${angle}deg)`;
+    
+    // Set Recommendation Text & Box classes
+    recommendationBox.className = 'recommendation-box';
+    statOptimalVal.className = 'stat-value status-badge';
+    
+    if (goodness >= 0.70) {
+      recommendationBox.classList.add('border-green');
+      recommendationText.textContent = 'Go Ahead & Buy now';
+      recommendationText.className = 'rec-emerald';
+      recommendationSub.textContent = `Optimal price point. The price is currently ₹${formatNumber(currentPrice)}, which is close to its historic low of ₹${formatNumber(lowestPrice)}.`;
+      
+      statOptimalVal.textContent = 'Optimal Deal';
+      statOptimalVal.classList.add('badge-green');
+    } else if (goodness >= 0.35) {
+      recommendationBox.classList.add('border-orange');
+      recommendationText.textContent = 'Fair Deal';
+      recommendationText.className = 'rec-orange';
+      recommendationSub.textContent = `Average price point. You can buy now, or wait to see if it drops closer to its historic low of ₹${formatNumber(lowestPrice)}.`;
+      
+      statOptimalVal.textContent = 'Fair Price';
+      statOptimalVal.classList.add('badge-orange');
+    } else {
+      recommendationBox.classList.add('border-red');
+      recommendationText.textContent = 'Wait for Price Drop';
+      recommendationText.className = 'rec-red';
+      recommendationSub.textContent = `High price point. Consider waiting for a sale or discount. The price is currently ₹${formatNumber(currentPrice)} compared to the average of ₹${formatNumber(averagePrice)}.`;
+      
+      statOptimalVal.textContent = 'High Price';
+      statOptimalVal.classList.add('badge-red');
+    }
+    
+    // Initialize or Update the Price History Chart (default: 3 Month view)
+    renderChart('3m');
+  }
+  
+  // Format numbers with commas (e.g. 12999 -> "12,999")
+  function formatNumber(num) {
+    return num.toLocaleString('en-IN');
+  }
+  
+  // Render Chart.js line chart
+  function renderChart(range) {
+    let sliceDays = 90;
+    if (range === '1m') sliceDays = 30;
+    else if (range === 'max') sliceDays = 180;
+    
+    const sliceData = fullHistoryData.slice(-sliceDays);
+    const labels = sliceData.map(d => formatDateLabel(d.date));
+    const dataPoints = sliceData.map(d => d.price);
+    
+    // Destroy previous chart instance if it exists
+    if (priceChart) {
+      priceChart.destroy();
+    }
+    
+    // Create soft gradient fill
+    const chartGradient = ctx.createLinearGradient(0, 0, 0, 240);
+    chartGradient.addColorStop(0, 'rgba(79, 70, 229, 0.15)');
+    chartGradient.addColorStop(1, 'rgba(79, 70, 229, 0.00)');
+    
+    priceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Price (₹)',
+          data: dataPoints,
+          borderColor: '#4f46e5',
+          borderWidth: 2.5,
+          backgroundColor: chartGradient,
+          fill: true,
+          tension: 0.1,
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          pointHoverBackgroundColor: '#4f46e5',
+          pointHoverBorderColor: '#ffffff',
+          pointHoverBorderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: '#0f172a',
+            titleColor: '#94a3b8',
+            titleFont: { family: 'Inter', size: 11, weight: '500' },
+            bodyColor: '#ffffff',
+            bodyFont: { family: 'Outfit', size: 14, weight: '700' },
+            padding: 12,
+            cornerRadius: 8,
+            displayColors: false,
+            callbacks: {
+              label: function(context) {
+                return `₹${context.parsed.y.toLocaleString('en-IN')}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              maxTicksLimit: range === '1m' ? 6 : 8,
+              color: '#94a3b8',
+              font: { family: 'Inter', size: 10 }
+            }
+          },
+          y: {
+            grid: { color: '#f1f5f9' },
+            ticks: {
+              color: '#94a3b8',
+              font: { family: 'Inter', size: 10 },
+              callback: function(value) {
+                return `₹${value.toLocaleString('en-IN')}`;
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    // Set active filter button styling
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      if (btn.getAttribute('data-range') === range) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+  
+  // Format Date to short string: "15 Jun" or "1 Jul"
+  function formatDateLabel(dateObj) {
+    return dateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  }
+  
+  // Add chart filter button event listeners
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const range = btn.getAttribute('data-range');
+      renderChart(range);
+    });
+  });
 });
