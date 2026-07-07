@@ -32,11 +32,11 @@ def api_scrape():
             'success': False,
             'error': 'Invalid URL format. URL must start with http:// or https://'
         }), 400
-
     try:
         # Construct path to Node.js API endpoint
+        base_url = NODE_API_URL.rstrip('/')
         encoded_product_url = urllib.parse.quote(url)
-        target_url = f"{NODE_API_URL}/api/scrape?url={encoded_product_url}"
+        target_url = f"{base_url}/api/scrape?url={encoded_product_url}"
         
         print(f"[Flask Proxy] Forwarding scraping request to Node API: {target_url}")
         
