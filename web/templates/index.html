@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PriceTrack — Smart Product Price Analyzer</title>
+  <meta name="description" content="Instantly analyze product details, ratings, and real prices from Amazon and Flipkart using advanced AI scraping.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="glow-orb orb-1"></div>
+  <div class="glow-orb orb-2"></div>
+  <div class="glow-orb orb-3"></div>
+
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo">
+        <i class="fa-solid fa-chart-line logo-icon"></i>
+        <span>Price<span class="highlight">Track</span></span>
+      </div>
+      <p class="subtitle">Search, analyze, and track prices across Flipkart & Amazon India instantly.</p>
+    </header>
+
+    <main class="main-content">
+      <!-- Search Dashboard Card -->
+      <section class="card search-card">
+        <form id="search-form" class="search-form">
+          <div class="input-wrapper">
+            <i class="fa-solid fa-link input-icon"></i>
+            <input 
+              type="url" 
+              id="product-url" 
+              placeholder="Paste Flipkart or Amazon India product link here..." 
+              required
+              autocomplete="off"
+            >
+            <button type="submit" id="search-button">
+              <span>Analyze</span>
+              <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+          </div>
+        </form>
+
+        <!-- Quick Demo Links -->
+        <div class="demo-links">
+          <span class="demo-label">Quick Demo:</span>
+          <button type="button" class="demo-chip" data-url="https://www.flipkart.com/apple-iphone-15-black-128-gb/p/itm2d83c19e17da7">
+            <i class="fa-solid fa-mobile-screen"></i> iPhone 15 (Flipkart)
+          </button>
+          <button type="button" class="demo-chip" data-url="https://www.amazon.in/dp/B0D5NBFN3P">
+            <i class="fa-solid fa-headphones"></i> Boat Airdopes (Amazon)
+          </button>
+        </div>
+      </section>
+
+      <!-- Loading State -->
+      <div id="loader" class="loader-container hidden">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Scraping product page... Bypass security layers...</p>
+      </div>
+
+      <!-- Error State -->
+      <div id="error-container" class="card error-card hidden">
+        <div class="error-icon-wrapper">
+          <i class="fa-solid fa-circle-exclamation"></i>
+        </div>
+        <div class="error-content">
+          <h3>Failed to Retrieve Details</h3>
+          <p id="error-message">We couldn't scrape this link due to automated anti-bot protection. Please try again later or configure a proxy key.</p>
+          <div class="error-tip">
+            <strong>💡 Tip:</strong> In production deployment, set `SCRAPERAPI_KEY` or `SCRAPINGBEE_KEY` in environment variables to bypass e-commerce blockages reliably.
+          </div>
+        </div>
+      </div>
+
+      <!-- Result Card -->
+      <section id="result-card" class="card result-card hidden">
+        <div class="result-grid">
+          <!-- Column 1: Image -->
+          <div class="product-image-container">
+            <div class="platform-badge" id="product-platform">Amazon</div>
+            <img id="product-img" src="" alt="Product Image">
+          </div>
+
+          <!-- Column 2: Info -->
+          <div class="product-info-container">
+            <h1 id="product-title" class="product-title">Product Title Loading...</h1>
+            
+            <!-- Rating -->
+            <div class="rating-container" id="rating-section">
+              <div class="stars" id="product-stars">
+                <!-- Stars rendered via js -->
+              </div>
+              <span class="rating-value" id="product-rating">4.5</span>
+            </div>
+
+            <!-- Price Breakdown -->
+            <div class="price-section">
+              <div class="current-price-wrapper">
+                <span class="currency" id="product-currency">₹</span>
+                <span class="price-value" id="product-price">12,999</span>
+              </div>
+              <div class="original-price-wrapper" id="original-price-container">
+                <span class="original-label">MRP:</span>
+                <span class="original-value" id="product-original-price">₹15,999</span>
+              </div>
+              <span class="discount-badge" id="product-discount">20% OFF</span>
+            </div>
+
+            <!-- Actions -->
+            <div class="action-buttons">
+              <a href="#" target="_blank" id="buy-button" class="btn btn-primary">
+                <i class="fa-solid fa-cart-shopping"></i> Buy Now
+              </a>
+              <button id="alert-button" class="btn btn-secondary">
+                <i class="fa-regular fa-bell"></i> Set Price Alert
+              </button>
+            </div>
+
+            <!-- Specs / Details -->
+            <div class="specs-section" id="specs-section">
+              <h3>Product Specifications</h3>
+              <div class="specs-grid" id="specs-grid">
+                <!-- Grid of specifications -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>PriceTrack Client &bull; Built with Flask, Cheerio & Node.js Bot</p>
+      <div class="footer-links">
+        <span><i class="fa-brands fa-telegram"></i> Bot integration active</span>
+        <span><i class="fa-solid fa-cloud"></i> Ready for Railway</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

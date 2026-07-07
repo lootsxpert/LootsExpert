@@ -1,0 +1,14 @@
+{
+  "name": "pricetrack-telegram",
+  "version": "1.0.0",
+  "description": "Telegram bot for scraping and tracking Flipkart & Amazon product prices",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}

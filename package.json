@@ -1,0 +1,11 @@
+{
+  "name": "pricetrack-monorepo",
+  "version": "1.0.0",
+  "description": "PriceTrack Monorepo (Flask Web UI, Express API, Telegram Bot)",
+  "scripts": {
+    "postinstall": "npm install --prefix api && npm install --prefix telegram",
+    "start:api": "npm start --prefix api",
+    "start:web": "python3 web/app.py",
+    "start:telegram": "npm start --prefix telegram"
+  }
+}
