@@ -239,23 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 6. Generate Price History and Stats based on scraped current price
     const currentPriceNum = parsePrice(data.price);
-    generatePriceAnalysis(currentPriceNum, data.history);
-    
-    // Show history source footnote & external tracker link button
-    if (data.historySource) {
-      historySourceInfo.innerHTML = `<i class="fa-solid fa-circle-info"></i> Historical prices imported from ${data.historySource}`;
-      historySourceInfo.classList.remove('hidden');
-    } else {
-      historySourceInfo.classList.add('hidden');
-    }
-    
-    if (data.historyUrl) {
-      historySourceBtn.href = data.historyUrl;
-      historySourceBtn.classList.remove('hidden');
-    } else {
-      historySourceBtn.href = '#';
-      historySourceBtn.classList.add('hidden');
-    }
+    generatePriceAnalysis(currentPriceNum, data.history, data);
     
     // Show main view
     resultView.classList.remove('hidden');
@@ -293,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Generate Price Analysis (Chart details & Buy/Sell meter)
-  function generatePriceAnalysis(currentPrice, dbHistory) {
+  function generatePriceAnalysis(currentPrice, dbHistory, data) {
     fullHistoryData = [];
     
     // If we have actual historical data from Postgres/Tracker, use it!
@@ -312,8 +296,26 @@ document.addEventListener('DOMContentLoaded', () => {
           price: currentPrice
         });
       }
+
+      // Show history source footnote & external tracker link button
+      if (data && data.historySource) {
+        const verb = data.historySource === 'PriceBefore' ? 'imported from' : 'tracked from';
+        historySourceInfo.innerHTML = `<i class="fa-solid fa-circle-info"></i> Historical prices ${verb} ${data.historySource}`;
+        historySourceInfo.classList.remove('hidden');
+      } else {
+        historySourceInfo.classList.add('hidden');
+      }
+
+      if (data && data.historyUrl) {
+        historySourceBtn.href = data.historyUrl;
+        historySourceBtn.classList.remove('hidden');
+      } else {
+        historySourceBtn.href = '#';
+        historySourceBtn.classList.add('hidden');
+      }
     } else {
       // Fallback: Generate a 180-day random walk simulation
+      console.log('[Client] Real history not available. Generating simulation...');
       const days = 180;
       let tempPrice = currentPrice;
       const today = new Date();
@@ -331,6 +333,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
       fullHistoryData[fullHistoryData.length - 1].price = currentPrice;
+
+      // Hide footnote & button because we are using simulated fallback
+      historySourceInfo.classList.add('hidden');
+      historySourceBtn.classList.add('hidden');
     }
     
     // Calculate stats

@@ -106,7 +106,7 @@ app.get('/api/scrape', async (req, res) => {
 
       // Determine history source for client badge
       const hasOldEntries = dbHistory.some(h => (new Date() - new Date(h.timestamp)) > 24 * 60 * 60 * 1000);
-      scrapeResult.historySource = hasOldEntries ? 'PriceBefore' : 'LootsExpert';
+      scrapeResult.historySource = hasOldEntries ? 'PriceBefore' : scrapeResult.platform;
     }
 
     return res.json(scrapeResult);
