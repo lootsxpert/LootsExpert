@@ -136,9 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
       specsSection.classList.add('hidden');
     }
     
-    // 6. Generate Mock Price History and Stats based on scraped current price
+    // 6. Generate Price History and Stats based on scraped current price
     const currentPriceNum = parsePrice(data.price);
-    generatePriceAnalysis(currentPriceNum);
+    generatePriceAnalysis(currentPriceNum, data.history);
     
     // Show main view
     resultView.classList.remove('hidden');
@@ -176,33 +176,45 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   // Generate Price Analysis (Chart details & Buy/Sell meter)
-  function generatePriceAnalysis(currentPrice) {
-    // Generate a 180-day random walk simulation
-    // We assume currentPrice is the latest point (day 180)
+  function generatePriceAnalysis(currentPrice, dbHistory) {
     fullHistoryData = [];
-    const days = 180;
-    let tempPrice = currentPrice;
     
-    // Generate dates & historical prices going backwards
-    const today = new Date();
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
+    // If we have actual historical data from Postgres/Tracker, use it!
+    if (dbHistory && dbHistory.length >= 2) {
+      console.log('[Client] Rendering real price history from DB:', dbHistory.length);
+      fullHistoryData = dbHistory.map(item => ({
+        date: new Date(item.timestamp),
+        price: Math.round(item.price)
+      }));
       
-      // Random walk with drift: simulate historical fluctuations
-      // Up to 15% fluctuation up and down
-      const fluctuation = (Math.random() - 0.45) * 0.02 * currentPrice; // Slight upward bias going forward
-      tempPrice = Math.max(currentPrice * 0.85, Math.min(currentPrice * 1.18, tempPrice - fluctuation));
+      // Ensure the last element matches the current live price
+      const lastEntry = fullHistoryData[fullHistoryData.length - 1];
+      if (Math.abs(lastEntry.price - currentPrice) > 0.01) {
+        fullHistoryData.push({
+          date: new Date(),
+          price: currentPrice
+        });
+      }
+    } else {
+      // Fallback: Generate a 180-day random walk simulation
+      const days = 180;
+      let tempPrice = currentPrice;
+      const today = new Date();
       
-      fullHistoryData.push({
-        date: date,
-        price: Math.round(tempPrice)
-      });
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - i);
+        
+        const fluctuation = (Math.random() - 0.45) * 0.02 * currentPrice;
+        tempPrice = Math.max(currentPrice * 0.85, Math.min(currentPrice * 1.18, tempPrice - fluctuation));
+        
+        fullHistoryData.push({
+          date: date,
+          price: Math.round(tempPrice)
+        });
+      }
+      fullHistoryData[fullHistoryData.length - 1].price = currentPrice;
     }
-    
-    // Ensure the last element matches the current price exactly
-    fullHistoryData[fullHistoryData.length - 1].price = currentPrice;
     
     // Calculate stats
     const prices = fullHistoryData.map(d => d.price);

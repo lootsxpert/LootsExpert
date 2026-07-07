@@ -1,14 +1,21 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 require('dotenv').config();
 
-const { scrapeProduct } = require('./scraper');
+const { scrapeProduct, scrapeHistoricalTracker } = require('./scraper');
+const { 
+  initDatabase, 
+  getProductByUrl, 
+  saveProduct, 
+  getPriceHistory, 
+  addPriceLogIfChanged, 
+  importPriceHistoryBatch,
+  redisClient
+} = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable CORS for all domains so local dev is easy
 app.use(cors());
 app.use(express.json());
 
@@ -18,7 +25,37 @@ app.use((req, res, next) => {
   next();
 });
 
-// Endpoint: Scrape product details
+// Normalize URLs to avoid duplicate entries for the same product
+function getCanonicalUrl(url) {
+  try {
+    const parsed = new URL(url);
+    
+    // Amazon normalization
+    if (parsed.hostname.includes('amazon.in') || parsed.hostname.includes('amazon.com')) {
+      const asinMatch = parsed.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+      if (asinMatch) {
+        return `https://www.amazon.in/dp/${asinMatch[1]}`;
+      }
+    }
+    
+    // Flipkart normalization
+    if (parsed.hostname.includes('flipkart.com')) {
+      const pid = parsed.searchParams.get('pid');
+      // Strip everything except pathname and pid
+      let canonical = `https://www.flipkart.com${parsed.pathname}`;
+      if (pid) {
+        canonical += `?pid=${pid}`;
+      }
+      return canonical;
+    }
+    
+    return url;
+  } catch (e) {
+    return url;
+  }
+}
+
+// Endpoint: Scrape product details & manage history
 app.get('/api/scrape', async (req, res) => {
   const { url } = req.query;
 
@@ -29,7 +66,6 @@ app.get('/api/scrape', async (req, res) => {
     });
   }
 
-  // Basic URL format validation
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     return res.status(400).json({
       success: false,
@@ -37,12 +73,37 @@ app.get('/api/scrape', async (req, res) => {
     });
   }
 
+  const canonicalUrl = getCanonicalUrl(url);
+
   try {
-    const result = await scrapeProduct(url);
-    if (!result.success) {
-      return res.status(500).json(result);
+    // 1. Scrape the live product page
+    const scrapeResult = await scrapeProduct(canonicalUrl);
+    if (!scrapeResult.success) {
+      return res.status(500).json(scrapeResult);
     }
-    return res.json(result);
+
+    // 2. Save product info and log price
+    const savedProduct = await saveProduct({
+      url: canonicalUrl,
+      platform: scrapeResult.platform,
+      title: scrapeResult.title,
+      image: scrapeResult.image,
+      rating: scrapeResult.rating
+    });
+
+    if (savedProduct) {
+      // Delta logging: only add price point if it changed
+      await addPriceLogIfChanged(savedProduct.id, scrapeResult.price);
+
+      // Trigger background tracker scraping in parallel if not done recently
+      triggerBackgroundTrackerScrape(savedProduct.id, canonicalUrl);
+
+      // Fetch the compiled price history list
+      const dbHistory = await getPriceHistory(savedProduct.id);
+      scrapeResult.history = dbHistory;
+    }
+
+    return res.json(scrapeResult);
   } catch (err) {
     console.error('[Server Error]', err);
     return res.status(500).json({
@@ -52,9 +113,47 @@ app.get('/api/scrape', async (req, res) => {
   }
 });
 
-// Start listening
-app.listen(PORT, () => {
-  console.log(`==================================================`);
-  console.log(`🚀 LootsExpert API running on: http://localhost:${PORT}`);
-  console.log(`==================================================`);
+/**
+ * Run tracker scrape in background using Redis locks/coordination
+ */
+async function triggerBackgroundTrackerScrape(productId, canonicalUrl) {
+  const redisKey = `tracker_check:${productId}`;
+  
+  try {
+    if (redisClient && redisClient.isOpen) {
+      // Check if we've already tried importing for this product in the last 24h
+      const exists = await redisClient.get(redisKey);
+      if (exists) {
+        return;
+      }
+      // Set lock for 24 hours (86400 seconds)
+      await redisClient.set(redisKey, 'true', { EX: 86400 });
+    }
+    
+    // Execute tracker scrape asynchronously
+    console.log(`[Background] Launching parallel tracker scrape for product ID ${productId}...`);
+    scrapeHistoricalTracker(canonicalUrl).then(async (dataPoints) => {
+      if (dataPoints && dataPoints.length > 0) {
+        // Map points to fit database structure
+        const formattedPoints = dataPoints.map(p => ({
+          price: p.price,
+          timestamp: p.timestamp
+        }));
+        await importPriceHistoryBatch(productId, formattedPoints);
+      }
+    }).catch(err => {
+      console.error(`[Background Error] Tracker scrape failed for product ${productId}:`, err.message);
+    });
+  } catch (err) {
+    console.error('[Background Manager Error]', err);
+  }
+}
+
+// Start database and start listening
+initDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`==================================================`);
+    console.log(`🚀 LootsExpert API running on: http://localhost:${PORT}`);
+    console.log(`==================================================`);
+  });
 });

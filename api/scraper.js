@@ -336,6 +336,69 @@ async function scrapeProduct(url) {
   }
 }
 
+/**
+ * Attempts to scrape historical price details from PriceBefore
+ */
+async function scrapeHistoricalTracker(productUrl) {
+  try {
+    const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(productUrl)}`;
+    console.log(`[Tracker Scrape] Searching PriceBefore for: ${productUrl}`);
+    
+    const html = await fetchPageHtml(searchUrl);
+    const $ = cheerio.load(html);
+    
+    let productPageLink = '';
+    $('a').each((i, el) => {
+      const href = $(el).attr('href');
+      if (href && href.includes('/p/') && href.endsWith('.html')) {
+        productPageLink = href.startsWith('http') ? href : `https://pricebefore.com${href}`;
+        return false;
+      }
+    });
+    
+    if (!productPageLink) {
+      console.log(`[Tracker Scrape] No matching product page found on PriceBefore for URL.`);
+      return null;
+    }
+    
+    console.log(`[Tracker Scrape] Fetching product tracker page: ${productPageLink}`);
+    const pageHtml = await fetchPageHtml(productPageLink);
+    
+    const dataPoints = [];
+    const scriptRegex = /\[\s*(\d{12,13})\s*,\s*(\d+(?:\.\d+)?)\s*\]/g;
+    
+    const $$ = cheerio.load(pageHtml);
+    $$('script').each((i, el) => {
+      const scriptContent = $$(el).html();
+      if (scriptContent && (scriptContent.includes('Highcharts') || scriptContent.includes('chart') || scriptContent.includes('series'))) {
+        let match;
+        scriptRegex.lastIndex = 0;
+        while ((match = scriptRegex.exec(scriptContent)) !== null) {
+          const timestamp = parseInt(match[1]);
+          const price = parseFloat(match[2]);
+          dataPoints.push({
+            timestamp: new Date(timestamp),
+            price: price
+          });
+        }
+      }
+    });
+    
+    if (dataPoints.length > 0) {
+      console.log(`[Tracker Scrape] Successfully parsed ${dataPoints.length} history points from PriceBefore!`);
+      dataPoints.sort((a, b) => a.timestamp - b.timestamp);
+      return dataPoints;
+    }
+    
+    console.log(`[Tracker Scrape] No chart data found inside script tags on page.`);
+    return null;
+  } catch (err) {
+    console.error(`[Tracker Scrape Error] ${err.message}`);
+    return null;
+  }
+}
+
 module.exports = {
-  scrapeProduct
+  scrapeProduct,
+  scrapeHistoricalTracker
 };
