@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const ctx = document.getElementById('priceHistoryChart').getContext('2d');
   let priceChart = null;
   let fullHistoryData = []; // Stores complete generated 180 days history
+  const historySourceInfo = document.getElementById('history-source-info');
   
   // Handle form submit
   searchForm.addEventListener('submit', async (e) => {
@@ -139,6 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. Generate Price History and Stats based on scraped current price
     const currentPriceNum = parsePrice(data.price);
     generatePriceAnalysis(currentPriceNum, data.history);
+    
+    // Show history source footnote
+    if (data.historySource) {
+      historySourceInfo.innerHTML = `<i class="fa-solid fa-circle-info"></i> Historical prices imported from ${data.historySource}`;
+      historySourceInfo.classList.remove('hidden');
+    } else {
+      historySourceInfo.classList.add('hidden');
+    }
     
     // Show main view
     resultView.classList.remove('hidden');

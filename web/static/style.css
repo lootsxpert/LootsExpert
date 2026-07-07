@@ -830,3 +830,17 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- FOOTNOTE FOR SOURCE --- */
+.history-source {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: right;
+  margin-top: 10px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+

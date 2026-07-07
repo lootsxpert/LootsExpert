@@ -95,12 +95,16 @@ app.get('/api/scrape', async (req, res) => {
       // Delta logging: only add price point if it changed
       await addPriceLogIfChanged(savedProduct.id, scrapeResult.price);
 
-      // Trigger background tracker scraping in parallel if not done recently
-      triggerBackgroundTrackerScrape(savedProduct.id, canonicalUrl);
+      // Trigger background tracker scraping in parallel if not done recently, passing title fallback
+      triggerBackgroundTrackerScrape(savedProduct.id, canonicalUrl, scrapeResult.title);
 
       // Fetch the compiled price history list
       const dbHistory = await getPriceHistory(savedProduct.id);
       scrapeResult.history = dbHistory;
+
+      // Determine history source for client badge
+      const hasOldEntries = dbHistory.some(h => (new Date() - new Date(h.timestamp)) > 24 * 60 * 60 * 1000);
+      scrapeResult.historySource = hasOldEntries ? 'PriceBefore' : 'LootsExpert';
     }
 
     return res.json(scrapeResult);
@@ -116,7 +120,7 @@ app.get('/api/scrape', async (req, res) => {
 /**
  * Run tracker scrape in background using Redis locks/coordination
  */
-async function triggerBackgroundTrackerScrape(productId, canonicalUrl) {
+async function triggerBackgroundTrackerScrape(productId, canonicalUrl, productTitle) {
   const redisKey = `tracker_check:${productId}`;
   
   try {
@@ -132,7 +136,7 @@ async function triggerBackgroundTrackerScrape(productId, canonicalUrl) {
     
     // Execute tracker scrape asynchronously
     console.log(`[Background] Launching parallel tracker scrape for product ID ${productId}...`);
-    scrapeHistoricalTracker(canonicalUrl).then(async (dataPoints) => {
+    scrapeHistoricalTracker(canonicalUrl, productTitle).then(async (dataPoints) => {
       if (dataPoints && dataPoints.length > 0) {
         // Map points to fit database structure
         const formattedPoints = dataPoints.map(p => ({

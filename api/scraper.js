@@ -339,25 +339,51 @@ async function scrapeProduct(url) {
 /**
  * Attempts to scrape historical price details from PriceBefore
  */
-async function scrapeHistoricalTracker(productUrl) {
+async function scrapeHistoricalTracker(productUrl, productTitle) {
   try {
-    const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(productUrl)}`;
-    console.log(`[Tracker Scrape] Searching PriceBefore for: ${productUrl}`);
-    
-    const html = await fetchPageHtml(searchUrl);
-    const $ = cheerio.load(html);
-    
+    let html = '';
     let productPageLink = '';
-    $('a').each((i, el) => {
-      const href = $(el).attr('href');
-      if (href && href.includes('/p/') && href.endsWith('.html')) {
-        productPageLink = href.startsWith('http') ? href : `https://pricebefore.com${href}`;
-        return false;
+    
+    // 1. Try URL search first
+    const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(productUrl)}`;
+    console.log(`[Tracker Scrape] Searching PriceBefore for URL: ${productUrl}`);
+    try {
+      html = await fetchPageHtml(searchUrl);
+      const $ = cheerio.load(html);
+      $('a').each((i, el) => {
+        const href = $(el).attr('href');
+        if (href && href.includes('/p/') && href.endsWith('.html')) {
+          productPageLink = href.startsWith('http') ? href : `https://pricebefore.com${href}`;
+          return false;
+        }
+      });
+    } catch (e) {
+      console.warn(`[Tracker Scrape] URL search failed: ${e.message}`);
+    }
+    
+    // 2. Fallback: Search by clean product title
+    if (!productPageLink && productTitle) {
+      const cleanTitle = productTitle.split(/\s+/).slice(0, 5).join(' ').replace(/[^\w\s]/g, '');
+      const searchTitleUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(cleanTitle)}`;
+      console.log(`[Tracker Scrape] URL search returned nothing. Trying title fallback: "${cleanTitle}"`);
+      
+      try {
+        html = await fetchPageHtml(searchTitleUrl);
+        const $ = cheerio.load(html);
+        $('a').each((i, el) => {
+          const href = $(el).attr('href');
+          if (href && href.includes('/p/') && href.endsWith('.html')) {
+            productPageLink = href.startsWith('http') ? href : `https://pricebefore.com${href}`;
+            return false;
+          }
+        });
+      } catch (e) {
+        console.warn(`[Tracker Scrape] Title search failed: ${e.message}`);
       }
-    });
+    }
     
     if (!productPageLink) {
-      console.log(`[Tracker Scrape] No matching product page found on PriceBefore for URL.`);
+      console.log(`[Tracker Scrape] No matching product page found on PriceBefore.`);
       return null;
     }
     
