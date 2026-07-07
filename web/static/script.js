@@ -75,10 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
     progressBarFill.style.width = '0%';
     progressPercent.textContent = '0%';
     progressText.textContent = 'Initiating crawler...';
-    progressTimer.textContent = 'Time remaining: 15s';
+    progressTimer.textContent = 'Time remaining: 30s';
     
     const startTime = Date.now();
-    const duration = 15000; // 15 seconds total timeout
+    const duration = 30000; // 30 seconds total timeout
     
     // Progress loop (runs every 100ms)
     const progressInterval = setInterval(() => {
@@ -86,13 +86,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const remainingSeconds = Math.max(0, Math.ceil((duration - elapsed) / 1000));
       progressTimer.textContent = `Time remaining: ${remainingSeconds}s`;
       
-      if (elapsed < 10000) {
-        // First 10 seconds: go from 0% to 70%
-        progress = Math.round((elapsed / 10000) * 70);
+      if (elapsed < 20000) {
+        // First 20 seconds: go from 0% to 70%
+        progress = Math.round((elapsed / 20000) * 70);
         progressText.textContent = 'Scraping product page... Bypass security layers...';
-      } else if (elapsed < 15000) {
-        // Next 5 seconds: go from 70% to 95%
-        progress = Math.round(70 + ((elapsed - 10000) / 5000) * 25);
+      } else if (elapsed < 30000) {
+        // Next 10 seconds: go from 70% to 95%
+        progress = Math.round(70 + ((elapsed - 20000) / 10000) * 25);
         progressText.textContent = 'Readying analysis graphs...';
       }
       
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
       progressPercent.textContent = `${progress}%`;
     }, 100);
     
-    // Set up AbortController for 15s timeout
+    // Set up AbortController for 30s timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();
@@ -132,8 +132,16 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Small pause for visual satisfaction, then render product
       setTimeout(() => {
-        renderProduct(data);
-        loader.classList.add('hidden');
+        try {
+          renderProduct(data);
+        } catch (renderErr) {
+          console.error('[Render Error]', renderErr);
+          errorTitle.textContent = 'Rendering Error';
+          errorMessage.textContent = `Failed to render product data: ${renderErr.message}`;
+          errorContainer.classList.remove('hidden');
+        } finally {
+          loader.classList.add('hidden');
+        }
       }, 400);
       
     } catch (err) {
@@ -145,8 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Handle AbortError specifically as a Timeout
       if (err.name === 'AbortError') {
-        errorTitle.textContent = 'Request Timeout (15s)';
-        errorMessage.textContent = 'The scraping request took longer than 15 seconds to respond. The product page might be heavily guarded, or the proxy might be experiencing slow response times. Please try again.';
+        errorTitle.textContent = 'Request Timeout (30s)';
+        errorMessage.textContent = 'The scraping request took longer than 30 seconds to respond. The product page might be heavily guarded, or the proxy might be experiencing slow response times. Please try again.';
       } else {
         errorTitle.textContent = 'Failed to Retrieve Details';
         // Display the EXACT full error message

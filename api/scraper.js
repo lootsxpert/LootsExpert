@@ -53,7 +53,7 @@ async function fetchPageHtml(url) {
       'Sec-Fetch-User': '?1',
       'Upgrade-Insecure-Requests': '1'
     },
-    timeout: 15000
+    timeout: 30000
   };
 
   // Route through proxy services if API keys are available
