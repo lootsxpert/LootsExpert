@@ -59,10 +59,28 @@ async function fetchPageHtml(url) {
   // Route through proxy services if API keys are available
   if (scraperApiKey) {
     console.log(`[Scraper] Routing request through ScraperAPI for: ${url}`);
-    requestUrl = `http://api.scraperapi.com?api_key=${scraperApiKey}&url=${encodeURIComponent(url)}`;
+    let params = `api_key=${scraperApiKey}&url=${encodeURIComponent(url)}`;
+    if (process.env.SCRAPERAPI_RENDER === 'true') {
+      params += '&render=true';
+    }
+    if (process.env.SCRAPERAPI_PREMIUM === 'true') {
+      params += '&premium=true';
+    }
+    if (process.env.SCRAPERAPI_COUNTRY) {
+      params += `&country_code=${process.env.SCRAPERAPI_COUNTRY}`;
+    }
+    requestUrl = `http://api.scraperapi.com?${params}`;
   } else if (scrapingBeeKey) {
     console.log(`[Scraper] Routing request through ScrapingBee for: ${url}`);
-    requestUrl = `https://app.scrapingbee.com/api/v1/?api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&render_js=false`;
+    const renderJs = process.env.SCRAPINGBEE_RENDER === 'true' ? 'true' : 'false';
+    let params = `api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&render_js=${renderJs}`;
+    if (process.env.SCRAPINGBEE_PREMIUM === 'true') {
+      params += '&premium_proxy=true';
+    }
+    if (process.env.SCRAPINGBEE_COUNTRY) {
+      params += `&country_code=${process.env.SCRAPINGBEE_COUNTRY}`;
+    }
+    requestUrl = `https://app.scrapingbee.com/api/v1/?${params}`;
   } else if (proxyUrl) {
     console.log(`[Scraper] Using custom proxy: ${proxyUrl}`);
     // Support proxy setting in Axios
