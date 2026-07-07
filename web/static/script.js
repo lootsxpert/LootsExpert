@@ -37,6 +37,13 @@ document.addEventListener('DOMContentLoaded', () => {
   let fullHistoryData = []; // Stores complete generated 180 days history
   const historySourceInfo = document.getElementById('history-source-info');
   
+  // Progress bar selectors
+  const progressBarFill = document.getElementById('progress-bar-fill');
+  const progressText = document.getElementById('progress-text');
+  const progressPercent = document.getElementById('progress-percent');
+  const progressTimer = document.getElementById('progress-timer');
+  const errorTitle = document.getElementById('error-title');
+  
   // Handle form submit
   searchForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -62,21 +69,90 @@ document.addEventListener('DOMContentLoaded', () => {
     errorContainer.classList.add('hidden');
     resultView.classList.add('hidden');
     
-    try {
-      const response = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`);
-      const data = await response.json();
+    // Progress state variables
+    let progress = 0;
+    progressBarFill.style.width = '0%';
+    progressPercent.textContent = '0%';
+    progressText.textContent = 'Initiating crawler...';
+    progressTimer.textContent = 'Time remaining: 15s';
+    
+    const startTime = Date.now();
+    const duration = 15000; // 15 seconds total timeout
+    
+    // Progress loop (runs every 100ms)
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remainingSeconds = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+      progressTimer.textContent = `Time remaining: ${remainingSeconds}s`;
       
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || `Node API returned HTTP error: ${response.status}`);
+      if (elapsed < 10000) {
+        // First 10 seconds: go from 0% to 70%
+        progress = Math.round((elapsed / 10000) * 70);
+        progressText.textContent = 'Scraping product page... Bypass security layers...';
+      } else if (elapsed < 15000) {
+        // Next 5 seconds: go from 70% to 95%
+        progress = Math.round(70 + ((elapsed - 10000) / 5000) * 25);
+        progressText.textContent = 'Readying analysis graphs...';
       }
       
-      renderProduct(data);
+      progressBarFill.style.width = `${progress}%`;
+      progressPercent.textContent = `${progress}%`;
+    }, 100);
+    
+    // Set up AbortController for 15s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, duration);
+    
+    try {
+      const response = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`, {
+        signal: controller.signal
+      });
+      
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonErr) {
+        throw new Error('Failed to parse API response as JSON.');
+      }
+      
+      clearInterval(progressInterval);
+      clearTimeout(timeoutId);
+      
+      if (!response.ok || !data.success) {
+        throw new Error(data?.error || `Node API returned HTTP error status: ${response.status}`);
+      }
+      
+      // Quickly animate progress bar to 100%
+      progressBarFill.style.width = '100%';
+      progressPercent.textContent = '100%';
+      progressText.textContent = 'Analysis Complete!';
+      
+      // Small pause for visual satisfaction, then render product
+      setTimeout(() => {
+        renderProduct(data);
+        loader.classList.add('hidden');
+      }, 400);
+      
     } catch (err) {
-      console.error('[Client Error]', err);
-      errorMessage.textContent = err.message || 'An unexpected error occurred while analyzing the product details.';
-      errorContainer.classList.remove('hidden');
-    } finally {
+      clearInterval(progressInterval);
+      clearTimeout(timeoutId);
       loader.classList.add('hidden');
+      
+      console.error('[Client Error]', err);
+      
+      // Handle AbortError specifically as a Timeout
+      if (err.name === 'AbortError') {
+        errorTitle.textContent = 'Request Timeout (15s)';
+        errorMessage.textContent = 'The scraping request took longer than 15 seconds to respond. The product page might be heavily guarded, or the proxy might be experiencing slow response times. Please try again.';
+      } else {
+        errorTitle.textContent = 'Failed to Retrieve Details';
+        // Display the EXACT full error message
+        errorMessage.textContent = err.message || 'An unexpected error occurred while analyzing the product details.';
+      }
+      
+      errorContainer.classList.remove('hidden');
     }
   }
   
@@ -120,9 +196,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Buy button link
     buyButton.href = data.url;
     
-    // 5. Specs Grid
+    // 5. Specs Grid (Handles array of objects and raw dictionary formats)
     specsGrid.innerHTML = '';
-    if (data.specs && Object.keys(data.specs).length > 0) {
+    if (data.specs && Array.isArray(data.specs) && data.specs.length > 0) {
+      data.specs.forEach(item => {
+        const label = item.key || item.label || 'Feature';
+        const value = item.value || item.val || '';
+        if (value) {
+          const specItem = document.createElement('div');
+          specItem.className = 'spec-item';
+          specItem.innerHTML = `
+            <span class="spec-label">${label}</span>
+            <span class="spec-value" title="${value}">${value}</span>
+          `;
+          specsGrid.appendChild(specItem);
+        }
+      });
+      specsSection.classList.remove('hidden');
+    } else if (data.specs && typeof data.specs === 'object' && Object.keys(data.specs).length > 0) {
       Object.entries(data.specs).forEach(([key, val]) => {
         const specItem = document.createElement('div');
         specItem.className = 'spec-item';

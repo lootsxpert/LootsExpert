@@ -71,8 +71,16 @@
 
       <!-- Loading State -->
       <div id="loader" class="loader-container hidden">
-        <div class="loading-spinner"></div>
-        <p class="loading-text">Scraping product page... Bypass security layers...</p>
+        <div class="progress-wrapper">
+          <div class="progress-bar-container">
+            <div id="progress-bar-fill" class="progress-bar-fill"></div>
+          </div>
+          <div class="progress-status">
+            <span id="progress-text">Initiating crawler...</span>
+            <span id="progress-percent">0%</span>
+          </div>
+          <div id="progress-timer" class="progress-timer">Time remaining: 15s</div>
+        </div>
       </div>
 
       <!-- Error State -->
@@ -81,7 +89,7 @@
           <i class="fa-solid fa-circle-exclamation"></i>
         </div>
         <div class="error-content">
-          <h3>Failed to Retrieve Details</h3>
+          <h3 id="error-title">Failed to Retrieve Details</h3>
           <p id="error-message">We couldn't scrape this link due to automated anti-bot protection. Please try again later or configure a proxy key.</p>
           <div class="error-tip">
             <strong>💡 Tip:</strong> Ensure that the Centralized Node.js API service is running, and that `NODE_API_URL` in the Flask environment points to it.
