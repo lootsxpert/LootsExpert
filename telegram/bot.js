@@ -13,12 +13,12 @@ if (!token) {
 // Create a bot that uses polling
 const bot = new TelegramBot(token, { polling: true });
 
-console.log('🤖 Telegram PriceTrack Bot is starting up...');
+console.log('🤖 Telegram LootsExpert Bot is starting up...');
 
 // Help and Start command
 bot.onText(/\/start|\/help/, (msg) => {
   const chatId = msg.chat.id;
-  const helpText = `👋 Hello! I am the *PriceTrack Bot*.\n\n` +
+  const helpText = `👋 Hello! I am the *LootsExpert Bot*.\n\n` +
     `Send me a Flipkart or Amazon India product link, and I will extract the latest price, image, rating, and details for you.\n\n` +
     `*How to use:*\n` +
     `Just paste a link like:\n` +
@@ -123,7 +123,7 @@ bot.on('message', async (msg) => {
     if (error.response && error.response.data && error.response.data.error) {
       errMsg += `Reason: ${error.response.data.error}`;
     } else {
-      errMsg += `Could not connect to the Express scraping service. Make sure the API backend is deployed and running.`;
+      errMsg += `Could not connect to the LootsExpert scraping API. Make sure the API backend is deployed and running.`;
     }
 
     await bot.sendMessage(chatId, errMsg, {

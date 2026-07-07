@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PriceTrack — Smart Product Price Analyzer</title>
+  <title>LootsExpert — Smart Product Price Analyzer</title>
   <meta name="description" content="Instantly analyze product details, ratings, and real prices from Amazon and Flipkart using advanced AI scraping.">
   
   <!-- Google Fonts -->
@@ -26,8 +26,8 @@
   <div class="app-container">
     <header class="app-header">
       <div class="logo">
-        <i class="fa-solid fa-chart-line logo-icon"></i>
-        <span>Price<span class="highlight">Track</span></span>
+        <i class="fa-solid fa-tags logo-icon"></i>
+        <span>Loots<span class="highlight">Expert</span></span>
       </div>
       <p class="subtitle">Search, analyze, and track prices across Flipkart & Amazon India instantly.</p>
     </header>
@@ -79,7 +79,7 @@
           <h3>Failed to Retrieve Details</h3>
           <p id="error-message">We couldn't scrape this link due to automated anti-bot protection. Please try again later or configure a proxy key.</p>
           <div class="error-tip">
-            <strong>💡 Tip:</strong> In production deployment, set `SCRAPERAPI_KEY` or `SCRAPINGBEE_KEY` in environment variables to bypass e-commerce blockages reliably.
+            <strong>💡 Tip:</strong> Ensure that the Centralized Node.js API service is running, and that `NODE_API_URL` in the Flask environment points to it.
           </div>
         </div>
       </div>
@@ -141,7 +141,7 @@
     </main>
 
     <footer class="app-footer">
-      <p>PriceTrack Client &bull; Built with Flask, Cheerio & Node.js Bot</p>
+      <p>LootsExpert Client &bull; Powered by Flask, Express & Telegram Bot</p>
       <div class="footer-links">
         <span><i class="fa-brands fa-telegram"></i> Bot integration active</span>
         <span><i class="fa-solid fa-cloud"></i> Ready for Railway</span>

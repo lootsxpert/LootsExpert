@@ -52,18 +52,9 @@ app.get('/api/scrape', async (req, res) => {
   }
 });
 
-// Serve frontend web client as static assets
-app.use(express.static(path.join(__dirname, '../web')));
-
-// Fallback to index.html for single page app router style
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../web/index.html'));
-});
-
 // Start listening
 app.listen(PORT, () => {
   console.log(`==================================================`);
-  console.log(`🚀 PriceTrack API running on: http://localhost:${PORT}`);
-  console.log(`📦 Serving web assets from: ${path.join(__dirname, '../web')}`);
+  console.log(`🚀 LootsExpert API running on: http://localhost:${PORT}`);
   console.log(`==================================================`);
 });
