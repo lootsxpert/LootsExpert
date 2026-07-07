@@ -1,0 +1,7 @@
+providers = ["node", "python"]
+
+[phases.install]
+cmds = [
+  "npm install",
+  "pip install -r web/requirements.txt"
+]
