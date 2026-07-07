@@ -9,6 +9,6 @@
     "start:telegram": "npm start --prefix telegram"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   }
 }
