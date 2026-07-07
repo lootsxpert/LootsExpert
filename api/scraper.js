@@ -413,7 +413,11 @@ async function scrapeHistoricalTracker(productUrl, productTitle) {
     if (dataPoints.length > 0) {
       console.log(`[Tracker Scrape] Successfully parsed ${dataPoints.length} history points from PriceBefore!`);
       dataPoints.sort((a, b) => a.timestamp - b.timestamp);
-      return dataPoints;
+      return {
+        url: productPageLink,
+        source: 'PriceBefore',
+        dataPoints: dataPoints
+      };
     }
     
     console.log(`[Tracker Scrape] No chart data found inside script tags on page.`);

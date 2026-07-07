@@ -57,6 +57,11 @@ async function initDatabase() {
       );
     `);
     
+    // Migration: ensure history_url column exists
+    await client.query(`
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS history_url TEXT;
+    `);
+    
     // Create price history table
     await client.query(`
       CREATE TABLE IF NOT EXISTS price_history (
@@ -211,6 +216,20 @@ async function importPriceHistoryBatch(productId, historyPoints) {
   }
 }
 
+/**
+ * Update the external tracker history URL for a product
+ */
+async function updateProductHistoryUrl(productId, historyUrl) {
+  try {
+    await pool.query('UPDATE products SET history_url = $1 WHERE id = $2', [historyUrl, productId]);
+    console.log(`[DB] Updated history URL for product ${productId} to: ${historyUrl}`);
+    return true;
+  } catch (err) {
+    console.error('[DB Error] updateProductHistoryUrl:', err);
+    return false;
+  }
+}
+
 module.exports = {
   initDatabase,
   getProductByUrl,
@@ -218,5 +237,6 @@ module.exports = {
   getPriceHistory,
   addPriceLogIfChanged,
   importPriceHistoryBatch,
+  updateProductHistoryUrl,
   redisClient
 };

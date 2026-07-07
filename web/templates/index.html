@@ -1,25 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LootsExpert — Smart Product Price Analyzer</title>
-  <meta name="description" content="Instantly analyze product details, price history, stats, and real prices from Amazon and Flipkart using advanced AI scraping.">
-  
+  <meta name="description"
+    content="Instantly analyze product details, price history, stats, and real prices from Amazon and Flipkart using advanced AI scraping.">
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  
+
   <!-- Custom Styles -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
   <!-- Ambient modern background gradients -->
   <div class="glow-bg-blob blob-1"></div>
@@ -40,13 +45,8 @@
         <form id="search-form" class="search-form">
           <div class="input-wrapper">
             <i class="fa-solid fa-link input-icon"></i>
-            <input 
-              type="url" 
-              id="product-url" 
-              placeholder="Paste Flipkart or Amazon India product link here..." 
-              required
-              autocomplete="off"
-            >
+            <input type="url" id="product-url" placeholder="Paste Flipkart or Amazon India product link here..."
+              required autocomplete="off">
             <button type="submit" id="search-button">
               <span>Analyze</span>
               <i class="fa-solid fa-magnifying-glass"></i>
@@ -57,13 +57,16 @@
         <!-- Quick Demo Links -->
         <div class="demo-links">
           <span class="demo-label">Quick Demo:</span>
-          <button type="button" class="demo-chip" data-url="https://www.amazon.in/HP-i5-1334U-Anti-glare-15-6-inch-Graphics/dp/B0D4LWYWF9">
+          <button type="button" class="demo-chip"
+            data-url="https://www.amazon.in/HP-i5-1334U-Anti-glare-15-6-inch-Graphics/dp/B0D4LWYWF9">
             <i class="fa-solid fa-laptop"></i> HP Laptop (Amazon)
           </button>
-          <button type="button" class="demo-chip" data-url="https://www.amazon.in/iPhone-16e-512-Intelligence-Supersized/dp/B0DXQJ1M7H">
+          <button type="button" class="demo-chip"
+            data-url="https://www.amazon.in/iPhone-16e-512-Intelligence-Supersized/dp/B0DXQJ1M7H">
             <i class="fa-solid fa-mobile-screen"></i> iPhone 16e (Amazon)
           </button>
-          <button type="button" class="demo-chip" data-url="https://www.flipkart.com/zebronics-zeb-duke-60h-backup-bt-v5-3-gaming-mode-enc-led-lights-dual-pairing-bluetooth/p/itm688c968a793cd?pid=ACCFRR83EFREFT2U&lid=LSTACCFRR83EFREFT2UDRHPHC&marketplace=FLIPKART&cmpid=content_headphone_8965229628_gmc">
+          <button type="button" class="demo-chip"
+            data-url="https://www.flipkart.com/zebronics-zeb-duke-60h-backup-bt-v5-3-gaming-mode-enc-led-lights-dual-pairing-bluetooth/p/itm688c968a793cd?pid=ACCFRR83EFREFT2U&lid=LSTACCFRR83EFREFT2UDRHPHC&marketplace=FLIPKART&cmpid=content_headphone_8965229628_gmc">
             <i class="fa-solid fa-headphones"></i> Zebronics Headphone (Flipkart)
           </button>
         </div>
@@ -90,9 +93,11 @@
         </div>
         <div class="error-content">
           <h3 id="error-title">Failed to Retrieve Details</h3>
-          <p id="error-message">We couldn't scrape this link due to automated anti-bot protection. Please try again later or configure a proxy key.</p>
+          <p id="error-message">We couldn't scrape this link due to automated anti-bot protection. Please try again
+            later or configure a proxy key.</p>
           <div class="error-tip">
-            <strong>💡 Tip:</strong> Ensure that the Centralized Node.js API service is running, and that `NODE_API_URL` in the Flask environment points to it.
+            <strong>💡 Tip:</strong> Ensure that the Centralized Node.js API service is running, and that `NODE_API_URL`
+            in the Flask environment points to it.
           </div>
         </div>
       </div>
@@ -101,19 +106,19 @@
       <div id="result-view" class="hidden">
         <!-- 2-Column Product Info Section -->
         <div class="result-grid">
-          
+
           <!-- Column 1: Left Card (Product Card) -->
           <section id="product-card" class="card product-card">
             <div class="platform-badge" id="product-platform">Amazon</div>
-            
+
             <div class="product-header">
               <div class="product-image-container">
                 <img id="product-img" src="" alt="Product Image">
               </div>
-              
+
               <div class="product-essential-details">
                 <h1 id="product-title" class="product-title">Product Title Loading...</h1>
-                
+
                 <!-- Rating -->
                 <div class="rating-container" id="rating-section">
                   <div class="stars" id="product-stars"></div>
@@ -167,16 +172,18 @@
                 <!-- SVG Gauge Arc -->
                 <svg class="gauge-svg" viewBox="0 0 200 100">
                   <!-- Gauge Path (Semi-circle Arc) -->
-                  <path class="gauge-track" d="M20,90 A80,80 0 0,1 180,90" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" />
-                  <path class="gauge-colored" d="M20,90 A80,80 0 0,1 180,90" fill="none" stroke="url(#gauge-gradient)" stroke-width="14" stroke-linecap="round" />
-                  
+                  <path class="gauge-track" d="M20,90 A80,80 0 0,1 180,90" fill="none" stroke="#e2e8f0"
+                    stroke-width="14" stroke-linecap="round" />
+                  <path class="gauge-colored" d="M20,90 A80,80 0 0,1 180,90" fill="none" stroke="url(#gauge-gradient)"
+                    stroke-width="14" stroke-linecap="round" />
+
                   <!-- Gradient for Gauge -->
                   <defs>
                     <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stop-color="#f43f5e" />     <!-- Red -->
-                      <stop offset="40%" stop-color="#fbbf24" />    <!-- Orange/Yellow -->
-                      <stop offset="75%" stop-color="#10b981" />    <!-- Green -->
-                      <stop offset="100%" stop-color="#059669" />   <!-- Deep Green -->
+                      <stop offset="0%" stop-color="#f43f5e" /> <!-- Red -->
+                      <stop offset="40%" stop-color="#fbbf24" /> <!-- Orange/Yellow -->
+                      <stop offset="75%" stop-color="#10b981" /> <!-- Green -->
+                      <stop offset="100%" stop-color="#059669" /> <!-- Deep Green -->
                     </linearGradient>
                   </defs>
 
@@ -242,16 +249,9 @@
         </section>
       </div>
     </main>
-
-    <footer class="app-footer">
-      <p>LootsExpert Client &bull; Powered by Flask, Express & Telegram Bot</p>
-      <div class="footer-links">
-        <span><i class="fa-brands fa-telegram"></i> Bot integration active</span>
-        <span><i class="fa-solid fa-cloud"></i> Ready for Railway</span>
-      </div>
-    </footer>
   </div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
+
 </html>

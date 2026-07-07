@@ -10,6 +10,7 @@ const {
   getPriceHistory, 
   addPriceLogIfChanged, 
   importPriceHistoryBatch,
+  updateProductHistoryUrl,
   redisClient
 } = require('./db');
 
@@ -101,6 +102,7 @@ app.get('/api/scrape', async (req, res) => {
       // Fetch the compiled price history list
       const dbHistory = await getPriceHistory(savedProduct.id);
       scrapeResult.history = dbHistory;
+      scrapeResult.historyUrl = savedProduct.history_url || null;
 
       // Determine history source for client badge
       const hasOldEntries = dbHistory.some(h => (new Date() - new Date(h.timestamp)) > 24 * 60 * 60 * 1000);
@@ -136,10 +138,13 @@ async function triggerBackgroundTrackerScrape(productId, canonicalUrl, productTi
     
     // Execute tracker scrape asynchronously
     console.log(`[Background] Launching parallel tracker scrape for product ID ${productId}...`);
-    scrapeHistoricalTracker(canonicalUrl, productTitle).then(async (dataPoints) => {
-      if (dataPoints && dataPoints.length > 0) {
+    scrapeHistoricalTracker(canonicalUrl, productTitle).then(async (resultObj) => {
+      if (resultObj && resultObj.dataPoints && resultObj.dataPoints.length > 0) {
+        // Save the external history page URL in our products table
+        await updateProductHistoryUrl(productId, resultObj.url);
+
         // Map points to fit database structure
-        const formattedPoints = dataPoints.map(p => ({
+        const formattedPoints = resultObj.dataPoints.map(p => ({
           price: p.price,
           timestamp: p.timestamp
         }));

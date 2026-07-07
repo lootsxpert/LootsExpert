@@ -857,15 +857,36 @@ body {
 }
 
 /* --- FOOTNOTE FOR SOURCE --- */
+.history-footer-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+  border-top: 1px solid var(--border-clean);
+  padding-top: 12px;
+}
+
 .history-source {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  text-align: right;
-  margin-top: 10px;
   font-weight: 500;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 5px;
+  gap: 6px;
+  margin-top: 0;
 }
+
+.history-source-link {
+  font-size: 0.75rem;
+  padding: 6px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 

@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let priceChart = null;
   let fullHistoryData = []; // Stores complete generated 180 days history
   const historySourceInfo = document.getElementById('history-source-info');
+  const historySourceBtn = document.getElementById('history-source-btn');
   
   // Progress bar selectors
   const progressBarFill = document.getElementById('progress-bar-fill');
@@ -232,12 +233,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentPriceNum = parsePrice(data.price);
     generatePriceAnalysis(currentPriceNum, data.history);
     
-    // Show history source footnote
+    // Show history source footnote & external tracker link button
     if (data.historySource) {
       historySourceInfo.innerHTML = `<i class="fa-solid fa-circle-info"></i> Historical prices imported from ${data.historySource}`;
       historySourceInfo.classList.remove('hidden');
     } else {
       historySourceInfo.classList.add('hidden');
+    }
+    
+    if (data.historyUrl) {
+      historySourceBtn.href = data.historyUrl;
+      historySourceBtn.classList.remove('hidden');
+    } else {
+      historySourceBtn.href = '#';
+      historySourceBtn.classList.add('hidden');
     }
     
     // Show main view
