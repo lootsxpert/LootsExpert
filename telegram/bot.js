@@ -3,7 +3,10 @@ const axios = require('axios');
 require('dotenv').config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
-const scraperApiUrl = process.env.SCRAPER_API_URL || 'http://localhost:3000';
+let scraperApiUrl = process.env.SCRAPER_API_URL || 'http://localhost:3000';
+if (scraperApiUrl.endsWith('/')) {
+  scraperApiUrl = scraperApiUrl.slice(0, -1);
+}
 
 if (!token) {
   console.error('[Error] TELEGRAM_BOT_TOKEN is missing in the environment variables!');
