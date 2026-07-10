@@ -11,6 +11,8 @@ const {
   addPriceLogIfChanged, 
   importPriceHistoryBatch,
   updateProductHistoryUrl,
+  updateProductDealStats,
+  pool,
   redisClient
 } = require('./db');
 
@@ -56,6 +58,74 @@ function getCanonicalUrl(url) {
   }
 }
 
+// Endpoint: GET /api/deals (Aggregated Catalog)
+app.get('/api/deals', async (req, res) => {
+  try {
+    const { category, maxPrice, platform, search, sort } = req.query;
+    
+    let query = 'SELECT * FROM products WHERE current_price IS NOT NULL';
+    const params = [];
+    
+    if (category) {
+      params.push(category);
+      query += ` AND category = $${params.length}`;
+    }
+    
+    if (maxPrice) {
+      params.push(parseFloat(maxPrice));
+      query += ` AND current_price <= $${params.length}`;
+    }
+    
+    if (platform) {
+      params.push(platform);
+      query += ` AND platform ILIKE $${params.length}`;
+    }
+    
+    if (search) {
+      params.push(`%${search}%`);
+      query += ` AND title ILIKE $${params.length}`;
+    }
+    
+    // Sort clause
+    if (sort === 'price_asc') {
+      query += ' ORDER BY current_price ASC';
+    } else if (sort === 'price_desc') {
+      query += ' ORDER BY current_price DESC';
+    } else if (sort === 'popularity') {
+      query += ' ORDER BY rating DESC NULLS LAST, id DESC';
+    } else {
+      // Default to best deal score (descending)
+      query += ' ORDER BY deal_score DESC, id DESC';
+    }
+    
+    const dbRes = await pool.query(query, params);
+    
+    return res.json({
+      success: true,
+      count: dbRes.rows.length,
+      deals: dbRes.rows
+    });
+  } catch (err) {
+    console.error('[API Error] GET /api/deals:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Endpoint: GET /api/categories
+app.get('/api/categories', async (req, res) => {
+  try {
+    const dbRes = await pool.query('SELECT DISTINCT category FROM products WHERE category IS NOT NULL ORDER BY category ASC');
+    const categories = dbRes.rows.map(r => r.category);
+    return res.json({
+      success: true,
+      categories
+    });
+  } catch (err) {
+    console.error('[API Error] GET /api/categories:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Endpoint: Scrape product details & manage history
 app.get('/api/scrape', async (req, res) => {
   const { url } = req.query;
@@ -96,8 +166,15 @@ app.get('/api/scrape', async (req, res) => {
       // Delta logging: only add price point if it changed
       await addPriceLogIfChanged(savedProduct.id, scrapeResult.price);
 
-      // Trigger background tracker scraping in parallel if not done recently, passing title fallback
-      triggerBackgroundTrackerScrape(savedProduct.id, canonicalUrl, scrapeResult.title);
+      // Trigger background tracker scraping in parallel if not done recently, passing pricing variables
+      triggerBackgroundTrackerScrape(
+        savedProduct.id, 
+        canonicalUrl, 
+        scrapeResult.title,
+        scrapeResult.price,
+        scrapeResult.originalPrice,
+        scrapeResult.discount
+      );
 
       // Fetch the compiled price history list
       const dbHistory = await getPriceHistory(savedProduct.id);
@@ -107,6 +184,15 @@ app.get('/api/scrape', async (req, res) => {
       // Determine history source for client badge
       const hasOldEntries = dbHistory.some(h => (new Date() - new Date(h.timestamp)) > 24 * 60 * 60 * 1000);
       scrapeResult.historySource = hasOldEntries ? 'PriceBefore' : scrapeResult.platform;
+      
+      // Update deal scores in products table immediately (will use latest history)
+      await updateProductDealStats(
+        savedProduct.id, 
+        scrapeResult.price, 
+        scrapeResult.originalPrice, 
+        scrapeResult.discount, 
+        scrapeResult.title
+      );
     }
 
     return res.json(scrapeResult);
@@ -122,7 +208,7 @@ app.get('/api/scrape', async (req, res) => {
 /**
  * Run tracker scrape in background using Redis locks/coordination
  */
-async function triggerBackgroundTrackerScrape(productId, canonicalUrl, productTitle) {
+async function triggerBackgroundTrackerScrape(productId, canonicalUrl, productTitle, currentPrice, originalPrice, discount) {
   const redisKey = `tracker_check:${productId}`;
   
   try {
@@ -149,6 +235,9 @@ async function triggerBackgroundTrackerScrape(productId, canonicalUrl, productTi
           timestamp: p.timestamp
         }));
         await importPriceHistoryBatch(productId, formattedPoints);
+        
+        // Recalculate deal stats now that history is fully imported
+        await updateProductDealStats(productId, currentPrice, originalPrice, discount, productTitle);
       }
     }).catch(err => {
       console.error(`[Background Error] Tracker scrape failed for product ${productId}:`, err.message);
@@ -158,8 +247,60 @@ async function triggerBackgroundTrackerScrape(productId, canonicalUrl, productTi
   }
 }
 
+/**
+ * Daily scheduler to crawl and update prices of tracked products
+ */
+function startDailyScheduler() {
+  console.log('[Scheduler] Initializing daily price scan scheduler...');
+  
+  // Set standard daily checking interval (24 hours)
+  const intervalMs = 24 * 60 * 60 * 1000;
+  
+  setInterval(async () => {
+    console.log('[Scheduler] Starting daily price update loop for tracked catalog...');
+    try {
+      const dbRes = await pool.query('SELECT id, url, title FROM products');
+      console.log(`[Scheduler] Found ${dbRes.rows.length} products to re-scrape.`);
+      
+      for (const product of dbRes.rows) {
+        try {
+          console.log(`[Scheduler] Updating product: ${product.title || product.url}`);
+          const scrapeResult = await scrapeProduct(product.url);
+          if (scrapeResult.success) {
+            await saveProduct({
+              url: product.url,
+              platform: scrapeResult.platform,
+              title: scrapeResult.title,
+              image: scrapeResult.image,
+              rating: scrapeResult.rating
+            });
+            
+            await addPriceLogIfChanged(product.id, scrapeResult.price);
+            
+            await updateProductDealStats(
+              product.id,
+              scrapeResult.price,
+              scrapeResult.originalPrice,
+              scrapeResult.discount,
+              scrapeResult.title
+            );
+          }
+          // Sleep for 4 seconds to be courteous to target websites
+          await new Promise(resolve => setTimeout(resolve, 4000));
+        } catch (e) {
+          console.error(`[Scheduler Error] Failed to update product URL ${product.url}:`, e.message);
+        }
+      }
+      console.log('[Scheduler] Daily update loop finished successfully.');
+    } catch (err) {
+      console.error('[Scheduler Error] Failed during daily scan:', err.message);
+    }
+  }, intervalMs);
+}
+
 // Start database and start listening
 initDatabase().then(() => {
+  startDailyScheduler();
   app.listen(PORT, () => {
     console.log(`==================================================`);
     console.log(`🚀 LootsExpert API running on: http://localhost:${PORT}`);

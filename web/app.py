@@ -18,6 +18,75 @@ NODE_API_URL = os.environ.get('NODE_API_URL', 'http://localhost:3000')
 def index():
     return render_template("index.html")
 
+@app.route("/api/deals")
+def api_deals():
+    try:
+        base_url = NODE_API_URL.rstrip('/')
+        query_string = request.query_string.decode('utf-8')
+        target_url = f"{base_url}/api/deals"
+        if query_string:
+            target_url += f"?{query_string}"
+            
+        print(f"[Flask Proxy] Forwarding deals catalog request to Node API: {target_url}")
+        
+        req = urllib.request.Request(
+            target_url,
+            headers={'User-Agent': 'LootsExpert-Flask-Proxy/1.0'}
+        )
+        
+        with urllib.request.urlopen(req, timeout=15) as response:
+            data = json.loads(response.read().decode())
+            return jsonify(data)
+            
+    except urllib.error.HTTPError as e:
+        try:
+            error_data = json.loads(e.read().decode())
+            return jsonify(error_data), e.code
+        except Exception:
+            return jsonify({
+                'success': False,
+                'error': f'Node API returned HTTP error: {e.code} ({e.reason})'
+            }), e.code
+    except Exception as e:
+        print(f"[Flask Proxy Error] {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to connect to Node.js scraper service: {str(e)}'
+        }), 500
+
+@app.route("/api/categories")
+def api_categories():
+    try:
+        base_url = NODE_API_URL.rstrip('/')
+        target_url = f"{base_url}/api/categories"
+        
+        print(f"[Flask Proxy] Forwarding categories request to Node API: {target_url}")
+        
+        req = urllib.request.Request(
+            target_url,
+            headers={'User-Agent': 'LootsExpert-Flask-Proxy/1.0'}
+        )
+        
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode())
+            return jsonify(data)
+            
+    except urllib.error.HTTPError as e:
+        try:
+            error_data = json.loads(e.read().decode())
+            return jsonify(error_data), e.code
+        except Exception:
+            return jsonify({
+                'success': False,
+                'error': f'Node API returned HTTP error: {e.code} ({e.reason})'
+            }), e.code
+    except Exception as e:
+        print(f"[Flask Proxy Error] {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to connect to Node.js scraper service: {str(e)}'
+        }), 500
+
 @app.route("/api/scrape")
 def api_scrape():
     url = request.args.get('url')

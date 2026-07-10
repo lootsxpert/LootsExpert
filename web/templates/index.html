@@ -253,6 +253,84 @@
           </div>
         </section>
       </div>
+
+      <!-- Deals Hub Section (Visible on page load) -->
+      <section class="card deals-hub-card" id="deals-hub-card">
+        <div class="deals-hub-header">
+          <h2><i class="fa-solid fa-fire text-red-glow"></i> Hot Deals</h2>
+          <p class="hub-subtitle">Real discounts scanned and verified against history</p>
+        </div>
+
+        <!-- Hot Deals Under Price Brackets -->
+        <div class="price-brackets">
+          <button class="bracket-btn active" data-price="">All Deals</button>
+          <button class="bracket-btn" data-price="99">Under ₹99</button>
+          <button class="bracket-btn" data-price="199">Under ₹199</button>
+          <button class="bracket-btn" data-price="299">Under ₹299</button>
+          <button class="bracket-btn" data-price="499">Under ₹499</button>
+          <button class="bracket-btn" data-price="999">Under ₹999</button>
+          <button class="bracket-btn" data-price="15000">Under ₹15,000</button>
+          <button class="bracket-btn" data-price="35000">Under ₹35,000</button>
+        </div>
+
+        <div class="deals-catalog-layout">
+          <!-- Filters Toolbar -->
+          <div class="catalog-controls">
+            <!-- Categories Navigation Bar -->
+            <div class="control-group">
+              <span class="control-label">Categories</span>
+              <div class="category-chips" id="category-chips">
+                <button class="chip-btn active" data-category="">All Categories</button>
+                <!-- Dynamically loaded -->
+              </div>
+            </div>
+
+            <!-- Additional filters row -->
+            <div class="filters-row">
+              <!-- Search inside catalog -->
+              <div class="search-filter-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="deal-search" placeholder="Search deals by title...">
+              </div>
+
+              <!-- Store Platform -->
+              <div class="select-filter-wrapper">
+                <i class="fa-solid fa-shop"></i>
+                <select id="deal-platform">
+                  <option value="">All Stores</option>
+                  <option value="Amazon">Amazon</option>
+                  <option value="Flipkart">Flipkart</option>
+                </select>
+              </div>
+
+              <!-- Sort Order -->
+              <div class="select-filter-wrapper">
+                <i class="fa-solid fa-arrow-down-wide-short"></i>
+                <select id="deal-sort">
+                  <option value="deal_score">Best Deals (Score)</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                  <option value="popularity">Popularity</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Catalog Grid -->
+          <div class="deals-grid-container">
+            <div class="deals-grid" id="deals-grid">
+              <!-- Product cards populated dynamically -->
+            </div>
+            
+            <!-- Empty state -->
+            <div id="deals-empty-state" class="empty-state hidden">
+              <i class="fa-solid fa-box-open empty-icon"></i>
+              <h3>No Deals Found</h3>
+              <p>Try clearing your filters or broadening your search criteria.</p>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 

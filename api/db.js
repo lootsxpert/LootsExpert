@@ -61,6 +61,16 @@ async function initDatabase() {
     await client.query(`
       ALTER TABLE products ADD COLUMN IF NOT EXISTS history_url TEXT;
     `);
+
+    // Migration: ensure deal score, tags, and category columns exist
+    await client.query(`
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS current_price DECIMAL(12, 2);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS original_price DECIMAL(12, 2);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS discount VARCHAR(50);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS deal_score INTEGER DEFAULT 0;
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS deal_tag VARCHAR(50);
+    `);
     
     // Create price history table
     await client.query(`
@@ -82,6 +92,156 @@ async function initDatabase() {
     console.log('📊 Database tables initialized successfully.');
   } catch (err) {
     console.error('[Database Init Error] Failed to initialize tables:', err);
+  }
+}
+
+/**
+ * Classify product title into a standard shopping category
+ */
+function classifyCategory(title, url) {
+  const t = (title || '').toLowerCase();
+  
+  if (t.includes('phone') || t.includes('mobile') || t.includes('smartphone') || t.includes('iphone') || t.includes('galaxy') || t.includes('pixel') || t.includes('oneplus')) {
+    return 'Electronics';
+  }
+  if (t.includes('laptop') || t.includes('notebook') || t.includes('macbook') || t.includes('computer') || t.includes('monitor') || t.includes('keyboard') || t.includes('mouse') || t.includes('pc') || t.includes('chromebook')) {
+    return 'Computers & Accessories';
+  }
+  if (t.includes('tv') || t.includes('television') || t.includes('smart tv') || t.includes('led tv')) {
+    return 'Smart Televisions';
+  }
+  if (t.includes('fridge') || t.includes('refrigerator')) {
+    return 'Refrigerators';
+  }
+  if (t.includes('washing machine') || t.includes('washer') || t.includes('dryer')) {
+    return 'Washing Machines';
+  }
+  if (t.includes('headphone') || t.includes('earphone') || t.includes('earbuds') || t.includes('buds') || t.includes('speaker') || t.includes('soundbar') || t.includes('audio') || t.includes('mic')) {
+    return 'Electronics';
+  }
+  if (t.includes('shoe') || t.includes('sneaker') || t.includes('sandal') || t.includes('crocs') || t.includes('footwear') || t.includes('boot') || t.includes('runner') || t.includes('slippers')) {
+    return 'Shoes';
+  }
+  if (t.includes('ring') || t.includes('necklace') || t.includes('bracelet') || t.includes('earring') || t.includes('jewel') || t.includes('chain') || t.includes('pendant')) {
+    return 'Jewellery';
+  }
+  if (t.includes('tool') || t.includes('drill') || t.includes('screw') || t.includes('home improvement') || t.includes('bulb') || t.includes('led light') || t.includes('shower') || t.includes('tap')) {
+    return 'Home Improvement';
+  }
+  if (t.includes('shampoo') || t.includes('cream') || t.includes('serum') || t.includes('makeup') || t.includes('soap') || t.includes('perfume') || t.includes('grooming') || t.includes('face wash') || t.includes('moisturizer')) {
+    return 'Health & Personal Care';
+  }
+  if (t.includes('t-shirt') || t.includes('shirt') || t.includes('jeans') || t.includes('jacket') || t.includes('apparel') || t.includes('clothing') || t.includes('hoodie')) {
+    return 'Fashion & Apparel';
+  }
+  
+  return 'Electronics'; // Default category
+}
+
+/**
+ * Calculate standard composite deal score (0 to 100)
+ */
+function calculateDealScore(current, lowest, average, highest, originalPrice) {
+  if (!current) return 0;
+  if (!lowest) lowest = current;
+  if (!highest) highest = current;
+  if (!average) average = current;
+  
+  // Calculate discount percentage if original price (MRP) is available
+  const discountPercent = originalPrice && originalPrice > current 
+    ? ((originalPrice - current) / originalPrice) * 100 
+    : 0;
+
+  // Proximity to lowest price (0 to 100)
+  let proximityScore = 50;
+  if (highest > lowest) {
+    proximityScore = ((highest - current) / (highest - lowest)) * 100;
+  } else if (current < lowest) {
+    proximityScore = 100;
+  }
+  
+  // Average comparison score (0 to 100)
+  let averageCompareScore = 50;
+  if (current < average) {
+    const maxDrop = average - lowest;
+    if (maxDrop > 0) {
+      averageCompareScore = 50 + ((average - current) / maxDrop) * 50;
+    } else {
+      averageCompareScore = 100;
+    }
+  } else if (current > average) {
+    const maxRise = highest - average;
+    if (maxRise > 0) {
+      averageCompareScore = 50 - ((current - average) / maxRise) * 50;
+    } else {
+      averageCompareScore = 0;
+    }
+  }
+
+  // Weight the components: 50% proximity, 30% discount, 20% average comparison
+  let score = (proximityScore * 0.5) + (discountPercent * 0.3) + (averageCompareScore * 0.2);
+  
+  // Clamp between 0 and 100
+  score = Math.max(0, Math.min(100, score));
+  return Math.round(score);
+}
+
+/**
+ * Updates a product's dynamic pricing and deal attributes based on history metrics
+ */
+async function updateProductDealStats(productId, currentPrice, originalPrice, discount, productTitle) {
+  if (!currentPrice || isNaN(currentPrice)) return;
+  try {
+    const history = await getPriceHistory(productId);
+    const prices = history.map(h => h.price);
+    
+    // Add current price to calculations if not present
+    if (prices.length === 0) prices.push(currentPrice);
+    
+    const lowest = Math.min(...prices, currentPrice);
+    const highest = Math.max(...prices, currentPrice);
+    const average = prices.reduce((sum, p) => sum + p, 0) / prices.length;
+    
+    const score = calculateDealScore(currentPrice, lowest, average, highest, originalPrice);
+    
+    let dealTag = '';
+    // Tagging logic
+    if (currentPrice <= lowest * 1.005) {
+      dealTag = 'Lowest Ever';
+    } else if (currentPrice <= lowest * 1.02) {
+      dealTag = 'All-time Low';
+    } else if (score >= 85) {
+      dealTag = 'Hot Deal';
+    } else if (score >= 70) {
+      dealTag = 'Good Deal';
+    }
+    
+    const category = classifyCategory(productTitle);
+
+    const query = `
+      UPDATE products 
+      SET current_price = $1,
+          original_price = $2,
+          discount = $3,
+          category = $4,
+          deal_score = $5,
+          deal_tag = $6,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $7;
+    `;
+    await pool.query(query, [
+      currentPrice, 
+      originalPrice || currentPrice, 
+      discount || '0%', 
+      category, 
+      score, 
+      dealTag, 
+      productId
+    ]);
+    
+    console.log(`[DB Deal Scan] Product ID ${productId} stats updated: price=₹${currentPrice}, score=${score}, tag='${dealTag}', category='${category}'`);
+  } catch (err) {
+    console.error(`[DB Error] Failed to update product deal stats for ID ${productId}:`, err);
   }
 }
 
@@ -238,5 +398,8 @@ module.exports = {
   addPriceLogIfChanged,
   importPriceHistoryBatch,
   updateProductHistoryUrl,
+  updateProductDealStats,
+  classifyCategory,
+  pool,
   redisClient
 };

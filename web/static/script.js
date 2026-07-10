@@ -508,4 +508,185 @@ document.addEventListener('DOMContentLoaded', () => {
       renderChart(range);
     });
   });
+
+  // --- DEALS HUB CONTROLLER LOGIC ---
+  let currentCategory = '';
+  let currentMaxPrice = '';
+  let currentPlatform = '';
+  let currentSort = 'deal_score';
+  let currentSearch = '';
+
+  const dealsGrid = document.getElementById('deals-grid');
+  const categoryChipsContainer = document.getElementById('category-chips');
+  const dealsEmptyState = document.getElementById('deals-empty-state');
+  const dealSearchInput = document.getElementById('deal-search');
+  const dealPlatformSelect = document.getElementById('deal-platform');
+  const dealSortSelect = document.getElementById('deal-sort');
+
+  // Load and Render Active Deals
+  async function loadDeals() {
+    try {
+      const params = new URLSearchParams();
+      if (currentCategory) params.append('category', currentCategory);
+      if (currentMaxPrice) params.append('maxPrice', currentMaxPrice);
+      if (currentPlatform) params.append('platform', currentPlatform);
+      if (currentSort) params.append('sort', currentSort);
+      if (currentSearch) params.append('search', currentSearch);
+
+      const response = await fetch(`/api/deals?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to load deals catalog.');
+      
+      const data = await response.json();
+      if (data && data.success) {
+        renderDealsGrid(data.deals);
+      }
+    } catch (err) {
+      console.error('[Catalog Error]', err);
+    }
+  }
+
+  // Load Categories list
+  async function loadCategories() {
+    try {
+      const response = await fetch('/api/categories');
+      if (!response.ok) throw new Error('Failed to load categories.');
+      const data = await response.json();
+      if (data && data.success && data.categories.length > 0) {
+        // Clear except the "All Categories" button
+        const allBtn = categoryChipsContainer.querySelector('button[data-category=""]');
+        categoryChipsContainer.innerHTML = '';
+        categoryChipsContainer.appendChild(allBtn);
+        
+        data.categories.forEach(cat => {
+          const btn = document.createElement('button');
+          btn.className = 'chip-btn';
+          btn.textContent = cat;
+          btn.setAttribute('data-category', cat);
+          categoryChipsContainer.appendChild(btn);
+        });
+      }
+    } catch (err) {
+      console.error('[Categories Error]', err);
+    }
+  }
+
+  // Render Deals list
+  function renderDealsGrid(deals) {
+    dealsGrid.innerHTML = '';
+    
+    if (!deals || deals.length === 0) {
+      dealsEmptyState.classList.remove('hidden');
+      return;
+    }
+    
+    dealsEmptyState.classList.add('hidden');
+    
+    deals.forEach(deal => {
+      const card = document.createElement('div');
+      card.className = 'deal-card';
+      
+      const platformClass = deal.platform.toLowerCase();
+      const ratingHtml = deal.rating 
+        ? `<div class="deal-card-rating"><i class="fa-solid fa-star"></i> ${deal.rating}</div>`
+        : '';
+        
+      const mrpHtml = deal.original_price && parseFloat(deal.original_price) > parseFloat(deal.current_price)
+        ? `<span class="deal-card-mrp">₹${Math.round(deal.original_price).toLocaleString('en-IN')}</span>`
+        : '';
+        
+      const discountHtml = deal.discount && deal.discount !== '0%'
+        ? `<span class="deal-card-discount">${deal.discount}</span>`
+        : '';
+
+      let tagClass = '';
+      if (deal.deal_tag) {
+        tagClass = deal.deal_tag.toLowerCase().replace(/\s+/g, '-');
+      }
+      
+      const tagHtml = deal.deal_tag
+        ? `<span class="deal-card-tag ${tagClass}">${deal.deal_tag}</span>`
+        : '<span></span>';
+
+      card.innerHTML = `
+        <div class="deal-card-image-wrapper">
+          <img src="${deal.image || 'https://via.placeholder.com/150?text=No+Image'}" alt="${deal.title}">
+          <span class="deal-card-platform-badge ${platformClass}">${deal.platform}</span>
+          <span class="deal-card-score-badge">
+            <i class="fa-solid fa-bolt"></i> ${deal.deal_score} Score
+          </span>
+        </div>
+        <div class="deal-card-content">
+          <h3 class="deal-card-title" title="${deal.title}">${deal.title}</h3>
+          ${ratingHtml}
+          <div class="deal-card-pricing-row">
+            <span class="deal-card-price">₹${Math.round(deal.current_price).toLocaleString('en-IN')}</span>
+            ${mrpHtml}
+            ${discountHtml}
+          </div>
+          <div class="deal-card-footer">
+            ${tagHtml}
+            <span class="deal-card-action">Analyze <i class="fa-solid fa-arrow-right"></i></span>
+          </div>
+        </div>
+      `;
+      
+      // Card click event -> populate analyzer & scroll to top
+      card.addEventListener('click', () => {
+        productUrlInput.value = deal.url;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        fetchProductDetails(deal.url);
+      });
+      
+      dealsGrid.appendChild(card);
+    });
+  }
+
+  // Bind Price Brackets Buttons
+  document.querySelectorAll('.bracket-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.bracket-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      currentMaxPrice = btn.getAttribute('data-price');
+      loadDeals();
+    });
+  });
+
+  // Bind Category Chips (delegate event on parent)
+  categoryChipsContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('.chip-btn');
+    if (!btn) return;
+    
+    categoryChipsContainer.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    currentCategory = btn.getAttribute('data-category');
+    loadDeals();
+  });
+
+  // Bind Store Platform change
+  dealPlatformSelect.addEventListener('change', () => {
+    currentPlatform = dealPlatformSelect.value;
+    loadDeals();
+  });
+
+  // Bind Sort selector change
+  dealSortSelect.addEventListener('change', () => {
+    currentSort = dealSortSelect.value;
+    loadDeals();
+  });
+
+  // Search input with 300ms debounce
+  let searchTimeout;
+  dealSearchInput.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      currentSearch = dealSearchInput.value.trim();
+      loadDeals();
+    }, 300);
+  });
+
+  // Initial dashboard population
+  loadCategories();
+  loadDeals();
 });
