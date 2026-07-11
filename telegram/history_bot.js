@@ -11,6 +11,11 @@ if (scraperApiUrl.endsWith('/')) {
   scraperApiUrl = scraperApiUrl.slice(0, -1);
 }
 
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return String(text).replace(/([_*\[`])/g, '\\$1');
+}
+
 if (!token) {
   console.error('[History Bot Error] HISTORY_BOT_TOKEN, BOT_TOKEN or TELEGRAM_BOT_TOKEN is missing in the environment variables!');
   process.exit(1);
@@ -324,15 +329,15 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
     const rec = getBuyRecommendation(currentPrice, lowestPrice, highestPrice, averagePrice);
 
     // Format output text
-    const textCaption = `🏷 *${data.title}*\n\n` +
+    const textCaption = `🏷 *${escapeMarkdown(data.title)}*\n\n` +
       `💰 *Current :* ₹${currentPrice.toLocaleString('en-IN')}\n` +
       `📉 *Lowest :* ₹${lowestPrice.toLocaleString('en-IN')}\n` +
       `📈 *Highest :* ₹${highestPrice.toLocaleString('en-IN')}\n` +
       `📊 *Average :* ₹${averagePrice.toLocaleString('en-IN')}\n` +
       `🔥 *Drop From Peak :* ${dropFromPeak}%\n\n` +
       `🛍 *Recommendation*\n` +
-      `${rec.color} *${rec.text}*\n_${rec.details}_\n\n` +
-      `Platform: ${data.platform || platform.toUpperCase()}`;
+      `${rec.color} *${escapeMarkdown(rec.text)}*\n_${escapeMarkdown(rec.details)}_\n\n` +
+      `Platform: ${escapeMarkdown(data.platform || platform.toUpperCase())}`;
 
     // Inline buttons for timeline filters & buy now
     const affiliateUrl = await affiliate.convert(data.url || `https://www.amazon.in/dp/${pid}`, platform);
@@ -400,9 +405,8 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
     }
   }
 
-  // Standard Welcome Screen
   const name = msg.from.first_name || 'shopper';
-  const welcomeText = `👋 *Welcome to Price History Bot* ${name}!\n\n` +
+  const welcomeText = `👋 *Welcome to Price History Bot* ${escapeMarkdown(name)}!\n\n` +
     `Track product prices before you buy.\n\n` +
     `Simply send any Amazon, Flipkart, Myntra, Ajio, Meesho, Shopsy, or similar product link.\n\n` +
     `You'll instantly see:\n` +

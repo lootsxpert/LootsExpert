@@ -2,8 +2,18 @@ const { Pool } = require('pg');
 const { createClient } = require('redis');
 
 // Database URLs
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:yUAkumMqejYdHBijJxzmmRdmxrEKEiog@hayabusa.proxy.rlwy.net:42335/railway';
-const REDIS_URL = process.env.REDIS_URL || 'redis://default:QTnNEjgbYgOuqQwxaBLNyKlodHdlfwIC@hayabusa.proxy.rlwy.net:51042';
+let DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:yUAkumMqejYdHBijJxzmmRdmxrEKEiog@hayabusa.proxy.rlwy.net:42335/railway';
+let REDIS_URL = process.env.REDIS_URL || 'redis://default:QTnNEjgbYgOuqQwxaBLNyKlodHdlfwIC@hayabusa.proxy.rlwy.net:51042';
+
+DATABASE_URL = DATABASE_URL.trim();
+if (DATABASE_URL.startsWith('"') && DATABASE_URL.endsWith('"')) DATABASE_URL = DATABASE_URL.slice(1, -1);
+if (DATABASE_URL.startsWith("'") && DATABASE_URL.endsWith("'")) DATABASE_URL = DATABASE_URL.slice(1, -1);
+
+if (REDIS_URL) {
+  REDIS_URL = REDIS_URL.trim();
+  if (REDIS_URL.startsWith('"') && REDIS_URL.endsWith('"')) REDIS_URL = REDIS_URL.slice(1, -1);
+  if (REDIS_URL.startsWith("'") && REDIS_URL.endsWith("'")) REDIS_URL = REDIS_URL.slice(1, -1);
+}
 
 // 1. PostgreSQL pool configuration
 const pool = new Pool({

@@ -1,6 +1,13 @@
 const { Pool } = require('pg');
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:yUAkumMqejYdHBijJxzmmRdmxrEKEiog@hayabusa.proxy.rlwy.net:42335/railway';
+let DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:yUAkumMqejYdHBijJxzmmRdmxrEKEiog@hayabusa.proxy.rlwy.net:42335/railway';
+DATABASE_URL = DATABASE_URL.trim();
+if (DATABASE_URL.startsWith('"') && DATABASE_URL.endsWith('"')) {
+  DATABASE_URL = DATABASE_URL.slice(1, -1);
+}
+if (DATABASE_URL.startsWith("'") && DATABASE_URL.endsWith("'")) {
+  DATABASE_URL = DATABASE_URL.slice(1, -1);
+}
 
 const pool = new Pool({
   connectionString: DATABASE_URL,

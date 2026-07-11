@@ -13,6 +13,11 @@ if (scraperApiUrl.endsWith('/')) {
 
 const historyBotUsername = process.env.PRICE_HISTORY_BOT_USERNAME || 'The_PriceHistory_Bot';
 
+function escapeMarkdown(text) {
+  if (!text) return '';
+  return String(text).replace(/([_*\[`])/g, '\\$1');
+}
+
 if (!token) {
   console.error('[Error] TELEGRAM_BOT_TOKEN is missing in the environment variables!');
   process.exit(1);
@@ -213,9 +218,9 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
       await bot.deleteMessage(chatId, statusMsg.message_id);
       
       // Show confirmation preview card
-      const confirmationText = `🏷 *${productTitle}*\n\n` +
+      const confirmationText = `🏷 *${escapeMarkdown(productTitle)}*\n\n` +
         `💰 *Current Price:* ₹${productPrice.toLocaleString('en-IN')}\n` +
-        `🏪 *Store:* ${store.toUpperCase()}\n\n` +
+        `🏪 *Store:* ${escapeMarkdown(store.toUpperCase())}\n\n` +
         `Would you like to track this product?\n` +
         `You'll receive a Telegram notification whenever the price changes.`;
         
@@ -245,9 +250,8 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
     return;
   }
 
-  // Welcome message for regular /start
   const name = msg.from.first_name || 'there';
-  const welcomeText = `👋 Hello *${name}*!\n\n` +
+  const welcomeText = `👋 Hello *${escapeMarkdown(name)}*!\n\n` +
     `I'm *PriceTrackerBot*, your personal assistant for tracking product prices.\n\n` +
     `I will notify you whenever the price goes up or down.\n\n` +
     `Simply send me a product link.\n\n` +
@@ -256,8 +260,8 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
     `Use /my_trackings to see tracked products.\n` +
     `Use /help for help.\n\n` +
     `*Also Try:*\n` +
-    `@Amazon_Pricehistory_bot\n` +
-    `@${historyBotUsername}`;
+    `@Amazon\\_Pricehistory\\_bot\n` +
+    `@${escapeMarkdown(historyBotUsername)}`;
 
   const opts = {
     parse_mode: 'Markdown',
@@ -353,10 +357,10 @@ bot.onText(/\/product_(\d+)/, async (msg, match) => {
       return;
     }
 
-    const caption = `🛍️ *${product.platform.toUpperCase()} Product Details*\n\n` +
-      `📌 *${product.product_name}*\n\n` +
+    const caption = `🛍️ *${escapeMarkdown(product.platform.toUpperCase())} Product Details*\n\n` +
+      `📌 *${escapeMarkdown(product.product_name)}*\n\n` +
       `💵 *Current Price:* ₹${parseFloat(product.current_price).toLocaleString('en-IN')}\n` +
-      `🏪 *Platform:* ${product.platform.toUpperCase()}\n` +
+      `🏪 *Platform:* ${escapeMarkdown(product.platform.toUpperCase())}\n` +
       `🔗 [Product Link](${product.product_url})`;
 
     const opts = {
@@ -542,7 +546,7 @@ bot.on('callback_query', async (callbackQuery) => {
         
         if (saved) {
           const successMsg = `✅ *Product added successfully!*\n\n` +
-            `🏷 *${data.title}*\n\n` +
+            `🏷 *${escapeMarkdown(data.title)}*\n\n` +
             `💰 *Current Price:* ₹${parseFloat(data.price).toLocaleString('en-IN')}\n\n` +
             `🔔 Price tracking has been enabled.\nYou'll receive a notification whenever the price changes.`;
             
@@ -800,7 +804,7 @@ bot.on('message', async (msg) => {
     
     if (saved) {
       const successText = `🛍️ *Tracking your product*\n\n` +
-        `*${data.title}*\n\n` +
+        `*${escapeMarkdown(data.title)}*\n\n` +
         `*Current Price:*\n₹${livePrice.toLocaleString('en-IN')}\n\n` +
         `/product_${saved.id}\n` +
         `/stop_${saved.id}`;
@@ -869,13 +873,13 @@ function startScheduler() {
                 let notifyMsg = '';
                 if (diff < 0) {
                   notifyMsg = `📢 *Price Changed!*\n\n` +
-                    `*${product.product_name}*\n\n` +
+                    `*${escapeMarkdown(product.product_name)}*\n\n` +
                     `*Old Price:* ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `*Current Price:* ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `*Difference:* -₹${Math.abs(diff).toLocaleString('en-IN')}\n`;
                 } else {
                   notifyMsg = `📈 *Price Increased!*\n\n` +
-                    `*${product.product_name}*\n\n` +
+                    `*${escapeMarkdown(product.product_name)}*\n\n` +
                     `*Old Price:* ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `*New Price:* ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `*Difference:* +₹${diff.toLocaleString('en-IN')}\n`;
