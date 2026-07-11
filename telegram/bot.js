@@ -5,7 +5,16 @@ require('dotenv').config();
 const db = require('./db');
 const affiliate = require('./affiliate');
 
-const token = process.env.TELEGRAM_BOT_TOKEN;
+let token = process.env.TELEGRAM_BOT_TOKEN;
+if (token) {
+  token = token.trim();
+  // Strip surrounding quotes
+  if (token.startsWith('"') && token.endsWith('"')) token = token.slice(1, -1);
+  if (token.startsWith("'") && token.endsWith("'")) token = token.slice(1, -1);
+  // Strip accidental escaped quotes
+  if (token.startsWith('\\"') && token.endsWith('\\"')) token = token.slice(2, -2);
+  if (token.startsWith('\\"')) token = token.slice(2);
+}
 let scraperApiUrl = process.env.SCRAPER_API_URL || 'http://localhost:3000';
 if (scraperApiUrl.endsWith('/')) {
   scraperApiUrl = scraperApiUrl.slice(0, -1);
