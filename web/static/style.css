@@ -70,7 +70,6 @@ body {
   max-width: 100%;
   width: 100%;
   margin: 0;
-  padding: 40px 40px;
   position: relative;
   z-index: 1;
   display: flex;
@@ -133,7 +132,7 @@ body {
   background: #eff6ff;
   color: #2563eb;
   padding: 2px 8px;
-  border-radius: 20px;
+  border-radius: 0;
   font-weight: 500;
   margin-left: 6px;
   border: 1px solid #dbeafe;
@@ -189,7 +188,7 @@ body {
   font-weight: 600;
   font-size: 0.9rem;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: 0;
   transition: var(--transition-smooth);
   display: flex;
   align-items: center;
@@ -207,7 +206,7 @@ body {
   font-weight: 600;
   font-size: 0.9rem;
   padding: 8px 20px;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
   transition: var(--transition-smooth);
 }
@@ -221,14 +220,14 @@ body {
 .hero-section {
   background: radial-gradient(circle at top left, #1e3a8a, #0f172a 70%);
   color: white;
-  border-radius: 24px;
+  border-radius: 0;
   padding: 80px 40px;
   text-align: center;
   position: relative;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
-  margin-top: 20px;
-  margin-bottom: 50px;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .hero-section::before {
@@ -298,7 +297,7 @@ body {
   display: flex;
   align-items: center;
   background: white;
-  border-radius: 50px;
+  border-radius: 0;
   padding: 6px 8px 6px 24px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
@@ -351,7 +350,7 @@ body {
   font-weight: 600;
   font-size: 1.05rem;
   padding: 12px 36px;
-  border-radius: 30px;
+  border-radius: 0;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
   transition: var(--transition-smooth);
@@ -365,14 +364,17 @@ body {
 /* --- PROMO BANNER SECTION --- */
 .promo-banner-section {
   width: 100%;
-  margin: 0 auto 50px auto;
+  margin: 0;
   padding: 0;
 }
 
 .promo-banner {
   background: linear-gradient(90deg, #eff6ff, #dbeafe);
-  border: 1px solid #bfdbfe;
-  border-radius: 16px;
+  border-top: 1px solid #bfdbfe;
+  border-bottom: 1px solid #bfdbfe;
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
   padding: 16px 24px;
   display: flex;
   align-items: center;
@@ -387,7 +389,7 @@ body {
   background: #2563eb;
   color: white;
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -419,7 +421,7 @@ body {
   font-weight: 600;
   font-size: 0.9rem;
   padding: 10px 20px;
-  border-radius: 8px;
+  border-radius: 0;
   transition: var(--transition-smooth);
   display: flex;
   align-items: center;
@@ -444,7 +446,7 @@ body {
 .price-brackets .bracket-btn {
   background: #ffffff;
   border: 1px solid var(--border-clean);
-  border-radius: 14px;
+  border-radius: 0;
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
@@ -498,9 +500,9 @@ body {
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-clean);
-  border-radius: 20px;
+  border-radius: 0;
   padding: 30px;
-  margin-bottom: 25px;
+  margin-bottom: 0;
   box-shadow: var(--shadow-subtle);
   transition: var(--transition-smooth);
 }
@@ -810,7 +812,7 @@ body {
   font-weight: 600;
   background: #f1f5f9;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 /* --- PRICE SECTION --- */
@@ -855,7 +857,7 @@ body {
   font-size: 0.8rem;
   font-weight: 700;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 /* --- BUTTONS --- */
@@ -869,7 +871,7 @@ body {
   font-size: 0.95rem;
   font-weight: 600;
   padding: 12px 24px;
-  border-radius: 12px;
+  border-radius: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -926,7 +928,7 @@ body {
   justify-content: space-between;
   background: #f8fafc;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 0;
   border: 1px solid #f1f5f9;
   font-size: 0.85rem;
 }
@@ -1017,7 +1019,7 @@ body {
 .recommendation-box {
   background: #f8fafc;
   border: 1px solid var(--border-clean);
-  border-radius: 14px;
+  border-radius: 0;
   padding: 16px;
   text-align: center;
   margin-bottom: 25px;
@@ -1075,7 +1077,7 @@ body {
 .stat-card {
   background: #ffffff;
   border: 1px solid var(--border-clean);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -1135,7 +1137,7 @@ body {
 .history-filters {
   display: flex;
   background: #f1f5f9;
-  border-radius: 8px;
+  border-radius: 0;
   padding: 3px;
   border: 1px solid #e2e8f0;
 }
@@ -1149,7 +1151,7 @@ body {
   font-weight: 600;
   color: var(--text-secondary);
   padding: 6px 14px;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   transition: var(--transition-smooth);
 }
@@ -1213,7 +1215,7 @@ body {
 .social-icon {
   width: 42px;
   height: 42px;
-  border-radius: 50%;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
@@ -1274,7 +1276,7 @@ body {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 24px;
-  border-radius: 16px;
+  border-radius: 0;
   max-width: 320px;
 }
 
@@ -1282,7 +1284,7 @@ body {
   width: 90px;
   height: 90px;
   background: white;
-  border-radius: 8px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1301,7 +1303,7 @@ body {
 .app-btn {
   background: #0f172a;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 8px 12px;
   color: white;
   text-decoration: none;
@@ -1466,7 +1468,7 @@ body {
   gap: 15px;
   background: #f8fafc;
   padding: 20px;
-  border-radius: 16px;
+  border-radius: 0;
   border: 1px solid var(--border-clean);
 }
 
@@ -1498,7 +1500,7 @@ body {
   font-weight: 500;
   font-size: 0.8rem;
   padding: 6px 14px;
-  border-radius: 20px;
+  border-radius: 0;
   cursor: pointer;
   transition: var(--transition-smooth);
 }
@@ -1540,7 +1542,7 @@ body {
 .search-filter-wrapper input {
   width: 100%;
   padding: 10px 12px 10px 38px;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1px solid var(--border-clean);
   outline: none;
   font-family: inherit;
@@ -1573,7 +1575,7 @@ body {
 .select-filter-wrapper select {
   width: 100%;
   padding: 10px 12px 10px 38px;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1px solid var(--border-clean);
   outline: none;
   font-family: inherit;
@@ -1603,7 +1605,7 @@ body {
 .deal-card {
   background: #ffffff;
   border: 1px solid var(--border-clean);
-  border-radius: 16px;
+  border-radius: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1645,7 +1647,7 @@ body {
   text-transform: uppercase;
   color: white;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: 0;
   letter-spacing: 0.05em;
 }
 
@@ -1667,7 +1669,7 @@ body {
   font-size: 0.72rem;
   font-weight: 700;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   gap: 3px;
@@ -1739,7 +1741,7 @@ body {
   color: var(--color-green-dark);
   background: #ecfdf5;
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .deal-card-footer {
@@ -1755,7 +1757,7 @@ body {
   font-size: 0.7rem;
   font-weight: 700;
   padding: 2px 8px;
-  border-radius: 6px;
+  border-radius: 0;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
