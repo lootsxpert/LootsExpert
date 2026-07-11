@@ -31,7 +31,7 @@ def api_deals():
         
         req = urllib.request.Request(
             target_url,
-            headers={'User-Agent': 'LootsExpert-Flask-Proxy/1.0'}
+            headers={'User-Agent': 'PriceGraph-Flask-Proxy/1.0'}
         )
         
         with urllib.request.urlopen(req, timeout=15) as response:
@@ -64,7 +64,7 @@ def api_categories():
         
         req = urllib.request.Request(
             target_url,
-            headers={'User-Agent': 'LootsExpert-Flask-Proxy/1.0'}
+            headers={'User-Agent': 'PriceGraph-Flask-Proxy/1.0'}
         )
         
         with urllib.request.urlopen(req, timeout=10) as response:
@@ -111,7 +111,7 @@ def api_scrape():
         
         req = urllib.request.Request(
             target_url,
-            headers={'User-Agent': 'LootsExpert-Flask-Proxy/1.0'}
+            headers={'User-Agent': 'PriceGraph-Flask-Proxy/1.0'}
         )
         
         with urllib.request.urlopen(req, timeout=25) as response:

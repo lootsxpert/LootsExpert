@@ -38,7 +38,7 @@ bot.on('polling_error', (error) => {
   console.error(`⚠️ [History Bot Polling Error] Code: ${error.code || 'UNKNOWN'}, Message: ${error.message || error}`);
 });
 
-console.log('📈 Telegram LootsExpert Price History Bot is starting up...');
+console.log('📈 Telegram Price Graph Price History Bot is starting up...');
 
 // Helper: Standard menu buttons
 function getMainMenuButtons() {
@@ -72,7 +72,7 @@ async function checkMembership(msg) {
     const member = await bot.getChatMember(channel, userId);
     const isMember = ['member', 'administrator', 'creator'].includes(member.status);
     if (!isMember) {
-      const channelLink = channel.startsWith('@') ? `https://t.me/${channel.substring(1)}` : 'https://t.me/lootsexpert';
+      const channelLink = channel.startsWith('@') ? `https://t.me/${channel.substring(1)}` : 'https://t.me/pricegraph';
       await bot.sendMessage(userId, '🔒 Please join our updates channel before using this bot.', {
         reply_markup: {
           inline_keyboard: [
@@ -464,7 +464,7 @@ bot.onText(/\/about/, async (msg) => {
   const aboutText = `ℹ *About Price History Bot*\n\n` +
     `• *Version:* 1.0\n` +
     `• *Supported Stores:* Amazon, Flipkart, Myntra, Ajio, Meesho, Shopsy, and more.\n` +
-    `• *Developer:* LootsExpert Devs\n\n` +
+    `• *Developer:* Price Graph Devs\n\n` +
     `Fetches live price history charts dynamically using high-fidelity scraping coordinate systems.`;
 
   await bot.sendMessage(msg.chat.id, aboutText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });

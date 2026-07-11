@@ -1,4 +1,4 @@
-console.log('🚀 [Launcher] Starting both LootsExpert Telegram Bots (Tracker & History) in a single process...');
+console.log('🚀 [Launcher] Starting both Price Graph Telegram Bots (Tracker & History) in a single process...');
 
 // Load environment variables
 require('dotenv').config();

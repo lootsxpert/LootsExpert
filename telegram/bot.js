@@ -40,7 +40,7 @@ bot.on('polling_error', (error) => {
   console.error(`⚠️ [Tracker Bot Polling Error] Code: ${error.code || 'UNKNOWN'}, Message: ${error.message || error}`);
 });
 
-console.log('🤖 Telegram LootsExpert Price Tracker Bot is starting up...');
+console.log('🤖 Telegram Price Graph Price Tracker Bot is starting up...');
 
 // Helper: Main inline buttons that must appear in most messages
 function getMainButtons() {
@@ -61,7 +61,7 @@ async function checkMembership(msg) {
     const member = await bot.getChatMember(channel, userId);
     const isMember = ['member', 'administrator', 'creator'].includes(member.status);
     if (!isMember) {
-      const channelLink = channel.startsWith('@') ? `https://t.me/${channel.substring(1)}` : 'https://t.me/lootsexpert';
+      const channelLink = channel.startsWith('@') ? `https://t.me/${channel.substring(1)}` : 'https://t.me/pricegraph';
       await bot.sendMessage(userId, 'Join our channel first 👇', {
         reply_markup: {
           inline_keyboard: [

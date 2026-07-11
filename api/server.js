@@ -455,7 +455,7 @@ initDatabase().then(() => {
   startDailyScheduler();
   app.listen(PORT, () => {
     console.log(`==================================================`);
-    console.log(`🚀 LootsExpert API running on: http://localhost:${PORT}`);
+    console.log(`🚀 Price Graph API running on: http://localhost:${PORT}`);
     console.log(`==================================================`);
   });
 });
