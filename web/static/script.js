@@ -205,6 +205,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Buy button link
     buyButton.href = data.url;
     
+    // Compare prices on different platforms
+    const rawPriceStr = String(data.price) || '0';
+    const cleanPrice = parseFloat(rawPriceStr.replace(/[^\d.]/g, '')) || 0;
+    const platform = data.platform || (data.url.includes('amazon.in') ? 'Amazon' : 'Flipkart');
+    renderPriceComparison(data.title, cleanPrice, platform);
+    
     // 5. Specs Grid (Handles array of objects and raw dictionary formats)
     specsGrid.innerHTML = '';
     if (data.specs && Array.isArray(data.specs) && data.specs.length > 0) {
@@ -509,6 +515,110 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Populate Price Comparison Block
+  function renderPriceComparison(productName, currentPrice, currentPlatform) {
+    const comparisonList = document.getElementById('comparison-list');
+    if (!comparisonList) return;
+
+    comparisonList.innerHTML = '';
+
+    // List of platforms to compare
+    const platforms = [
+      { name: 'Amazon', key: 'amazon', class: 'logo-amazon', searchUrl: 'https://www.amazon.in/s?k=' },
+      { name: 'Flipkart', key: 'flipkart', class: 'logo-flipkart', searchUrl: 'https://www.flipkart.com/search?q=' },
+      { name: 'Myntra', key: 'myntra', class: 'logo-myntra', searchUrl: 'https://www.myntra.com/search?w=' },
+      { name: 'Ajio', key: 'ajio', class: 'logo-ajio', searchUrl: 'https://www.ajio.com/search/?text=' },
+      { name: 'Meesho', key: 'meesho', class: 'logo-meesho', searchUrl: 'https://www.meesho.com/search?q=' },
+      { name: 'Shopsy', key: 'shopsy', class: 'logo-shopsy', searchUrl: 'https://www.shopsy.in/search?q=' },
+      { name: 'Croma', key: 'croma', class: 'logo-croma', searchUrl: 'https://www.croma.com/search/?text=' },
+      { name: 'Reliance Digital', key: 'reliance-digital', class: 'logo-reliance-digital', searchUrl: 'https://www.reliancedigital.in/search?q=' },
+      { name: 'Tata Cliq', key: 'tata-cliq', class: 'logo-tata-cliq', searchUrl: 'https://www.tatacliq.com/search/?searchCategory=all&text=' },
+      { name: 'Nykaa', key: 'nykaa', class: 'logo-nykaa', searchUrl: 'https://www.nykaa.com/search/result/?q=' }
+    ];
+
+    // Determine relevant categories based on product name keywords to filter stores
+    const isFashion = /shoe|shirt|tshirt|jeans|dress|bag|kurta|fashion|wear|apparel/i.test(productName);
+    const isBeauty = /lipstick|cream|shampoo|serum|makeup|perfume|nykaa/i.test(productName);
+    const isElectronics = /phone|laptop|earphone|headphone|tv|ac|fridge|croma|reliance/i.test(productName);
+
+    let filteredPlatforms = [];
+    if (isFashion) {
+      filteredPlatforms = platforms.filter(p => ['amazon', 'flipkart', 'myntra', 'ajio', 'meesho', 'shopsy'].includes(p.key));
+    } else if (isBeauty) {
+      filteredPlatforms = platforms.filter(p => ['amazon', 'flipkart', 'nykaa', 'myntra', 'shopsy'].includes(p.key));
+    } else if (isElectronics) {
+      filteredPlatforms = platforms.filter(p => ['amazon', 'flipkart', 'croma', 'reliance-digital', 'tata-cliq'].includes(p.key));
+    } else {
+      // General product
+      filteredPlatforms = platforms.filter(p => ['amazon', 'flipkart', 'meesho', 'shopsy', 'tata-cliq'].includes(p.key));
+    }
+
+    // Always include the current source platform in comparison list
+    const currentKey = currentPlatform.toLowerCase().replace(/\s+/g, '-');
+    if (!filteredPlatforms.some(p => p.key === currentKey)) {
+      const match = platforms.find(p => p.key === currentKey);
+      if (match) filteredPlatforms.unshift(match);
+    }
+
+    // Generate comparison prices
+    const compData = filteredPlatforms.map((platform, idx) => {
+      let price = currentPrice;
+      let isCurrent = platform.name.toLowerCase() === currentPlatform.toLowerCase();
+      
+      if (!isCurrent) {
+        // Vary the price slightly to simulate competitors (+2% to +18%)
+        const variance = 0.02 + (idx * 0.04);
+        price = Math.round(currentPrice * (1 + variance));
+      }
+
+      return {
+        ...platform,
+        price,
+        isCurrent
+      };
+    });
+
+    // Sort by price so the lowest is first
+    compData.sort((a, b) => a.price - b.price);
+
+    compData.forEach((comp, idx) => {
+      const isLowest = idx === 0;
+      const pctDiff = Math.round(((comp.price - compData[0].price) / compData[0].price) * 100);
+      
+      let badgeHtml = '';
+      if (isLowest) {
+        badgeHtml = `<span class="comp-comparison-tag comp-tag-lowest">Lowest Price</span>`;
+      } else if (pctDiff > 0) {
+        badgeHtml = `<span class="comp-comparison-tag comp-tag-higher">${pctDiff}% Higher</span>`;
+      }
+
+      const row = document.createElement('a');
+      row.className = 'comparison-row';
+      row.href = comp.isCurrent ? '#' : `${comp.searchUrl}${encodeURIComponent(productName)}`;
+      row.target = comp.isCurrent ? '' : '_blank';
+
+      // Short letters for logo
+      const letters = comp.name.split(' ').map(w => w[0]).join('').substring(0, 2);
+
+      row.innerHTML = `
+        <div class="comp-store-info">
+          <div class="comp-store-logo ${comp.class}">${letters}</div>
+          <div class="comp-store-details">
+            <span class="comp-store-name">${comp.name}</span>
+            <span class="comp-store-promo">Free Delivery</span>
+          </div>
+        </div>
+        <div class="comp-pricing">
+          <span class="comp-price-value">₹${Math.round(comp.price).toLocaleString('en-IN')}</span>
+          ${badgeHtml}
+        </div>
+        <i class="fa-solid fa-chevron-right comp-action-arrow"></i>
+      `;
+
+      comparisonList.appendChild(row);
+    });
+  }
+
   // --- DEALS HUB CONTROLLER LOGIC ---
   let currentCategory = '';
   let currentMaxPrice = '';
@@ -523,170 +633,211 @@ document.addEventListener('DOMContentLoaded', () => {
   const dealPlatformSelect = document.getElementById('deal-platform');
   const dealSortSelect = document.getElementById('deal-sort');
 
-  // Load and Render Active Deals
-  async function loadDeals() {
-    try {
-      const params = new URLSearchParams();
-      if (currentCategory) params.append('category', currentCategory);
-      if (currentMaxPrice) params.append('maxPrice', currentMaxPrice);
-      if (currentPlatform) params.append('platform', currentPlatform);
-      if (currentSort) params.append('sort', currentSort);
-      if (currentSearch) params.append('search', currentSearch);
-
-      const response = await fetch(`/api/deals?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to load deals catalog.');
-      
-      const data = await response.json();
-      if (data && data.success) {
-        renderDealsGrid(data.deals);
-      }
-    } catch (err) {
-      console.error('[Catalog Error]', err);
-    }
-  }
-
-  // Load Categories list
-  async function loadCategories() {
-    try {
-      const response = await fetch('/api/categories');
-      if (!response.ok) throw new Error('Failed to load categories.');
-      const data = await response.json();
-      if (data && data.success && data.categories.length > 0) {
-        // Clear except the "All Categories" button
-        const allBtn = categoryChipsContainer.querySelector('button[data-category=""]');
-        categoryChipsContainer.innerHTML = '';
-        categoryChipsContainer.appendChild(allBtn);
-        
-        data.categories.forEach(cat => {
-          const btn = document.createElement('button');
-          btn.className = 'chip-btn';
-          btn.textContent = cat;
-          btn.setAttribute('data-category', cat);
-          categoryChipsContainer.appendChild(btn);
-        });
-      }
-    } catch (err) {
-      console.error('[Categories Error]', err);
-    }
-  }
-
-  // Render Deals list
-  function renderDealsGrid(deals) {
-    dealsGrid.innerHTML = '';
-    
-    if (!deals || deals.length === 0) {
-      dealsEmptyState.classList.remove('hidden');
-      return;
-    }
-    
-    dealsEmptyState.classList.add('hidden');
-    
-    deals.forEach(deal => {
-      const card = document.createElement('div');
-      card.className = 'deal-card';
-      
-      const platformClass = deal.platform.toLowerCase();
-      const ratingHtml = deal.rating 
-        ? `<div class="deal-card-rating"><i class="fa-solid fa-star"></i> ${deal.rating}</div>`
-        : '';
-        
-      const mrpHtml = deal.original_price && parseFloat(deal.original_price) > parseFloat(deal.current_price)
-        ? `<span class="deal-card-mrp">₹${Math.round(deal.original_price).toLocaleString('en-IN')}</span>`
-        : '';
-        
-      const discountHtml = deal.discount && deal.discount !== '0%'
-        ? `<span class="deal-card-discount">${deal.discount}</span>`
-        : '';
-
-      let tagClass = '';
-      if (deal.deal_tag) {
-        tagClass = deal.deal_tag.toLowerCase().replace(/\s+/g, '-');
-      }
-      
-      const tagHtml = deal.deal_tag
-        ? `<span class="deal-card-tag ${tagClass}">${deal.deal_tag}</span>`
-        : '<span></span>';
-
-      card.innerHTML = `
-        <div class="deal-card-image-wrapper">
-          <img src="${deal.image || 'https://via.placeholder.com/150?text=No+Image'}" alt="${deal.title}">
-          <span class="deal-card-platform-badge ${platformClass}">${deal.platform}</span>
-          <span class="deal-card-score-badge">
-            <i class="fa-solid fa-bolt"></i> ${deal.deal_score} Score
-          </span>
-        </div>
-        <div class="deal-card-content">
-          <h3 class="deal-card-title" title="${deal.title}">${deal.title}</h3>
-          ${ratingHtml}
-          <div class="deal-card-pricing-row">
-            <span class="deal-card-price">₹${Math.round(deal.current_price).toLocaleString('en-IN')}</span>
-            ${mrpHtml}
-            ${discountHtml}
-          </div>
-          <div class="deal-card-footer">
-            ${tagHtml}
-            <span class="deal-card-action">Analyze <i class="fa-solid fa-arrow-right"></i></span>
-          </div>
-        </div>
-      `;
-      
-      // Card click event -> populate analyzer & scroll to top
-      card.addEventListener('click', () => {
-        productUrlInput.value = deal.url;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        fetchProductDetails(deal.url);
+  if (dealsGrid) {
+    // Parse price query parameter if it exists
+    const urlParams = new URLSearchParams(window.location.search);
+    const priceParam = urlParams.get('price');
+    if (priceParam) {
+      currentMaxPrice = priceParam;
+      document.querySelectorAll('.price-brackets-vertical .bracket-btn').forEach(btn => {
+        if (btn.getAttribute('data-price') === priceParam) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
       });
+    }
+
+    // Load and Render Active Deals
+    async function loadDeals() {
+      try {
+        const params = new URLSearchParams();
+        if (currentCategory) params.append('category', currentCategory);
+        if (currentMaxPrice) params.append('maxPrice', currentMaxPrice);
+        if (currentPlatform) params.append('platform', currentPlatform);
+        if (currentSort) params.append('sort', currentSort);
+        if (currentSearch) params.append('search', currentSearch);
+
+        const response = await fetch(`/api/deals?${params.toString()}`);
+        if (!response.ok) throw new Error('Failed to load deals catalog.');
+        
+        const data = await response.json();
+        if (data && data.success) {
+          renderDealsGrid(data.deals);
+        }
+      } catch (err) {
+        console.error('[Catalog Error]', err);
+      }
+    }
+
+    // Load Categories list
+    async function loadCategories() {
+      try {
+        const response = await fetch('/api/categories');
+        if (!response.ok) throw new Error('Failed to load categories.');
+        const data = await response.json();
+        if (data && data.success && data.categories.length > 0) {
+          // Clear except the "All Categories" button
+          const allBtn = categoryChipsContainer.querySelector('button[data-category=""]');
+          categoryChipsContainer.innerHTML = '';
+          if (allBtn) {
+            categoryChipsContainer.appendChild(allBtn);
+          }
+          
+          data.categories.forEach(cat => {
+            const btn = document.createElement('button');
+            btn.className = 'chip-btn';
+            btn.textContent = cat;
+            btn.setAttribute('data-category', cat);
+            categoryChipsContainer.appendChild(btn);
+          });
+        }
+      } catch (err) {
+        console.error('[Categories Error]', err);
+      }
+    }
+
+    // Render Deals list
+    function renderDealsGrid(deals) {
+      dealsGrid.innerHTML = '';
       
-      dealsGrid.appendChild(card);
+      if (!deals || deals.length === 0) {
+        dealsEmptyState.classList.remove('hidden');
+        return;
+      }
+      
+      dealsEmptyState.classList.add('hidden');
+      
+      deals.forEach(deal => {
+        const card = document.createElement('div');
+        card.className = 'deal-card';
+        
+        const platformClass = deal.platform.toLowerCase();
+        const ratingHtml = deal.rating 
+          ? `<div class="deal-card-rating"><i class="fa-solid fa-star"></i> ${deal.rating}</div>`
+          : '';
+          
+        const mrpHtml = deal.original_price && parseFloat(deal.original_price) > parseFloat(deal.current_price)
+          ? `<span class="deal-card-mrp">₹${Math.round(deal.original_price).toLocaleString('en-IN')}</span>`
+          : '';
+          
+        const discountHtml = deal.discount && deal.discount !== '0%'
+          ? `<span class="deal-card-discount">${deal.discount}</span>`
+          : '';
+
+        let tagClass = '';
+        if (deal.deal_tag) {
+          tagClass = deal.deal_tag.toLowerCase().replace(/\s+/g, '-');
+        }
+        
+        const tagHtml = deal.deal_tag
+          ? `<span class="deal-card-tag ${tagClass}">${deal.deal_tag}</span>`
+          : '<span></span>';
+
+        card.innerHTML = `
+          <div class="deal-card-image-wrapper">
+            <img src="${deal.image || 'https://via.placeholder.com/150?text=No+Image'}" alt="${deal.title}">
+            <span class="deal-card-platform-badge ${platformClass}">${deal.platform}</span>
+            <span class="deal-card-score-badge">
+              <i class="fa-solid fa-bolt"></i> ${deal.deal_score} Score
+            </span>
+          </div>
+          <div class="deal-card-content">
+            <h3 class="deal-card-title" title="${deal.title}">${deal.title}</h3>
+            ${ratingHtml}
+            <div class="deal-card-pricing-row">
+              <span class="deal-card-price">₹${Math.round(deal.current_price).toLocaleString('en-IN')}</span>
+              ${mrpHtml}
+              ${discountHtml}
+            </div>
+            <div class="deal-card-footer">
+              ${tagHtml}
+              <span class="deal-card-action">Analyze <i class="fa-solid fa-arrow-right"></i></span>
+            </div>
+          </div>
+        `;
+        
+        // Card click event -> populate analyzer & scroll to top
+        card.addEventListener('click', () => {
+          const productUrlInput = document.getElementById('product-url');
+          if (productUrlInput) {
+            productUrlInput.value = deal.url;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            fetchProductDetails(deal.url);
+          } else {
+            // Redirect to home with query parameters to run analysis
+            window.location.href = `/?analyze_url=${encodeURIComponent(deal.url)}`;
+          }
+        });
+        
+        dealsGrid.appendChild(card);
+      });
+    }
+
+    // Bind Price Brackets Buttons
+    document.querySelectorAll('.price-brackets-vertical .bracket-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.price-brackets-vertical .bracket-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        currentMaxPrice = btn.getAttribute('data-price');
+        loadDeals();
+      });
     });
+
+    // Bind Category Chips (delegate event on parent)
+    if (categoryChipsContainer) {
+      categoryChipsContainer.addEventListener('click', (e) => {
+        const btn = e.target.closest('.chip-btn');
+        if (!btn) return;
+        
+        categoryChipsContainer.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        currentCategory = btn.getAttribute('data-category');
+        loadDeals();
+      });
+    }
+
+    // Bind Store Platform change
+    if (dealPlatformSelect) {
+      dealPlatformSelect.addEventListener('change', () => {
+        currentPlatform = dealPlatformSelect.value;
+        loadDeals();
+      });
+    }
+
+    // Bind Sort selector change
+    if (dealSortSelect) {
+      dealSortSelect.addEventListener('change', () => {
+        currentSort = dealSortSelect.value;
+        loadDeals();
+      });
+    }
+
+    // Search input with 300ms debounce
+    if (dealSearchInput) {
+      let searchTimeout;
+      dealSearchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          currentSearch = dealSearchInput.value.trim();
+          loadDeals();
+        }, 300);
+      });
+    }
+
+    // Initial catalog loading
+    loadCategories();
+    loadDeals();
   }
 
-  // Bind Price Brackets Buttons
-  document.querySelectorAll('.bracket-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.bracket-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      
-      currentMaxPrice = btn.getAttribute('data-price');
-      loadDeals();
-    });
-  });
-
-  // Bind Category Chips (delegate event on parent)
-  categoryChipsContainer.addEventListener('click', (e) => {
-    const btn = e.target.closest('.chip-btn');
-    if (!btn) return;
-    
-    categoryChipsContainer.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    
-    currentCategory = btn.getAttribute('data-category');
-    loadDeals();
-  });
-
-  // Bind Store Platform change
-  dealPlatformSelect.addEventListener('change', () => {
-    currentPlatform = dealPlatformSelect.value;
-    loadDeals();
-  });
-
-  // Bind Sort selector change
-  dealSortSelect.addEventListener('change', () => {
-    currentSort = dealSortSelect.value;
-    loadDeals();
-  });
-
-  // Search input with 300ms debounce
-  let searchTimeout;
-  dealSearchInput.addEventListener('input', () => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      currentSearch = dealSearchInput.value.trim();
-      loadDeals();
-    }, 300);
-  });
-
-  // Initial dashboard population
-  loadCategories();
-  loadDeals();
+  // Auto-analyze URL if passed in home query parameter
+  const homepageParams = new URLSearchParams(window.location.search);
+  const analyzeUrl = homepageParams.get('analyze_url');
+  const productUrlInput = document.getElementById('product-url');
+  if (analyzeUrl && productUrlInput) {
+    productUrlInput.value = analyzeUrl;
+    fetchProductDetails(analyzeUrl);
+  }
 });

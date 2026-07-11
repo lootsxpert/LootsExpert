@@ -135,6 +135,14 @@
                 </div>
               </div>
 
+              <!-- Price Comparison Block -->
+              <div class="comparison-section" id="comparison-section">
+                <h3>Compare Available Prices</h3>
+                <div class="comparison-list" id="comparison-list">
+                  <!-- Dynamically populated list of comparison rows -->
+                </div>
+              </div>
+
               <!-- Specs / Details -->
               <div class="specs-section" id="specs-section">
                 <h3>Product Specifications</h3>
@@ -249,108 +257,50 @@
 
           <!-- Hot Deals Under Price Brackets -->
           <div class="price-brackets">
-            <button class="bracket-btn active" data-price="">
+            <a href="/deals" class="bracket-btn">
               <span class="bracket-title">All verified</span>
               <span class="bracket-value">Hot Deals</span>
-            </button>
-            <button class="bracket-btn" data-price="99">
+            </a>
+            <a href="/deals?price=99" class="bracket-btn">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹99</span>
-            </button>
-            <button class="bracket-btn" data-price="199">
+            </a>
+            <a href="/deals?price=199" class="bracket-btn">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹199</span>
-            </button>
-            <button class="bracket-btn" data-price="299">
+            </a>
+            <a href="/deals?price=299" class="bracket-btn">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹299</span>
-            </button>
-            <button class="bracket-btn" data-price="399">
+            </a>
+            <a href="/deals?price=399" class="bracket-btn">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹399</span>
-            </button>
-            <button class="bracket-btn" data-price="499">
+            </a>
+            <a href="/deals?price=499" class="bracket-btn">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹499</span>
-            </button>
-            <button class="bracket-btn" data-price="599">
+            </a>
+            <a href="/deals?price=599" class="bracket-btn">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹599</span>
-            </button>
-            <button class="bracket-btn" data-price="799">
+            </a>
+            <a href="/deals?price=799" class="bracket-btn">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹799</span>
-            </button>
-            <button class="bracket-btn" data-price="999">
+            </a>
+            <a href="/deals?price=999" class="bracket-btn">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹999</span>
-            </button>
-            <button class="bracket-btn" data-price="15000">
+            </a>
+            <a href="/deals?price=15000" class="bracket-btn">
               <span class="bracket-title">Smartphones</span>
               <span class="bracket-value">Under ₹15K</span>
-            </button>
-            <button class="bracket-btn" data-price="35000">
+            </a>
+            <a href="/deals?price=35000" class="bracket-btn">
               <span class="bracket-title">Laptops</span>
               <span class="bracket-value">Under ₹35K</span>
-            </button>
-          </div>
-
-          <div class="deals-catalog-layout">
-            <!-- Filters Toolbar -->
-            <div class="catalog-controls">
-              <!-- Categories Navigation Bar -->
-              <div class="control-group">
-                <span class="control-label">Categories</span>
-                <div class="category-chips" id="category-chips">
-                  <button class="chip-btn active" data-category="">All Categories</button>
-                  <!-- Dynamically loaded -->
-                </div>
-              </div>
-
-              <!-- Additional filters row -->
-              <div class="filters-row">
-                <!-- Search inside catalog -->
-                <div class="search-filter-wrapper">
-                  <i class="fa-solid fa-magnifying-glass"></i>
-                  <input type="text" id="deal-search" placeholder="Search deals by title...">
-                </div>
-
-                <!-- Store Platform -->
-                <div class="select-filter-wrapper">
-                  <i class="fa-solid fa-shop"></i>
-                  <select id="deal-platform">
-                    <option value="">All Stores</option>
-                    <option value="Amazon">Amazon</option>
-                    <option value="Flipkart">Flipkart</option>
-                  </select>
-                </div>
-
-                <!-- Sort Order -->
-                <div class="select-filter-wrapper">
-                  <i class="fa-solid fa-arrow-down-wide-short"></i>
-                  <select id="deal-sort">
-                    <option value="deal_score">Best Deals (Score)</option>
-                    <option value="price_asc">Price: Low to High</option>
-                    <option value="price_desc">Price: High to Low</option>
-                    <option value="popularity">Popularity</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <!-- Catalog Grid -->
-            <div class="deals-grid-container">
-              <div class="deals-grid" id="deals-grid">
-                <!-- Product cards populated dynamically -->
-              </div>
-
-              <!-- Empty state -->
-              <div id="deals-empty-state" class="empty-state hidden">
-                <i class="fa-solid fa-box-open empty-icon"></i>
-                <h3>No Deals Found</h3>
-                <p>Try clearing your filters or broadening your search criteria.</p>
-              </div>
-            </div>
+            </a>
           </div>
         </section>
       </main>

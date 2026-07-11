@@ -18,6 +18,11 @@ NODE_API_URL = os.environ.get('NODE_API_URL', 'http://localhost:3000')
 def index():
     return render_template("index.html")
 
+@app.route("/deals")
+@app.route("/deal")
+def deals_catalog():
+    return render_template("deals.html")
+
 @app.route("/api/deals")
 def api_deals():
     try:

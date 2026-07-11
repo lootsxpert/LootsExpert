@@ -630,66 +630,88 @@ function parseGenericMeta($, url) {
  * Main Scrape Function
  */
 async function scrapeProduct(url) {
-  try {
-    if (!url) {
-      throw new Error('URL is required');
-    }
+  let attempts = 3;
+  let lastError = null;
+  let parsedData = null;
 
-    const html = await fetchPageHtml(url);
-    const $ = cheerio.load(html);
+  for (let i = 0; i < attempts; i++) {
+    try {
+      if (!url) {
+        throw new Error('URL is required');
+      }
 
-    if (url.includes('flipkart.com')) {
-      const data = parseFlipkart($, url);
-      if (!data.title) {
-        throw new Error('Failed to parse Flipkart product details. Could be anti-bot block.');
+      if (i > 0) {
+        // Sleep between retries
+        await new Promise(resolve => setTimeout(resolve, 1000 * i));
       }
-      return data;
-    } else if (url.includes('shopsy.in') || url.includes('shopsy.com')) {
-      const data = parseFlipkart($, url);
-      if (!data.title) {
-        throw new Error('Failed to parse Shopsy product details. Could be anti-bot block.');
+
+      const html = await fetchPageHtml(url);
+      const $ = cheerio.load(html);
+      let data;
+
+      if (url.includes('flipkart.com')) {
+        data = parseFlipkart($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Flipkart product details.');
+        }
+      } else if (url.includes('shopsy.in') || url.includes('shopsy.com')) {
+        data = parseFlipkart($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Shopsy product details.');
+        }
+        data.platform = 'Shopsy';
+      } else if (url.includes('amazon.in') || url.includes('amazon.com')) {
+        data = parseAmazon($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Amazon product details.');
+        }
+      } else if (url.includes('myntra.com')) {
+        data = parseMyntra($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Myntra product details.');
+        }
+      } else if (url.includes('ajio.com')) {
+        data = parseAjio($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Ajio product details.');
+        }
+      } else if (url.includes('meesho.com')) {
+        data = parseMeesho($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Meesho product details.');
+        }
+      } else {
+        data = parseGenericMeta($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse product details from target site.');
+        }
       }
-      data.platform = 'Shopsy';
-      return data;
-    } else if (url.includes('amazon.in') || url.includes('amazon.com')) {
-      const data = parseAmazon($, url);
-      if (!data.title) {
-        throw new Error('Failed to parse Amazon product details. Could be anti-bot block.');
+
+      parsedData = data;
+
+      // If we got the product details but there is no image (or image is empty), let's retry!
+      if (!data.image || data.image.trim() === '') {
+        throw new Error('No image extracted.');
       }
-      return data;
-    } else if (url.includes('myntra.com')) {
-      const data = parseMyntra($, url);
-      if (!data.title) {
-        throw new Error('Failed to parse Myntra product details. Could be anti-bot block.');
-      }
-      return data;
-    } else if (url.includes('ajio.com')) {
-      const data = parseAjio($, url);
-      if (!data.title) {
-        throw new Error('Failed to parse Ajio product details. Could be anti-bot block.');
-      }
-      return data;
-    } else if (url.includes('meesho.com')) {
-      const data = parseMeesho($, url);
-      if (!data.title) {
-        throw new Error('Failed to parse Meesho product details. Could be anti-bot block.');
-      }
-      return data;
-    } else {
-      // Fallback for Nykaa, TataCliq, Croma, Reliance Digital etc.
-      const data = parseGenericMeta($, url);
-      if (!data.title) {
-        throw new Error('Failed to parse product details from target site.');
-      }
-      return data;
+
+      return data; // Success!
+
+    } catch (err) {
+      console.log(`⚠️ [Scraper Attempt ${i+1}/${attempts} Failed] URL: ${url}. Error: ${err.message}`);
+      lastError = err;
     }
-  } catch (error) {
-    console.error(`[Scraper Error] ${error.message}`);
-    return {
-      success: false,
-      error: error.message
-    };
   }
+
+  // Fallback: If we managed to parse the product but just couldn't extract the image, return the product anyway rather than throwing!
+  if (parsedData && parsedData.title) {
+    console.log(`[Scraper Fallback] Returning parsed product data with missing image.`);
+    return parsedData;
+  }
+
+  return {
+    success: false,
+    error: lastError ? lastError.message : 'Failed to scrape product after 3 attempts'
+  };
 }
 
 /**

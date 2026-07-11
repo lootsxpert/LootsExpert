@@ -1946,4 +1946,309 @@ body {
   color: var(--text-primary);
 }
 
+/* --- DEALS CATALOG SIDEBAR LAYOUT --- */
+.deals-catalog-layout {
+  display: flex;
+  gap: 30px;
+  width: 100%;
+  margin-top: 30px;
+  align-items: flex-start;
+}
+
+.catalog-sidebar {
+  width: 290px;
+  flex-shrink: 0;
+}
+
+.sidebar-filter-card {
+  padding: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-clean);
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.sidebar-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-clean);
+  padding-bottom: 12px;
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filter-group h4 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+}
+
+/* Vertical Price Brackets inside Sidebar */
+.price-brackets-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.price-brackets-vertical .bracket-btn {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--border-clean);
+  border-radius: 0;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: none;
+  transition: var(--transition-smooth);
+  height: auto;
+}
+
+.price-brackets-vertical .bracket-btn:hover {
+  border-color: #2563eb;
+  background: #f8fafc;
+  transform: none;
+}
+
+.price-brackets-vertical .bracket-btn.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+  box-shadow: none;
+  transform: none;
+}
+
+.price-brackets-vertical .bracket-btn.active .bracket-title {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.price-brackets-vertical .bracket-btn.active .bracket-value {
+  color: white;
+}
+
+/* Vertical Category List */
+.category-vertical-chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 350px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.category-vertical-chips::-webkit-scrollbar {
+  width: 4px;
+}
+
+.category-vertical-chips::-webkit-scrollbar-thumb {
+  background: var(--border-clean);
+}
+
+.category-vertical-chips .chip-btn {
+  width: 100%;
+  text-align: left;
+  border-radius: 0;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid var(--border-clean);
+  font-size: 0.82rem;
+  transition: var(--transition-smooth);
+}
+
+.category-vertical-chips .chip-btn.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+/* Right main catalog container */
+.catalog-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.catalog-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-clean);
+}
+
+.catalog-header-bar h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sort-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sort-wrapper span {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 992px) {
+  .deals-catalog-layout {
+    flex-direction: column;
+  }
+  .catalog-sidebar {
+    width: 100%;
+  }
+}
+
+/* --- PRICE COMPARISON SECTION --- */
+.comparison-section {
+  margin-top: 25px;
+  border-top: 1px solid var(--border-clean);
+  padding-top: 20px;
+}
+
+.comparison-section h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 15px;
+}
+
+.comparison-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comparison-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #f8fafc;
+  border: 1px solid var(--border-clean);
+  transition: var(--transition-smooth);
+  text-decoration: none;
+  color: inherit;
+  border-radius: 0;
+}
+
+.comparison-row:hover {
+  border-color: #2563eb;
+  background: #f1f5f9;
+}
+
+.comp-store-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.comp-store-logo {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: white;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+/* Color schemes for store logos */
+.logo-amazon { background-color: #ff9900; }
+.logo-flipkart { background-color: #2874f0; }
+.logo-myntra { background-color: #ff3f6c; }
+.logo-ajio { background-color: #31353c; }
+.logo-meesho { background-color: #f43397; }
+.logo-shopsy { background-color: #795548; }
+.logo-croma { background-color: #00e676; }
+.logo-reliance-digital { background-color: #e53935; }
+.logo-tata-cliq { background-color: #ff1744; }
+.logo-nykaa { background-color: #fc2779; }
+
+.comp-store-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.comp-store-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.comp-store-promo {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.comp-pricing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.comp-price-value {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.comp-comparison-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 2px;
+}
+
+.comp-tag-lowest {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.comp-tag-higher {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.comp-action-arrow {
+  color: var(--text-muted);
+  font-size: 1rem;
+  transition: var(--transition-smooth);
+}
+
+.comparison-row:hover .comp-action-arrow {
+  color: #2563eb;
+  transform: translateX(3px);
+}
+
 
