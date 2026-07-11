@@ -32,6 +32,12 @@ if (!token) {
 
 // Create the bot
 const bot = new TelegramBot(token, { polling: true });
+
+// Listen for polling errors and log clean one-liner summaries to prevent log flooding
+bot.on('polling_error', (error) => {
+  console.error(`⚠️ [History Bot Polling Error] Code: ${error.code || 'UNKNOWN'}, Message: ${error.message || error}`);
+});
+
 console.log('📈 Telegram LootsExpert Price History Bot is starting up...');
 
 // Helper: Standard menu buttons

@@ -4,7 +4,8 @@
   "description": "Telegram bot for scraping and tracking Flipkart & Amazon product prices",
   "main": "bot.js",
   "scripts": {
-    "start": "node bot.js",
+    "start": "node start_all.js",
+    "start:tracker": "node bot.js",
     "start:history": "node history_bot.js"
   },
   "dependencies": {

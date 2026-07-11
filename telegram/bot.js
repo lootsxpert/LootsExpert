@@ -35,6 +35,11 @@ if (!token) {
 // Create a bot that uses polling
 const bot = new TelegramBot(token, { polling: true });
 
+// Listen for polling errors and log clean one-liner summaries to prevent log flooding
+bot.on('polling_error', (error) => {
+  console.error(`⚠️ [Tracker Bot Polling Error] Code: ${error.code || 'UNKNOWN'}, Message: ${error.message || error}`);
+});
+
 console.log('🤖 Telegram LootsExpert Price Tracker Bot is starting up...');
 
 // Helper: Main inline buttons that must appear in most messages
