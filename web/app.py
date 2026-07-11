@@ -12,7 +12,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
 # Points to the Node.js Express API scraper service
-NODE_API_URL = os.environ.get('NODE_API_URL', 'http://localhost:3000')
+NODE_API_URL = os.environ.get('NODE_API_URL', 'https://api-production-142c.up.railway.app/')
 
 @app.route("/")
 def index():
