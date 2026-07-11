@@ -7,7 +7,7 @@ from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 
 # Load env variables
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 

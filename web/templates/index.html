@@ -257,50 +257,177 @@
 
           <!-- Hot Deals Under Price Brackets -->
           <div class="price-brackets">
-            <a href="/deals" class="bracket-btn">
+            <button class="bracket-btn active" data-price="">
               <span class="bracket-title">All verified</span>
               <span class="bracket-value">Hot Deals</span>
-            </a>
-            <a href="/deals?price=99" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="99">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹99</span>
-            </a>
-            <a href="/deals?price=199" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="199">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹199</span>
-            </a>
-            <a href="/deals?price=299" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="299">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹299</span>
-            </a>
-            <a href="/deals?price=399" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="399">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹399</span>
-            </a>
-            <a href="/deals?price=499" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="499">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹499</span>
-            </a>
-            <a href="/deals?price=599" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="599">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹599</span>
-            </a>
-            <a href="/deals?price=799" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="799">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹799</span>
-            </a>
-            <a href="/deals?price=999" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="999">
               <span class="bracket-title">Deals Under</span>
               <span class="bracket-value">₹999</span>
-            </a>
-            <a href="/deals?price=15000" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="15000">
               <span class="bracket-title">Smartphones</span>
               <span class="bracket-value">Under ₹15K</span>
-            </a>
-            <a href="/deals?price=35000" class="bracket-btn">
+            </button>
+            <button class="bracket-btn" data-price="35000">
               <span class="bracket-title">Laptops</span>
               <span class="bracket-value">Under ₹35K</span>
-            </a>
+            </button>
+          </div>
+
+          <div class="deals-catalog-layout">
+            <!-- Left Sidebar Filters -->
+            <aside class="catalog-sidebar">
+              <div class="card sidebar-filter-card">
+                <h3 class="sidebar-title"><i class="fa-solid fa-filter"></i> Filters</h3>
+                
+                <!-- Search bar inside sidebar -->
+                <div class="filter-group">
+                  <h4>Search Deals</h4>
+                  <div class="search-filter-wrapper">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="deal-search" placeholder="Search by title...">
+                  </div>
+                </div>
+
+                <!-- Price Brackets in Sidebar -->
+                <div class="filter-group">
+                  <h4>Price Brackets</h4>
+                  <div class="price-brackets-vertical">
+                    <button class="bracket-btn active" data-price="">
+                      <span class="bracket-title">All verified</span>
+                      <span class="bracket-value">Hot Deals</span>
+                    </button>
+                    <button class="bracket-btn" data-price="99">
+                      <span class="bracket-title">Deals Under</span>
+                      <span class="bracket-value">₹99</span>
+                    </button>
+                    <button class="bracket-btn" data-price="199">
+                      <span class="bracket-title">Deals Under</span>
+                      <span class="bracket-value">₹199</span>
+                    </button>
+                    <button class="bracket-btn" data-price="299">
+                      <span class="bracket-title">Deals Under</span>
+                      <span class="bracket-value">₹299</span>
+                    </button>
+                    <button class="bracket-btn" data-price="399">
+                      <span class="bracket-title">Deals Under</span>
+                      <span class="bracket-value">₹399</span>
+                    </button>
+                    <button class="bracket-btn" data-price="499">
+                      <span class="bracket-title">Deals Under</span>
+                      <span class="bracket-value">₹499</span>
+                    </button>
+                    <button class="bracket-btn" data-price="599">
+                      <span class="bracket-title">Deals Under</span>
+                      <span class="bracket-value">₹599</span>
+                    </button>
+                    <button class="bracket-btn" data-price="799">
+                      <span class="bracket-title">Deals Under</span>
+                      <span class="bracket-value">₹799</span>
+                    </button>
+                    <button class="bracket-btn" data-price="999">
+                      <span class="bracket-title">Deals Under</span>
+                      <span class="bracket-value">₹999</span>
+                    </button>
+                    <button class="bracket-btn" data-price="15000">
+                      <span class="bracket-title">Smartphones</span>
+                      <span class="bracket-value">Under 15K</span>
+                    </button>
+                    <button class="bracket-btn" data-price="35000">
+                      <span class="bracket-title">Laptops</span>
+                      <span class="bracket-value">Under 35K</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Store Platform Select -->
+                <div class="filter-group">
+                  <h4>Store Platform</h4>
+                  <div class="select-filter-wrapper">
+                    <i class="fa-solid fa-shop"></i>
+                    <select id="deal-platform">
+                      <option value="">All Stores</option>
+                      <option value="Amazon">Amazon</option>
+                      <option value="Flipkart">Flipkart</option>
+                      <option value="Myntra">Myntra</option>
+                      <option value="Ajio">Ajio</option>
+                      <option value="Meesho">Meesho</option>
+                      <option value="Shopsy">Shopsy</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <!-- Category chips list vertical -->
+                <div class="filter-group">
+                  <h4>Categories</h4>
+                  <div class="category-vertical-chips" id="category-chips">
+                    <button class="chip-btn active" data-category="">All Categories</button>
+                    <!-- Dynamically populated -->
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            <!-- Right Side Catalog Main -->
+            <main class="catalog-main">
+              <div class="catalog-header-bar card">
+                <h2><i class="fa-solid fa-fire text-red-glow"></i> Hot Deals Catalog</h2>
+                
+                <div class="sort-wrapper">
+                  <span>Sort By:</span>
+                  <div class="select-filter-wrapper">
+                    <i class="fa-solid fa-arrow-down-wide-short"></i>
+                    <select id="deal-sort">
+                      <option value="deal_score">Popularity</option>
+                      <option value="price_asc">Price: Low to High</option>
+                      <option value="price_desc">Price: High to Low</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="deals-grid-container">
+                <div class="deals-grid" id="deals-grid">
+                  <!-- Populated dynamically -->
+                </div>
+
+                <!-- Empty state -->
+                <div id="deals-empty-state" class="empty-state hidden card">
+                  <i class="fa-solid fa-box-open empty-icon"></i>
+                  <h3>No Deals Found</h3>
+                  <p>Try clearing your filters or broadening your search criteria.</p>
+                </div>
+              </div>
+            </main>
           </div>
         </section>
       </main>

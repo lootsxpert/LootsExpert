@@ -634,19 +634,58 @@ document.addEventListener('DOMContentLoaded', () => {
   const dealSortSelect = document.getElementById('deal-sort');
 
   if (dealsGrid) {
-    // Parse price query parameter if it exists
-    const urlParams = new URLSearchParams(window.location.search);
-    const priceParam = urlParams.get('price');
-    if (priceParam) {
-      currentMaxPrice = priceParam;
-      document.querySelectorAll('.price-brackets-vertical .bracket-btn').forEach(btn => {
-        if (btn.getAttribute('data-price') === priceParam) {
-          btn.classList.add('active');
-        } else {
-          btn.classList.remove('active');
+    // Load initial parameters from the URL
+    function parseUrlParams() {
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      if (urlParams.has('category')) {
+        currentCategory = urlParams.get('category');
+      }
+      if (urlParams.has('price')) {
+        currentMaxPrice = urlParams.get('price');
+        document.querySelectorAll('.price-brackets .bracket-btn, .price-brackets-vertical .bracket-btn').forEach(btn => {
+          if (btn.getAttribute('data-price') === currentMaxPrice) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+      }
+      if (urlParams.has('platform')) {
+        currentPlatform = urlParams.get('platform');
+        if (dealPlatformSelect) {
+          dealPlatformSelect.value = currentPlatform;
         }
-      });
+      }
+      if (urlParams.has('sort')) {
+        currentSort = urlParams.get('sort');
+        if (dealSortSelect) {
+          dealSortSelect.value = currentSort;
+        }
+      }
+      if (urlParams.has('search')) {
+        currentSearch = urlParams.get('search');
+        if (dealSearchInput) {
+          dealSearchInput.value = currentSearch;
+        }
+      }
     }
+
+    // Update the browser URL with active filters using History API
+    function updateUrlParams() {
+      const params = new URLSearchParams();
+      if (currentCategory) params.append('category', currentCategory);
+      if (currentMaxPrice) params.append('price', currentMaxPrice);
+      if (currentPlatform) params.append('platform', currentPlatform);
+      if (currentSort) params.append('sort', currentSort);
+      if (currentSearch) params.append('search', currentSearch);
+      
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState(null, '', newUrl);
+    }
+
+    // Parse initial URL query parameter parameters
+    parseUrlParams();
 
     // Load and Render Active Deals
     async function loadDeals() {
@@ -664,6 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await response.json();
         if (data && data.success) {
           renderDealsGrid(data.deals);
+          updateUrlParams(); // Update URL parameter hashes
         }
       } catch (err) {
         console.error('[Catalog Error]', err);
@@ -774,13 +814,20 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // Bind Price Brackets Buttons
-    document.querySelectorAll('.price-brackets-vertical .bracket-btn').forEach(btn => {
+    // Bind Price Brackets Buttons (horizontal top bar & vertical sidebar)
+    document.querySelectorAll('.price-brackets .bracket-btn, .price-brackets-vertical .bracket-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.price-brackets-vertical .bracket-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        const targetPrice = btn.getAttribute('data-price');
+        currentMaxPrice = targetPrice;
+
+        document.querySelectorAll('.price-brackets .bracket-btn, .price-brackets-vertical .bracket-btn').forEach(b => {
+          if (b.getAttribute('data-price') === targetPrice) {
+            b.classList.add('active');
+          } else {
+            b.classList.remove('active');
+          }
+        });
         
-        currentMaxPrice = btn.getAttribute('data-price');
         loadDeals();
       });
     });
