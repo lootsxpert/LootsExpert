@@ -67,7 +67,8 @@ body {
 
 /* --- APP CONTAINER & LAYOUT --- */
 .app-container {
-  max-width: 1150px;
+  max-width: 1400px;
+  width: 95%;
   margin: 0 auto;
   padding: 40px 20px;
   position: relative;
@@ -219,7 +220,7 @@ body {
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
   margin-top: 20px;
-  margin-bottom: 30px;
+  margin-bottom: 50px;
 }
 
 .hero-section::before {
@@ -355,8 +356,8 @@ body {
 
 /* --- PROMO BANNER SECTION --- */
 .promo-banner-section {
-  max-width: 1110px;
-  margin: 0 auto 30px auto;
+  width: 100%;
+  margin: 0 auto 50px auto;
   padding: 0;
 }
 
@@ -1157,30 +1158,183 @@ body {
   position: relative;
 }
 
-/* --- FOOTER --- */
+/* --- FOOTER SECTION --- */
 .app-footer {
-  text-align: center;
-  margin-top: auto;
-  padding-top: 40px;
-  color: var(--text-muted);
-  font-size: 0.85rem;
+  background-color: #1e1b4b; /* Deep Indigo matching BuyHatke screenshot */
+  color: #e2e8f0;
+  padding: 60px 20px 30px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.9rem;
+  width: 100%;
+  margin-top: 60px;
+}
+
+.footer-container {
+  max-width: 1400px;
+  width: 95%;
+  margin: 0 auto;
+}
+
+.footer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 25px;
+  margin-bottom: 40px;
+}
+
+.footer-logo {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+}
+
+.footer-logo .logo-icon {
+  color: #3b82f6;
+}
+
+.footer-logo .highlight {
+  color: #3b82f6;
+}
+
+.footer-socials {
+  display: flex;
+  gap: 12px;
+}
+
+.social-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 1.1rem;
+  transition: var(--transition-smooth);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.social-icon:hover {
+  background: #3b82f6;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.footer-links-grid {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(4, 1fr);
+  gap: 40px;
+  margin-bottom: 50px;
+}
+
+.footer-column h4 {
+  font-family: 'Outfit', sans-serif;
+  color: white;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+  letter-spacing: 0.02em;
+}
+
+.footer-column ul {
+  list-style: none;
+}
+
+.footer-column ul li {
+  margin-bottom: 12px;
+}
+
+.footer-column ul li a {
+  color: #94a3b8;
+  text-decoration: none;
+  transition: var(--transition-smooth);
+}
+
+.footer-column ul li a:hover {
+  color: #3b82f6;
+}
+
+/* App download block styling */
+.app-download-box {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 24px;
+  border-radius: 16px;
+  max-width: 320px;
+}
+
+.qr-code-placeholder {
+  width: 90px;
+  height: 90px;
+  background: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1e1b4b;
+  font-size: 4.5rem;
+  padding: 4px;
+}
+
+.app-buttons {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  border-top: 1px solid var(--border-clean);
+  flex: 1;
 }
 
-.footer-links {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  color: var(--text-secondary);
-}
-
-.footer-links span {
+.app-btn {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  transition: var(--transition-smooth);
+}
+
+.app-btn:hover {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 25px;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.legal-links a {
+  color: #64748b;
+  text-decoration: none;
+  transition: var(--transition-smooth);
+}
+
+.legal-links a:hover {
+  color: #3b82f6;
 }
 
 /* --- HELPER CLASSES --- */
@@ -1261,17 +1415,18 @@ body {
 }
 
 .deals-hub-header {
-  margin-bottom: 25px;
-  text-align: left;
+  margin-bottom: 35px;
+  text-align: center;
 }
 
 .deals-hub-header h2 {
   font-family: 'Outfit', sans-serif;
-  font-size: 1.8rem;
+  font-size: 2.2rem;
   font-weight: 800;
   color: var(--text-primary);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
 }
 
@@ -1281,41 +1436,19 @@ body {
 }
 
 .hub-subtitle {
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--text-secondary);
+  margin-top: 6px;
 }
 
 /* --- PRICE BRACKETS --- */
 .price-brackets {
   display: flex;
-  gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 25px;
-}
-
-.bracket-btn {
-  background: #f1f5f9;
-  border: 1px solid var(--border-clean);
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-weight: 600;
-  font-size: 0.85rem;
-  padding: 8px 16px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: var(--transition-smooth);
-}
-
-.bracket-btn:hover {
-  background: #e2e8f0;
-  color: var(--text-primary);
-}
-
-.bracket-btn.active {
-  background: linear-gradient(135deg, var(--accent-indigo), var(--accent-indigo-light));
-  color: white;
-  border-color: transparent;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+  margin-bottom: 45px;
 }
 
 /* --- DEALS CATALOG LAYOUT --- */
