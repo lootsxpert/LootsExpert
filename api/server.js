@@ -44,12 +44,50 @@ function getCanonicalUrl(url) {
     // Flipkart normalization
     if (parsed.hostname.includes('flipkart.com')) {
       const pid = parsed.searchParams.get('pid');
-      // Strip everything except pathname and pid
       let canonical = `https://www.flipkart.com${parsed.pathname}`;
       if (pid) {
         canonical += `?pid=${pid}`;
       }
       return canonical;
+    }
+
+    // Shopsy normalization
+    if (parsed.hostname.includes('shopsy.in') || parsed.hostname.includes('shopsy.com')) {
+      const pid = parsed.searchParams.get('pid');
+      let canonical = `https://www.shopsy.in${parsed.pathname}`;
+      if (pid) {
+        canonical += `?pid=${pid}`;
+      }
+      return canonical;
+    }
+
+    // Myntra normalization
+    if (parsed.hostname.includes('myntra.com')) {
+      const match = parsed.pathname.match(/\/(\d+)\/buy/i);
+      if (match) {
+        return `https://www.myntra.com/${match[1]}/buy`;
+      }
+      const matchAlt = parsed.pathname.match(/\/(\d+)/);
+      if (matchAlt) {
+        return `https://www.myntra.com/${matchAlt[1]}/buy`;
+      }
+    }
+
+    // Ajio normalization
+    if (parsed.hostname.includes('ajio.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9_]+)/i);
+      if (match) {
+        const cleanPid = match[1].split('_')[0];
+        return `https://www.ajio.com/p/${cleanPid}`;
+      }
+    }
+
+    // Meesho normalization
+    if (parsed.hostname.includes('meesho.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/i);
+      if (match) {
+        return `https://www.meesho.com/p/${match[1]}`;
+      }
     }
     
     return url;
@@ -202,6 +240,120 @@ app.get('/api/scrape', async (req, res) => {
       success: false,
       error: 'An internal server error occurred: ' + err.message
     });
+  }
+});
+
+// Endpoint: GET /api/history
+// Retrieves compiled historical data for the Price History Bot
+app.get('/api/history', async (req, res) => {
+  const { url, platform, pid } = req.query;
+
+  let canonicalUrl = '';
+  if (url) {
+    canonicalUrl = getCanonicalUrl(url);
+  } else if (platform && pid) {
+    const store = platform.toLowerCase();
+    if (store === 'amazon') canonicalUrl = `https://www.amazon.in/dp/${pid}`;
+    else if (store === 'flipkart') canonicalUrl = `https://www.flipkart.com/p/p?pid=${pid}`;
+    else if (store === 'shopsy') canonicalUrl = `https://www.shopsy.in/p/p?pid=${pid}`;
+    else if (store === 'myntra') canonicalUrl = `https://www.myntra.com/p/${pid}/buy`;
+    else if (store === 'ajio') canonicalUrl = `https://www.ajio.com/p/${cleanAjioPid(pid)}`;
+    else if (store === 'meesho') canonicalUrl = `https://www.meesho.com/p/${pid}`;
+    else {
+      return res.status(400).json({ success: false, error: 'Unsupported store platform.' });
+    }
+  } else {
+    return res.status(400).json({ success: false, error: 'Either url or both platform and pid must be provided.' });
+  }
+
+  // Helper helper to strip extra AJIO pid info if needed
+  function cleanAjioPid(rawPid) {
+    return rawPid.split('_')[0];
+  }
+
+  try {
+    console.log(`[API History] Fetching history for URL: ${canonicalUrl}`);
+    
+    // 1. Fetch/Scrape the live details of the product
+    const scrapeResult = await scrapeProduct(canonicalUrl);
+    if (!scrapeResult.success) {
+      return res.status(500).json({ success: false, error: scrapeResult.error });
+    }
+
+    // 2. Try to get cached history from our PostgreSQL database first
+    let productInDb = await getProductByUrl(canonicalUrl);
+    let historyPoints = [];
+    
+    if (productInDb) {
+      historyPoints = await getPriceHistory(productInDb.id);
+    }
+
+    // 3. If we don't have enough history in DB, fetch from external provider PriceBefore
+    if (historyPoints.length < 5) {
+      console.log(`[API History] DB history points (${historyPoints.length}) low. Scrape from PriceBefore...`);
+      const externalHistory = await scrapeHistoricalTracker(canonicalUrl, scrapeResult.title);
+      
+      if (externalHistory && externalHistory.dataPoints && externalHistory.dataPoints.length > 0) {
+        if (!productInDb) {
+          productInDb = await saveProduct({
+            url: canonicalUrl,
+            platform: scrapeResult.platform,
+            title: scrapeResult.title,
+            image: scrapeResult.image,
+            rating: scrapeResult.rating
+          });
+        }
+        
+        if (productInDb) {
+          await updateProductHistoryUrl(productInDb.id, externalHistory.url);
+          
+          const formattedPoints = externalHistory.dataPoints.map(p => ({
+            price: p.price,
+            timestamp: p.timestamp
+          }));
+          await importPriceHistoryBatch(productInDb.id, formattedPoints);
+          
+          historyPoints = await getPriceHistory(productInDb.id);
+        }
+      }
+    }
+
+    // Add current price point if missing or changed
+    const livePrice = parseFloat(scrapeResult.price);
+    if (livePrice && !isNaN(livePrice)) {
+      if (historyPoints.length > 0) {
+        const lastPoint = historyPoints[historyPoints.length - 1];
+        if (Math.abs(parseFloat(lastPoint.price) - livePrice) > 0.01) {
+          historyPoints.push({
+            price: livePrice,
+            timestamp: new Date()
+          });
+        }
+      } else {
+        historyPoints.push({
+          price: livePrice,
+          timestamp: new Date()
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      platform: scrapeResult.platform,
+      title: scrapeResult.title,
+      price: livePrice,
+      originalPrice: parseFloat(scrapeResult.originalPrice) || livePrice,
+      discount: scrapeResult.discount,
+      image: scrapeResult.image,
+      rating: scrapeResult.rating,
+      history: historyPoints.map(h => ({
+        price: parseFloat(h.price),
+        date: h.timestamp
+      }))
+    });
+  } catch (err) {
+    console.error('[API History Error]', err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

@@ -301,6 +301,332 @@ function parseAmazon($, url) {
 }
 
 /**
+ * Scrape Myntra Product Details
+ */
+function parseMyntra($, url) {
+  let title = '';
+  let price = null;
+  let originalPrice = null;
+  let discount = '';
+  let image = '';
+  let rating = null;
+  let specs = [];
+
+  // Try to extract from window.__myx script
+  let scriptContent = '';
+  $('script').each((i, el) => {
+    const html = $(el).html();
+    if (html && html.includes('window.__myx')) {
+      scriptContent = html;
+      return false;
+    }
+  });
+
+  if (scriptContent) {
+    try {
+      const parts = scriptContent.split('window.__myx =');
+      if (parts.length > 1) {
+        const jsonStr = parts[1].trim();
+        const cleanJsonStr = jsonStr.endsWith(';') ? jsonStr.slice(0, -1) : jsonStr;
+        const data = JSON.parse(cleanJsonStr);
+        if (data && data.pdpData) {
+          const pdp = data.pdpData;
+          title = pdp.name || pdp.title;
+          if (pdp.price) {
+            price = parseFloat(pdp.price.discounted);
+            originalPrice = parseFloat(pdp.price.mrp);
+            if (pdp.price.discountText) {
+              discount = pdp.price.discountText;
+            } else if (originalPrice > price) {
+              const pct = Math.round(((originalPrice - price) / originalPrice) * 100);
+              discount = `${pct}% off`;
+            }
+          }
+          if (pdp.media && pdp.media.albums && pdp.media.albums[0] && pdp.media.albums[0].images && pdp.media.albums[0].images[0]) {
+            image = pdp.media.albums[0].images[0].src;
+          }
+          if (pdp.ratings) {
+            rating = parseFloat(pdp.ratings.averageRating);
+          }
+          if (pdp.productDetails) {
+            specs = pdp.productDetails.map(d => ({ key: d.title, value: d.description }));
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Scraper Error] Myntra JSON parse failed:', e.message);
+    }
+  }
+
+  // Fallback selectors
+  if (!title) {
+    title = $('.pdp-title').text().trim() + ' ' + $('.pdp-name').text().trim();
+    const priceText = $('.pdp-price').first().text().trim();
+    price = parsePrice(priceText);
+    const mrpText = $('.pdp-mrp').first().text().trim();
+    originalPrice = parsePrice(mrpText) || price;
+    discount = $('.pdp-discount').first().text().trim();
+  }
+
+  return {
+    success: !!title,
+    platform: 'Myntra',
+    title,
+    price,
+    originalPrice: originalPrice || price,
+    discount: discount || '0%',
+    currency: '₹',
+    image,
+    rating,
+    url,
+    specs: specs.slice(0, 10)
+  };
+}
+
+/**
+ * Scrape Ajio Product Details
+ */
+function parseAjio($, url) {
+  let title = '';
+  let price = null;
+  let originalPrice = null;
+  let discount = '';
+  let image = '';
+  let rating = null;
+  let specs = [];
+
+  let scriptContent = '';
+  $('script').each((i, el) => {
+    const html = $(el).html();
+    if (html && html.includes('window.__PRELOADED_STATE__')) {
+      scriptContent = html;
+      return false;
+    }
+  });
+
+  if (scriptContent) {
+    try {
+      const parts = scriptContent.split('window.__PRELOADED_STATE__ =');
+      if (parts.length > 1) {
+        const jsonStr = parts[1].trim();
+        const cleanJsonStr = jsonStr.endsWith(';') ? jsonStr.slice(0, -1) : jsonStr;
+        const data = JSON.parse(cleanJsonStr);
+        
+        let productDetails = null;
+        if (data.product && data.product.productDetails) {
+          productDetails = data.product.productDetails;
+        } else if (data.pdp && data.pdp.productDetails) {
+          productDetails = data.pdp.productDetails;
+        }
+
+        if (productDetails) {
+          title = productDetails.name;
+          if (productDetails.price) {
+            price = parseFloat(productDetails.price.value);
+            if (productDetails.wasPriceData) {
+              originalPrice = parseFloat(productDetails.wasPriceData.value);
+            } else if (productDetails.price.wasValue) {
+              originalPrice = parseFloat(productDetails.price.wasValue);
+            } else {
+              originalPrice = price;
+            }
+            if (productDetails.price.discountValue) {
+              discount = productDetails.price.discountValue + '% off';
+            } else if (originalPrice > price) {
+              const pct = Math.round(((originalPrice - price) / originalPrice) * 100);
+              discount = `${pct}% off`;
+            }
+          }
+          
+          if (productDetails.images && productDetails.images[0]) {
+            image = productDetails.images[0].url;
+          }
+          if (productDetails.averageRating) {
+            rating = parseFloat(productDetails.averageRating);
+          }
+          if (productDetails.featureListData && productDetails.featureListData.features) {
+            specs = productDetails.featureListData.features.map(f => ({ key: f.name, value: f.value }));
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Scraper Error] Ajio JSON parse failed:', e.message);
+    }
+  }
+
+  if (!title) {
+    title = $('.fn').text().trim() || $('h1').text().trim();
+    price = parsePrice($('.prod-sp').text().trim());
+    originalPrice = parsePrice($('.prod-cp').text().trim()) || price;
+    discount = $('.promo-discount-percent').text().trim();
+    image = $('.prod-main-img img').attr('src');
+  }
+
+  return {
+    success: !!title,
+    platform: 'Ajio',
+    title,
+    price,
+    originalPrice: originalPrice || price,
+    discount: discount || '0%',
+    currency: '₹',
+    image,
+    rating,
+    url,
+    specs: specs.slice(0, 10)
+  };
+}
+
+/**
+ * Scrape Meesho Product Details
+ */
+function parseMeesho($, url) {
+  let title = '';
+  let price = null;
+  let originalPrice = null;
+  let discount = '';
+  let image = '';
+  let rating = null;
+  let specs = [];
+
+  let scriptContent = '';
+  $('script').each((i, el) => {
+    const html = $(el).html();
+    if (html && html.includes('window.__INITIAL_STATE__')) {
+      scriptContent = html;
+      return false;
+    }
+  });
+
+  if (scriptContent) {
+    try {
+      const parts = scriptContent.split('window.__INITIAL_STATE__=');
+      if (parts.length > 1) {
+        const jsonStr = parts[1].trim();
+        const cleanJsonStr = jsonStr.endsWith(';') ? jsonStr.slice(0, -1) : jsonStr;
+        const data = JSON.parse(cleanJsonStr);
+
+        let pdp = null;
+        if (data.productDetails) {
+          pdp = data.productDetails;
+        } else if (data.pdp && data.pdp.productDetails) {
+          pdp = data.pdp.productDetails;
+        } else if (data.product && data.product.productDetails) {
+          pdp = data.product.productDetails;
+        }
+
+        if (pdp) {
+          title = pdp.name || pdp.title;
+          price = parseFloat(pdp.price || pdp.discountedPrice || pdp.sellingPrice);
+          originalPrice = parseFloat(pdp.mrp || pdp.originalPrice || price);
+          if (originalPrice > price) {
+            const pct = Math.round(((originalPrice - price) / originalPrice) * 100);
+            discount = `${pct}% off`;
+          }
+          if (pdp.images && pdp.images[0]) {
+            image = pdp.images[0];
+          } else if (pdp.image) {
+            image = pdp.image;
+          }
+          if (pdp.rating || pdp.averageRating) {
+            rating = parseFloat(pdp.rating || pdp.averageRating);
+          }
+          if (pdp.description) {
+            specs = [{ key: 'Description', value: pdp.description }];
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Scraper Error] Meesho JSON parse failed:', e.message);
+    }
+  }
+
+  if (!title) {
+    title = $('span[class*="CatalogDetails__Text"]').first().text().trim() || $('h1').text().trim();
+    price = parsePrice($('h4[class*="CatalogDetails__Price"]').first().text().trim());
+    originalPrice = parsePrice($('p[class*="CatalogDetails__Mrp"]').first().text().trim()) || price;
+    image = $('img[class*="ProductImage"]').first().attr('src');
+  }
+
+  return {
+    success: !!title,
+    platform: 'Meesho',
+    title,
+    price,
+    originalPrice: originalPrice || price,
+    discount: discount || '0%',
+    currency: '₹',
+    image,
+    rating,
+    url,
+    specs: specs.slice(0, 10)
+  };
+}
+
+/**
+ * Fallback Parser using Metadata
+ */
+function parseGenericMeta($, url) {
+  let title = $('meta[property="og:title"]').attr('content') || $('title').text().trim();
+  let priceText = $('meta[property="og:price:amount"]').attr('content') || 
+                  $('meta[property="product:price:amount"]').attr('content') || 
+                  $('[itemprop="price"]').attr('content') || 
+                  $('[itemprop="price"]').text().trim();
+  let price = parsePrice(priceText);
+  
+  let originalPriceText = $('meta[property="og:price:standard_amount"]').attr('content') ||
+                          $('[itemprop="highPrice"]').attr('content') || 
+                          $('[itemprop="highPrice"]').text().trim() || 
+                          $('.mrp').text().trim();
+  let originalPrice = parsePrice(originalPriceText) || price;
+
+  let image = $('meta[property="og:image"]').attr('content') || 
+              $('meta[name="twitter:image"]').attr('content') || 
+              $('[itemprop="image"]').attr('src') ||
+              $('[itemprop="image"]').attr('content');
+              
+  let ratingText = $('[itemprop="ratingValue"]').attr('content') || 
+                   $('[itemprop="ratingValue"]').text().trim();
+  let rating = ratingText ? parseFloat(ratingText) : null;
+
+  // Generic selectors scanner if price not found
+  if (!price) {
+    $('[class*="price"], [id*="price"], [class*="Price"], [id*="Price"]').each((i, el) => {
+      const txt = $(el).text().trim();
+      const p = parsePrice(txt);
+      if (p && p > 0 && p < 1000000) {
+        price = p;
+        return false;
+      }
+    });
+  }
+
+  // Detect platform name
+  let platform = 'E-Commerce Store';
+  try {
+    const parsed = new URL(url);
+    const hostParts = parsed.hostname.split('.');
+    if (hostParts.length >= 2) {
+      platform = hostParts[hostParts.length - 2].toUpperCase();
+    }
+  } catch (e) {}
+
+  return {
+    success: !!title,
+    platform,
+    title,
+    price: price || 0,
+    originalPrice: originalPrice || price || 0,
+    discount: (originalPrice && price && originalPrice > price) ? `${Math.round(((originalPrice - price) / originalPrice) * 100)}% off` : '0%',
+    currency: '₹',
+    image: image || '',
+    rating,
+    url,
+    specs: []
+  };
+}
+
+/**
  * Main Scrape Function
  */
 async function scrapeProduct(url) {
@@ -318,14 +644,44 @@ async function scrapeProduct(url) {
         throw new Error('Failed to parse Flipkart product details. Could be anti-bot block.');
       }
       return data;
+    } else if (url.includes('shopsy.in') || url.includes('shopsy.com')) {
+      const data = parseFlipkart($, url);
+      if (!data.title) {
+        throw new Error('Failed to parse Shopsy product details. Could be anti-bot block.');
+      }
+      data.platform = 'Shopsy';
+      return data;
     } else if (url.includes('amazon.in') || url.includes('amazon.com')) {
       const data = parseAmazon($, url);
       if (!data.title) {
         throw new Error('Failed to parse Amazon product details. Could be anti-bot block.');
       }
       return data;
+    } else if (url.includes('myntra.com')) {
+      const data = parseMyntra($, url);
+      if (!data.title) {
+        throw new Error('Failed to parse Myntra product details. Could be anti-bot block.');
+      }
+      return data;
+    } else if (url.includes('ajio.com')) {
+      const data = parseAjio($, url);
+      if (!data.title) {
+        throw new Error('Failed to parse Ajio product details. Could be anti-bot block.');
+      }
+      return data;
+    } else if (url.includes('meesho.com')) {
+      const data = parseMeesho($, url);
+      if (!data.title) {
+        throw new Error('Failed to parse Meesho product details. Could be anti-bot block.');
+      }
+      return data;
     } else {
-      throw new Error('Unsupported platform. Only Flipkart and Amazon URLs are supported.');
+      // Fallback for Nykaa, TataCliq, Croma, Reliance Digital etc.
+      const data = parseGenericMeta($, url);
+      if (!data.title) {
+        throw new Error('Failed to parse product details from target site.');
+      }
+      return data;
     }
   } catch (error) {
     console.error(`[Scraper Error] ${error.message}`);

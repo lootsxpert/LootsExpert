@@ -11,6 +11,8 @@ if (scraperApiUrl.endsWith('/')) {
   scraperApiUrl = scraperApiUrl.slice(0, -1);
 }
 
+const historyBotUsername = process.env.PRICE_HISTORY_BOT_USERNAME || 'The_PriceHistory_Bot';
+
 if (!token) {
   console.error('[Error] TELEGRAM_BOT_TOKEN is missing in the environment variables!');
   process.exit(1);
@@ -32,7 +34,7 @@ function getMainButtons() {
 
 // Helper: Check channel membership
 async function checkMembership(msg) {
-  const channel = process.env.TELEGRAM_CHANNEL;
+  const channel = process.env.AUTH_CHANNEL || process.env.TELEGRAM_CHANNEL;
   if (!channel) return true; // Skip verification if not configured
   
   const userId = msg.from.id;
@@ -255,7 +257,7 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
     `Use /help for help.\n\n` +
     `*Also Try:*\n` +
     `@Amazon_Pricehistory_bot\n` +
-    `@The_PriceHistory_Bot`;
+    `@${historyBotUsername}`;
 
   const opts = {
     parse_mode: 'Markdown',
@@ -367,7 +369,7 @@ bot.onText(/\/product_(\d+)/, async (msg, match) => {
             { text: '📊 Price Graph', callback_data: `graph:${product.id}` }
           ],
           [
-            { text: '🔍 View Full Price History', url: `https://t.me/The_PriceHistory_Bot?start=graph_${product.platform}_${product.product_id}` }
+            { text: '🔍 View Full Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }
           ],
           getMainButtons()
         ]
@@ -498,7 +500,7 @@ bot.on('callback_query', async (callbackQuery) => {
                 inline_keyboard: [
                   [
                     { text: '📂 My Trackings', callback_data: 'my_trackings' },
-                    { text: '📈 Price History', url: `https://t.me/The_PriceHistory_Bot?start=graph_${store}_${pid}` }
+                    { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${store}_${pid}` }
                   ]
                 ]
               }
@@ -550,7 +552,7 @@ bot.on('callback_query', async (callbackQuery) => {
               inline_keyboard: [
                 [{ text: '🛒 Buy Now', url: affUrl || url }],
                 [
-                  { text: '📈 Price History', url: `https://t.me/The_PriceHistory_Bot?start=graph_${store}_${pid}` },
+                  { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${store}_${pid}` },
                   { text: '📂 My Trackings', callback_data: 'my_trackings' }
                 ],
                 getMainButtons()
@@ -732,7 +734,7 @@ bot.on('message', async (msg) => {
           inline_keyboard: [
             [
               { text: '📂 My Trackings', callback_data: 'my_trackings' },
-              { text: '📈 Price History', url: `https://t.me/The_PriceHistory_Bot?start=graph_${platform}_${pid}` }
+              { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${platform}_${pid}` }
             ]
           ]
         }
@@ -809,7 +811,7 @@ bot.on('message', async (msg) => {
           inline_keyboard: [
             [{ text: '🛒 Buy Now', url: affUrl || productUrl }],
             [
-              { text: '📈 Price History', url: `https://t.me/The_PriceHistory_Bot?start=graph_${platform}_${pid}` },
+              { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${platform}_${pid}` },
               { text: '📂 My Trackings', callback_data: 'my_trackings' }
             ],
             getMainButtons()
@@ -886,7 +888,7 @@ function startScheduler() {
                       [{ text: '🛒 Buy Now', url: product.aff_url || product.product_url }],
                       [
                         { text: '📊 Price Graph', callback_data: `graph:${product.id}` },
-                        { text: '📈 Price History', url: `https://t.me/The_PriceHistory_Bot?start=graph_${product.platform}_${product.product_id}` }
+                        { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }
                       ],
                       getMainButtons()
                     ]
