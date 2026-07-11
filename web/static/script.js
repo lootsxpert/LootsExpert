@@ -32,7 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const statOptimalVal = document.getElementById('stat-optimal-val');
   
   // Chart binding
-  const ctx = document.getElementById('priceHistoryChart').getContext('2d');
+  const chartEl = document.getElementById('priceHistoryChart');
+  const ctx = chartEl ? chartEl.getContext('2d') : null;
   let priceChart = null;
   let fullHistoryData = []; // Stores complete generated 180 days history
   const historySourceInfo = document.getElementById('history-source-info');
@@ -46,19 +47,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const errorTitle = document.getElementById('error-title');
   
   // Handle form submit
-  searchForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const url = productUrlInput.value.trim();
-    if (!url) return;
-    
-    await fetchProductDetails(url);
-  });
+  if (searchForm) {
+    searchForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const url = productUrlInput.value.trim();
+      if (!url) return;
+      
+      await fetchProductDetails(url);
+    });
+  }
   
   // Handle quick demo chips
   document.querySelectorAll('.demo-chip').forEach(chip => {
     chip.addEventListener('click', async () => {
       const url = chip.getAttribute('data-url');
-      productUrlInput.value = url;
+      if (productUrlInput) {
+        productUrlInput.value = url;
+      }
       await fetchProductDetails(url);
     });
   });
