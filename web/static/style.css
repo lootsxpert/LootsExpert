@@ -34,6 +34,8 @@ body {
   color: var(--text-primary);
   font-family: 'Inter', sans-serif;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   overflow-x: hidden;
   position: relative;
   line-height: 1.6;
@@ -74,7 +76,7 @@ body {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  flex: 1;
 }
 
 /* --- APP NAVIGATION HEADER --- */
@@ -1823,6 +1825,125 @@ body {
 .empty-state p {
   font-size: 0.9rem;
   color: var(--text-muted);
+}
+
+/* --- NAVIGATION DROPDOWN --- */
+.nav-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-dropdown-content {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: #ffffff;
+  min-width: 180px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border-clean);
+  z-index: 101;
+}
+
+.nav-dropdown-content a {
+  color: var(--text-secondary);
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: var(--transition-smooth);
+}
+
+.nav-dropdown-content a:hover {
+  background-color: #f1f5f9;
+  color: #2563eb;
+}
+
+.nav-dropdown-wrapper:hover .nav-dropdown-content {
+  display: block;
+}
+
+.flag-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 15px;
+  cursor: pointer;
+}
+
+/* --- INFO PAGES STYLING --- */
+.info-page-layout {
+  padding: 60px 40px;
+}
+
+.info-page-card {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 50px 40px;
+}
+
+.info-page-header {
+  border-bottom: 1px solid var(--border-clean);
+  padding-bottom: 25px;
+  margin-bottom: 35px;
+  text-align: center;
+}
+
+.info-page-header h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2.8rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.info-page-subtitle {
+  font-size: 1.05rem;
+  color: var(--text-secondary);
+}
+
+.info-page-content {
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.info-page-content h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 35px;
+  margin-bottom: 15px;
+}
+
+.info-page-content h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 25px;
+  margin-bottom: 10px;
+}
+
+.info-page-content p {
+  margin-bottom: 20px;
+}
+
+.info-page-content ul, .info-page-content ol {
+  margin-bottom: 25px;
+  padding-left: 24px;
+}
+
+.info-page-content li {
+  margin-bottom: 10px;
+}
+
+.info-page-content strong {
+  color: var(--text-primary);
 }
 
 
