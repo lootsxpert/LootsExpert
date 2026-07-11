@@ -5,14 +5,14 @@ require('dotenv').config();
 const db = require('./history_db');
 const affiliate = require('./affiliate');
 
-const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+const token = process.env.HISTORY_BOT_TOKEN || process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 let scraperApiUrl = process.env.SCRAPER_API_URL || 'http://localhost:3000';
 if (scraperApiUrl.endsWith('/')) {
   scraperApiUrl = scraperApiUrl.slice(0, -1);
 }
 
 if (!token) {
-  console.error('[History Bot Error] BOT_TOKEN or TELEGRAM_BOT_TOKEN is missing in the environment variables!');
+  console.error('[History Bot Error] HISTORY_BOT_TOKEN, BOT_TOKEN or TELEGRAM_BOT_TOKEN is missing in the environment variables!');
   process.exit(1);
 }
 
