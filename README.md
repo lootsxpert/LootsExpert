@@ -1,16 +1,16 @@
-# LootsExpert: Centralized E-Commerce Price Tracker
+# Price Graph: Centralized E-Commerce Price Tracker
 
-LootsExpert is a monorepo containing a Python Flask web application, a Node.js Express scraping API, and a Telegram bot that extracts and displays price details, ratings, images, and specifications for products from **Amazon India** and **Flipkart**.
+Price Graph is a monorepo containing a Python Flask web application, a Node.js Express scraping API, and a Telegram bot that extracts and displays price details, ratings, images, and specifications for products from **Amazon India** and **Flipkart**.
 
 ---
 
 ## Architecture
-Both the **LootsExpert Flask Web Client** and the **Telegram Bot** query a centralized **Node.js Express API** which handles all the scraping, parsing, and anti-bot mitigation logic.
+Both the **Price Graph Flask Web Client** and the **Telegram Bot** query a centralized **Node.js Express API** which handles all the scraping, parsing, and anti-bot mitigation logic.
 
 ```
                   ┌──────────────────────┐
                   │  Flask Web Client    │
-                  │  (LootsExpert UI)    │
+                   │  (Price Graph UI)   │
                   └──────────┬───────────┘
                              │ (urllib Proxy)
                              ▼
@@ -107,11 +107,11 @@ Railway allows you to deploy this entire monorepo as separate services using the
    - Start Command override: `npm run start:api`
    - Expose the PORT variable (default: `3000`).
    - Add environmental variables (`SCRAPERAPI_KEY`, etc.).
-3. **LootsExpert Flask Web Client**:
+3. **Price Graph Flask Web Client**:
    - Start Command override: `web` process in Procfile (runs Gunicorn automatically)
    - Expose the PORT variable (default: `5000`).
    - Add environmental variable `NODE_API_URL` pointing to your deployed Scraper API Service.
-4. **LootsExpert Telegram Bot**:
+4. **Price Graph Telegram Bot**:
    - Create a third service from the same repo.
    - Start Command override: `npm run start:telegram`
    - Add environmental variables: `TELEGRAM_BOT_TOKEN` and `SCRAPER_API_URL` (pointing to your Scraper API Service).

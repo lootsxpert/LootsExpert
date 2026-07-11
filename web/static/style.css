@@ -67,10 +67,10 @@ body {
 
 /* --- APP CONTAINER & LAYOUT --- */
 .app-container {
-  max-width: 1400px;
-  width: 95%;
-  margin: 0 auto;
-  padding: 40px 20px;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 40px 40px;
   position: relative;
   z-index: 1;
   display: flex;
@@ -91,12 +91,20 @@ body {
 }
 
 .nav-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 15px 20px;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 15px 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.header-logo-img {
+  height: 42px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .app-nav-header .logo {
@@ -1170,9 +1178,9 @@ body {
 }
 
 .footer-container {
-  max-width: 1400px;
-  width: 95%;
-  margin: 0 auto;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
 }
 
 .footer-top {
@@ -1185,22 +1193,16 @@ body {
 }
 
 .footer-logo {
-  font-family: 'Outfit', sans-serif;
-  font-size: 2.2rem;
-  font-weight: 800;
-  letter-spacing: -0.04em;
   display: flex;
   align-items: center;
   gap: 8px;
-  color: white;
 }
 
-.footer-logo .logo-icon {
-  color: #3b82f6;
-}
-
-.footer-logo .highlight {
-  color: #3b82f6;
+.footer-logo-img {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .footer-socials {
