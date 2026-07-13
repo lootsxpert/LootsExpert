@@ -154,6 +154,11 @@
               <a href="/login" class="login-btn">Login</a>
               {% endif %}
             </div>
+            
+            <!-- Hamburger Toggle Button -->
+            <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle Menu">
+              <i class="fa-solid fa-bars"></i>
+            </button>
           </div>
         </header>
         <main class="w-full md:mx-auto flex-grow relative bg-white md:bg-transparent">
@@ -761,55 +766,65 @@
         <p class="text-xl sm:text-3xl font-bold text-slate-950 w-full text-center">Frequently Asked Questions</p>
       </div>
       <div class="border-y border-slate-200 divide-y divide-slate-200">
-        <div class="accordion py-4 font-metropolis"><button
-            class=" flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
+        <!-- FAQ 1 -->
+        <div class="accordion py-4 font-metropolis">
+          <button class="flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
             <div><span slot="head">How to Check Price History?</span></div>
-            <div class="flex-shrink-0 w-6">
-              <div style="height: {height}px; width:{width}px"
-                class="transition-transform duration-300  animate-pulse bg-primary bg-opacity-5"></div>
+            <div class="flex-shrink-0 w-6 flex justify-end">
+              <i class="fa-solid fa-chevron-down text-slate-400"></i>
             </div>
           </button>
-          <div class="text-xs md:text-lg overflow-hidden box-border "></div>
+          <div class="box-border text-xs md:text-sm text-slate-600">
+            <p style="padding-top: 8px;">Simply copy the product URL from Amazon, Flipkart, Myntra, or other supported sites, paste it into our search bar at the top of the homepage, and click Search. Price Graph will load the price history chart instantly.</p>
+          </div>
         </div>
-        <div class="accordion py-4 font-metropolis"><button
-            class=" flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
+        <!-- FAQ 2 -->
+        <div class="accordion py-4 font-metropolis">
+          <button class="flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
             <div><span slot="head">What is Price History?</span></div>
-            <div class="flex-shrink-0 w-6">
-              <div style="height: {height}px; width:{width}px"
-                class="transition-transform duration-300  animate-pulse bg-primary bg-opacity-5"></div>
+            <div class="flex-shrink-0 w-6 flex justify-end">
+              <i class="fa-solid fa-chevron-down text-slate-400"></i>
             </div>
           </button>
-          <div class="text-xs md:text-lg overflow-hidden box-border "></div>
+          <div class="box-border text-xs md:text-sm text-slate-600">
+            <p style="padding-top: 8px;">Price history is a historical record of the price changes of a product over time. It lets you inspect if the current sale price is a real discount or if the vendor raised it beforehand.</p>
+          </div>
         </div>
-        <div class="accordion py-4 font-metropolis"><button
-            class=" flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
+        <!-- FAQ 3 -->
+        <div class="accordion py-4 font-metropolis">
+          <button class="flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
             <div><span slot="head">What is a Price Tracker?</span></div>
-            <div class="flex-shrink-0 w-6">
-              <div style="height: {height}px; width:{width}px"
-                class="transition-transform duration-300  animate-pulse bg-primary bg-opacity-5"></div>
+            <div class="flex-shrink-0 w-6 flex justify-end">
+              <i class="fa-solid fa-chevron-down text-slate-400"></i>
             </div>
           </button>
-          <div class="text-xs md:text-lg overflow-hidden box-border "></div>
+          <div class="box-border text-xs md:text-sm text-slate-600">
+            <p style="padding-top: 8px;">A price tracker is an automated search tool that monitors product prices and stores the values. Instead of checking manually, you configure trackers that watch items and recommend best buying times.</p>
+          </div>
         </div>
-        <div class="accordion py-4 font-metropolis"><button
-            class=" flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
+        <!-- FAQ 4 -->
+        <div class="accordion py-4 font-metropolis">
+          <button class="flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
             <div><span slot="head">What is a Price Drop Alert?</span></div>
-            <div class="flex-shrink-0 w-6">
-              <div style="height: {height}px; width:{width}px"
-                class="transition-transform duration-300  animate-pulse bg-primary bg-opacity-5"></div>
+            <div class="flex-shrink-0 w-6 flex justify-end">
+              <i class="fa-solid fa-chevron-down text-slate-400"></i>
             </div>
           </button>
-          <div class="text-xs md:text-lg overflow-hidden box-border "></div>
+          <div class="box-border text-xs md:text-sm text-slate-600">
+            <p style="padding-top: 8px;">A price drop alert is an automated notification (sent via Email or Telegram) triggered when a tracked product falls below your desired target price threshold.</p>
+          </div>
         </div>
-        <div class="accordion py-4 font-metropolis"><button
-            class=" flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
+        <!-- FAQ 5 -->
+        <div class="accordion py-4 font-metropolis">
+          <button class="flex justify-between w-full text-sm sm:text-base font-medium text-left items-center gap-5">
             <div><span slot="head">Benefits of Price Tracking</span></div>
-            <div class="flex-shrink-0 w-6">
-              <div style="height: {height}px; width:{width}px"
-                class="transition-transform duration-300  animate-pulse bg-primary bg-opacity-5"></div>
+            <div class="flex-shrink-0 w-6 flex justify-end">
+              <i class="fa-solid fa-chevron-down text-slate-400"></i>
             </div>
           </button>
-          <div class="text-xs md:text-lg overflow-hidden box-border "></div>
+          <div class="box-border text-xs md:text-sm text-slate-600">
+            <p style="padding-top: 8px;">Price tracking helps you save up to 40% on purchases by revealing price drop trends, identifying artificial sale hikes, and sending alerts directly to Telegram.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -892,7 +907,7 @@
               style="text-decoration: none; color: #c7d2fe !important;">Hot Deals</a>
             <a class="hover:underline text-sm font-medium text-indigo-200" href="/dashboard"
               style="text-decoration: none; color: #c7d2fe !important;">Price Drop Alerts</a>
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/coupons"
               style="text-decoration: none; color: #c7d2fe !important;">Gift Cards</a>
             <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq"
               style="text-decoration: none; color: #c7d2fe !important;">Referrals</a>
@@ -904,11 +919,11 @@
         <div class="flex flex-col gap-3" style="min-width: 160px;">
           <h2 class="text-sm font-bold text-white uppercase tracking-wider">Price History Tracker</h2>
           <div class="flex flex-col gap-2">
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/amazon-tracker"
               style="text-decoration: none; color: #c7d2fe !important;">Amazon Price History</a>
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/flipkart-tracker"
               style="text-decoration: none; color: #c7d2fe !important;">Flipkart Price History</a>
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/amazon-quiz"
               style="text-decoration: none; color: #c7d2fe !important;">Amazon Quiz Answers</a>
           </div>
         </div>
@@ -916,13 +931,13 @@
         <div class="flex flex-col gap-3" style="min-width: 140px;">
           <h2 class="text-sm font-bold text-white uppercase tracking-wider">Company</h2>
           <div class="flex flex-col gap-2">
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/about"
               style="text-decoration: none; color: #c7d2fe !important;">About</a>
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/contact"
               style="text-decoration: none; color: #c7d2fe !important;">Contact Us</a>
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/what-we-do"
               style="text-decoration: none; color: #c7d2fe !important;">What We Do</a>
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/how-we-earn"
               style="text-decoration: none; color: #c7d2fe !important;">How We Earn</a>
           </div>
         </div>
@@ -930,11 +945,11 @@
         <div class="flex flex-col gap-3" style="min-width: 140px;">
           <h2 class="text-sm font-bold text-white uppercase tracking-wider">Other</h2>
           <div class="flex flex-col gap-2">
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/supported-stores"
               style="text-decoration: none; color: #c7d2fe !important;">Supported Stores</a>
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/advertise"
               style="text-decoration: none; color: #c7d2fe !important;">Advertise With Us</a>
-            <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq"
+            <a class="hover:underline text-sm font-medium text-indigo-200" href="/pricing-intelligence"
               style="text-decoration: none; color: #c7d2fe !important;">Pricing Intelligence</a>
           </div>
         </div>
