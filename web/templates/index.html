@@ -290,7 +290,7 @@
 	
     <!-- FontAwesome & Custom styles for Price Graph widgets -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/widget.css">
+    <link rel="stylesheet" href="/static/widget.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -337,7 +337,7 @@
 		<!-- End Meta Pixel Code -->
 
 		<div style="display: contents">   <svg width="0" height="0" style="position: absolute; visibility: hidden"><defs><symbol id="star"><path fill="#FF6D1F" stroke="#FF6D1F" stroke-linecap="round" stroke-linejoin="round" stroke-width=".5625" d="m5.19793 1.25547.6599 1.33076c.09.18525.3299.36293.5324.39696l1.1961.20037c.765.12854.945.68806.3938 1.24003l-.9299.93757c-.1575.15878-.2437.465-.195.6843l.2662 1.16063c.21.91867-.2737 1.27406-1.0799.79391l-1.1211-.66915c-.2025-.12098-.5362-.12098-.7424 0L3.05693 8c-.8025.48015-1.2899.12097-1.0799-.79391l.2662-1.16063c.0487-.2193-.0375-.52552-.195-.6843l-.9299-.93757c-.5474-.55197-.371201-1.11149.3937-1.24003l1.1961-.20037c.1988-.03403.4387-.21171.5287-.39696l.66-1.33076c.3599-.722095.9448-.722095 1.3011 0Z"></path></symbol><symbol id="emptyStar" fill="white"><path stroke="#FF6D1F" stroke-linecap="round" stroke-linejoin="round" stroke-width=".5625" d="m5.19793 1.25547.6599 1.33076c.09.18525.3299.36293.5324.39696l1.1961.20037c.765.12854.945.68806.3938 1.24003l-.9299.93757c-.1575.15878-.2437.465-.195.6843l.2662 1.16063c.21.91867-.2737 1.27406-1.0799.79391l-1.1211-.66915c-.2025-.12098-.5362-.12098-.7424 0L3.05693 8c-.8025.48015-1.2899.12097-1.0799-.79391l.2662-1.16063c.0487-.2193-.0375-.52552-.195-.6843l-.9299-.93757c-.5474-.55197-.371201-1.11149.3937-1.24003l1.1961-.20037c.1988-.03403.4387-.21171.5287-.39696l.66-1.33076c.3599-.722095.9448-.722095 1.3011 0Z"></path></symbol></defs></svg>  <div data-sveltekit-reload>   <div class="app flex flex-col min-h-screen"> <div class="w-full bg-white sticky top-0 z-40 header border-b border-slate-200">     <div class="px-4 sm:px-6 md:px-8 py-3 relative z-10"> 
-<div class="flex gap-2 justify-between items-center md:hidden" style="width: 100%;">
+<div class="flex gap-2 justify-between items-center mobile-header" style="width: 100%;">
   <a href="/" class="flex items-center gap-2" style="text-decoration: none;">
     <div class="logo-icon-wrapper" style="width: 32px; height: 32px; border-radius: 6px; background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); display: flex; align-items: center; justify-content: center; color: white;">
       <i class="fa-solid fa-chart-line" style="font-size: 1rem;"></i>
@@ -359,7 +359,7 @@
   </div>
 </div>
 <!-- Keep padding and header wrapper open for desktop header -->
-<div class="hidden md:flex justify-between items-center" style="width: 100%;">
+<div class="desktop-header" style="width: 100%;">
   <!-- Left Side: Branded Logo, Title & Subtitle -->
   <div class="flex gap-4 items-center">
     <a href="/" class="flex items-center gap-2" style="text-decoration: none;">
