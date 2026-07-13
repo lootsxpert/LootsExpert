@@ -349,6 +349,8 @@ def bh_app():
 
 @app.route("/deals")
 @app.route("/deal")
+@app.route("/store")
+@app.route("/store/")
 def deals_catalog():
     return render_template("deals.html")
 

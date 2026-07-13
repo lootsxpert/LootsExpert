@@ -725,6 +725,19 @@
   const dealSortSelect = document.getElementById('deal-sort');
 
   if (dealsGrid) {
+    const isStorePage = window.location.pathname.startsWith('/store') || window.location.pathname.startsWith('/deals') || window.location.pathname.startsWith('/deal');
+    
+    function redirectToStore() {
+      const params = new URLSearchParams();
+      if (currentCategory) params.append('category', currentCategory);
+      if (currentMaxPrice) params.append('price', currentMaxPrice);
+      if (currentPlatform) params.append('platform', currentPlatform);
+      if (currentSort) params.append('sort', currentSort);
+      if (currentSearch) params.append('search', currentSearch);
+      
+      window.location.href = `/store/?${params.toString()}`;
+    }
+
     // Load initial parameters from the URL
     function parseUrlParams() {
       const urlParams = new URLSearchParams(window.location.search);
@@ -911,15 +924,18 @@
         const targetPrice = btn.getAttribute('data-price');
         currentMaxPrice = targetPrice;
 
-        document.querySelectorAll('.price-brackets .bracket-btn, .price-brackets-vertical .bracket-btn').forEach(b => {
-          if (b.getAttribute('data-price') === targetPrice) {
-            b.classList.add('active');
-          } else {
-            b.classList.remove('active');
-          }
-        });
-        
-        loadDeals();
+        if (!isStorePage) {
+          redirectToStore();
+        } else {
+          document.querySelectorAll('.price-brackets .bracket-btn, .price-brackets-vertical .bracket-btn').forEach(b => {
+            if (b.getAttribute('data-price') === targetPrice) {
+              b.classList.add('active');
+            } else {
+              b.classList.remove('active');
+            }
+          });
+          loadDeals();
+        }
       });
     });
 
@@ -929,11 +945,14 @@
         const btn = e.target.closest('.chip-btn');
         if (!btn) return;
         
-        categoryChipsContainer.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        
         currentCategory = btn.getAttribute('data-category');
-        loadDeals();
+        if (!isStorePage) {
+          redirectToStore();
+        } else {
+          categoryChipsContainer.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          loadDeals();
+        }
       });
     }
 
@@ -941,7 +960,11 @@
     if (dealPlatformSelect) {
       dealPlatformSelect.addEventListener('change', () => {
         currentPlatform = dealPlatformSelect.value;
-        loadDeals();
+        if (!isStorePage) {
+          redirectToStore();
+        } else {
+          loadDeals();
+        }
       });
     }
 
@@ -949,7 +972,11 @@
     if (dealSortSelect) {
       dealSortSelect.addEventListener('change', () => {
         currentSort = dealSortSelect.value;
-        loadDeals();
+        if (!isStorePage) {
+          redirectToStore();
+        } else {
+          loadDeals();
+        }
       });
     }
 
@@ -960,7 +987,11 @@
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
           currentSearch = dealSearchInput.value.trim();
-          loadDeals();
+          if (!isStorePage) {
+            redirectToStore();
+          } else {
+            loadDeals();
+          }
         }, 300);
       });
     }
