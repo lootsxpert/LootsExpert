@@ -114,30 +114,28 @@ function getMainButtons() {
 
 // Pending tasks map for verification flow
 const pendingTasks = new Map();
+const activeBroadcasts = new Map();
+
 
 // Helper: Verify subscription and execute task
 async function verifyUserAndExecute(msg, taskType, taskData, executeCallback) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
   const channel = "-1003849048564";
+  const channelName = process.env.TELEGRAM_CHANNEL || "@BotsXP";
+  const channelLink = channelName.startsWith('@') ? `https://t.me/${channelName.substring(1)}` : `https://t.me/${channelName}`;
   
   try {
     const member = await bot.getChatMember(channel, userId);
     const isMember = ['member', 'administrator', 'creator'].includes(member.status);
     
     if (isMember) {
-      // Show temporary subscriber status message
-      const statusMsg = await bot.sendMessage(chatId, '✅ You are a subscriber, continuing your task...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
-      
-      // Execute actual task callback
+      // Execute actual task callback directly
       await executeCallback();
     } else {
       // Store pending task in-memory
       pendingTasks.set(userId, { type: taskType, data: taskData, execute: executeCallback });
       
-      const channelLink = "https://t.me/+rTx5B9g6XYxmNmE1";
       await bot.sendMessage(chatId, '⚠️ Please subscribe to our updates channel to use the bot:', {
         reply_markup: {
           inline_keyboard: [
@@ -670,42 +668,8 @@ bot.onText(/\/broadcast/, async (msg) => {
   const chatId = msg.chat.id;
   if (!isAdmin(chatId)) return;
 
-  await bot.sendMessage(chatId, `🎙 Send the message (text, photo, or video with caption) that you want to broadcast.\n\nReply to this message with your content.`);
-  
-  // Set next message listener
-  const listenerId = bot.onReplyToMessage(chatId, msg.message_id, async (reply) => {
-    bot.removeReplyListener(listenerId);
-    
-    const statusMsg = await bot.sendMessage(chatId, '📤 Broadcasting message in progress...');
-    const users = await db.getAllUsers();
-    
-    let success = 0;
-    let failed = 0;
-    
-    for (const userId of users) {
-      try {
-        if (reply.photo) {
-          const fileId = reply.photo[reply.photo.length - 1].file_id;
-          await bot.sendPhoto(userId, fileId, { caption: reply.caption || '', parse_mode: 'HTML' });
-        } else if (reply.video) {
-          await bot.sendVideo(userId, reply.video.file_id, { caption: reply.caption || '', parse_mode: 'HTML' });
-        } else if (reply.text) {
-          await bot.sendMessage(userId, reply.text, { parse_mode: 'HTML' });
-        }
-        success++;
-      } catch (err) {
-        failed++;
-      }
-      // Courteous broadcast sleep
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-    
-    await bot.editMessageText(`📢 *Broadcast completed*\n\n• Success: ${success}\n• Failed: ${failed}`, {
-      chat_id: chatId,
-      message_id: statusMsg.message_id,
-      parse_mode: 'Markdown'
-    });
-  });
+  activeBroadcasts.set(chatId, { state: 'awaiting_content' });
+  await bot.sendMessage(chatId, `🎙 *Broadcast Mode Enabled*\n\nSend the message (text, photo, or video with caption) that you want to broadcast to all users next.\n\n_You do not need to reply to this message. Just send it._`, { parse_mode: 'Markdown' });
 });
 
 // Command: /stats (Admin)
@@ -741,6 +705,70 @@ bot.on('callback_query', async (callbackQuery) => {
   const message = callbackQuery.message;
   const chatId = message.chat.id;
   const callbackData = callbackQuery.data;
+  
+  if (callbackData.startsWith('confirm_broadcast:')) {
+    const action = callbackData.split(':')[1];
+    
+    if (action === 'no') {
+      activeBroadcasts.delete(chatId);
+      await bot.answerCallbackQuery(callbackQuery.id, { text: 'Broadcast cancelled.' });
+      if (message.photo || message.video) {
+        await bot.deleteMessage(chatId, message.message_id).catch(() => {});
+        await bot.sendMessage(chatId, '❌ Broadcast cancelled.');
+      } else {
+        await bot.editMessageText('❌ Broadcast cancelled.', {
+          chat_id: chatId,
+          message_id: message.message_id
+        }).catch(async () => {
+          await bot.deleteMessage(chatId, message.message_id).catch(() => {});
+          await bot.sendMessage(chatId, '❌ Broadcast cancelled.');
+        });
+      }
+      return;
+    }
+    
+    if (action === 'yes') {
+      const broadcastState = activeBroadcasts.get(chatId);
+      if (!broadcastState || broadcastState.state !== 'confirming') {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: 'No pending broadcast found.' });
+        return;
+      }
+      
+      activeBroadcasts.delete(chatId);
+      await bot.answerCallbackQuery(callbackQuery.id, { text: 'Starting broadcast...' });
+      await bot.deleteMessage(chatId, message.message_id).catch(() => {});
+      
+      const reply = broadcastState.content;
+      const statusMsg = await bot.sendMessage(chatId, '📤 Broadcasting message in progress...');
+      const users = await db.getAllUsers();
+      
+      let success = 0;
+      let failed = 0;
+      
+      for (const userId of users) {
+        try {
+          if (reply.photo) {
+            const fileId = reply.photo[reply.photo.length - 1].file_id;
+            await bot.sendPhoto(userId, fileId, { caption: reply.caption || '', parse_mode: 'HTML' });
+          } else if (reply.video) {
+            await bot.sendVideo(userId, reply.video.file_id, { caption: reply.caption || '', parse_mode: 'HTML' });
+          } else if (reply.text) {
+            await bot.sendMessage(userId, reply.text, { parse_mode: 'HTML' });
+          }
+          success++;
+        } catch (err) {
+          failed++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+      await bot.sendMessage(chatId, `📢 *Broadcast completed*\n\n• Success: ${success}\n• Failed: ${failed}`, {
+        parse_mode: 'Markdown'
+      });
+      return;
+    }
+  }
   
   // Extract actions
   if (callbackData.startsWith('track:')) {
@@ -1028,6 +1056,41 @@ bot.on('callback_query', async (callbackQuery) => {
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text || msg.caption;
+
+  // Check if admin is currently in broadcast setup flow
+  if (isAdmin(chatId) && activeBroadcasts.has(chatId)) {
+    const broadcastState = activeBroadcasts.get(chatId);
+    if (broadcastState.state === 'awaiting_content') {
+      activeBroadcasts.set(chatId, { state: 'confirming', content: msg });
+      
+      const opts = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🚀 Yes, Broadcast', callback_data: 'confirm_broadcast:yes' },
+              { text: '❌ Cancel', callback_data: 'confirm_broadcast:no' }
+            ]
+          ]
+        }
+      };
+      
+      await bot.sendMessage(chatId, '📝 *Preview of your broadcast message:*', { parse_mode: 'Markdown' });
+      
+      if (msg.photo) {
+        const fileId = msg.photo[msg.photo.length - 1].file_id;
+        await bot.sendPhoto(chatId, fileId, { caption: msg.caption || '', ...opts });
+      } else if (msg.video) {
+        await bot.sendVideo(chatId, msg.video.file_id, { caption: msg.caption || '', ...opts });
+      } else if (msg.text) {
+        await bot.sendMessage(chatId, msg.text, opts);
+      } else {
+        activeBroadcasts.delete(chatId);
+        await bot.sendMessage(chatId, '❌ Unsupported broadcast message type. Broadcast flow cancelled.');
+      }
+      return;
+    }
+  }
 
   // Skip commands
   if (!text || text.startsWith('/')) {
