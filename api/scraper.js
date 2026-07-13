@@ -857,18 +857,203 @@ async function scrapeProduct(url) {
 }
 
 /**
+ * Generic helper to extract chart points from raw HTML page string.
+ * Supports Unix timestamps and standard date string patterns inside array declarations.
+ */
+function parseChartPoints(html) {
+  const dataPoints = [];
+  
+  // 1. Try Unix timestamp format: [1712398500000, 4999]
+  const timestampRegex = /\[\s*(\d{12,13})\s*,\s*(\d+(?:\.\d+)?)\s*\]/g;
+  let match;
+  while ((match = timestampRegex.exec(html)) !== null) {
+    dataPoints.push({
+      timestamp: new Date(parseInt(match[1])),
+      price: parseFloat(match[2])
+    });
+  }
+  
+  if (dataPoints.length > 0) {
+    return dataPoints;
+  }
+  
+  // 2. Try ISO date string format: ["2024-04-10", 1499] or ['2024-04-10', 1499]
+  const dateStrRegex = /\[\s*['"](\d{4}-\d{2}-\d{2})['"]\s*,\s*(\d+(?:\.\d+)?)\s*\]/g;
+  while ((match = dateStrRegex.exec(html)) !== null) {
+    dataPoints.push({
+      timestamp: new Date(match[1]),
+      price: parseFloat(match[2])
+    });
+  }
+  
+  return dataPoints;
+}
+
+/**
+ * Attempts to scrape historical price details from PriceHistoryApp
+ */
+async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
+  let html = '';
+  let productPageLink = '';
+  
+  const searchUrl = `https://pricehistory.app/search?q=${encodeURIComponent(productUrl)}`;
+  console.log(`[PriceHistoryApp Scrape] Searching for URL: ${productUrl}`);
+  try {
+    html = await fetchPageHtml(searchUrl);
+    const $ = cheerio.load(html);
+    
+    $('a').each((i, el) => {
+      const href = $(el).attr('href');
+      if (href && href.includes('/product/')) {
+        productPageLink = href.startsWith('http') ? href : `https://pricehistory.app${href}`;
+        return false;
+      }
+    });
+  } catch (e) {
+    console.warn(`[PriceHistoryApp Scrape] Search by URL failed: ${e.message}`);
+  }
+  
+  if (!productPageLink && productTitle) {
+    const cleanTitle = productTitle.split(/\s+/).slice(0, 5).join(' ').replace(/[^\w\s]/g, '');
+    const searchTitleUrl = `https://pricehistory.app/search?q=${encodeURIComponent(cleanTitle)}`;
+    console.log(`[PriceHistoryApp Scrape] Trying title fallback: "${cleanTitle}"`);
+    try {
+      html = await fetchPageHtml(searchTitleUrl);
+      const $ = cheerio.load(html);
+      $('a').each((i, el) => {
+        const href = $(el).attr('href');
+        if (href && href.includes('/product/')) {
+          productPageLink = href.startsWith('http') ? href : `https://pricehistory.app${href}`;
+          return false;
+        }
+      });
+    } catch (e) {
+      console.warn(`[PriceHistoryApp Scrape] Search by Title failed: ${e.message}`);
+    }
+  }
+  
+  if (!productPageLink) {
+    console.log(`[PriceHistoryApp Scrape] No matching product link found.`);
+    return null;
+  }
+  
+  console.log(`[PriceHistoryApp Scrape] Fetching product page: ${productPageLink}`);
+  try {
+    const pageHtml = await fetchPageHtml(productPageLink);
+    const dataPoints = parseChartPoints(pageHtml);
+    
+    if (dataPoints.length > 0) {
+      console.log(`[PriceHistoryApp Scrape] Successfully parsed ${dataPoints.length} points!`);
+      dataPoints.sort((a, b) => a.timestamp - b.timestamp);
+      return {
+        url: productPageLink,
+        source: 'PriceHistoryApp',
+        dataPoints: dataPoints
+      };
+    }
+  } catch (e) {
+    console.error(`[PriceHistoryApp Scrape Page Fetch Error] ${e.message}`);
+  }
+  return null;
+}
+
+/**
+ * Attempts to scrape historical price details from BuyHatke
+ */
+async function scrapeFromBuyHatke(productUrl, productTitle) {
+  let html = '';
+  let productPageLink = '';
+  
+  const searchUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(productUrl)}`;
+  console.log(`[BuyHatke Scrape] Searching for URL: ${productUrl}`);
+  try {
+    html = await fetchPageHtml(searchUrl);
+    const $ = cheerio.load(html);
+    
+    $('a').each((i, el) => {
+      const href = $(el).attr('href');
+      if (href && href.includes('/products/')) {
+        productPageLink = href.startsWith('http') ? href : `https://compare.buyhatke.com${href}`;
+        return false;
+      }
+    });
+  } catch (e) {
+    console.warn(`[BuyHatke Scrape] Search by URL failed: ${e.message}`);
+  }
+  
+  if (!productPageLink && productTitle) {
+    const cleanTitle = productTitle.split(/\s+/).slice(0, 5).join(' ').replace(/[^\w\s]/g, '');
+    const searchTitleUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(cleanTitle)}`;
+    console.log(`[BuyHatke Scrape] Trying title fallback: "${cleanTitle}"`);
+    try {
+      html = await fetchPageHtml(searchTitleUrl);
+      const $ = cheerio.load(html);
+      $('a').each((i, el) => {
+        const href = $(el).attr('href');
+        if (href && href.includes('/products/')) {
+          productPageLink = href.startsWith('http') ? href : `https://compare.buyhatke.com${href}`;
+          return false;
+        }
+      });
+    } catch (e) {
+      console.warn(`[BuyHatke Scrape] Search by Title failed: ${e.message}`);
+    }
+  }
+  
+  if (!productPageLink) {
+    console.log(`[BuyHatke Scrape] No matching product link found.`);
+    return null;
+  }
+  
+  console.log(`[BuyHatke Scrape] Fetching product page: ${productPageLink}`);
+  try {
+    const pageHtml = await fetchPageHtml(productPageLink);
+    const dataPoints = parseChartPoints(pageHtml);
+    
+    if (dataPoints.length > 0) {
+      console.log(`[BuyHatke Scrape] Successfully parsed ${dataPoints.length} points!`);
+      dataPoints.sort((a, b) => a.timestamp - b.timestamp);
+      return {
+        url: productPageLink,
+        source: 'BuyHatke',
+        dataPoints: dataPoints
+      };
+    }
+  } catch (e) {
+    console.error(`[BuyHatke Scrape Page Fetch Error] ${e.message}`);
+  }
+  return null;
+}
+
+/**
  * Attempts to scrape historical price details from PriceBefore
  */
-async function scrapeHistoricalTracker(productUrl, productTitle) {
+async function scrapeFromPriceBefore(productUrl, productTitle) {
+  let html = '';
+  let productPageLink = '';
+  
+  const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(productUrl)}`;
+  console.log(`[PriceBefore Scrape] Searching for URL: ${productUrl}`);
   try {
-    let html = '';
-    let productPageLink = '';
-    
-    // 1. Try URL search first
-    const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(productUrl)}`;
-    console.log(`[Tracker Scrape] Searching PriceBefore for URL: ${productUrl}`);
+    html = await fetchPageHtml(searchUrl);
+    const $ = cheerio.load(html);
+    $('a').each((i, el) => {
+      const href = $(el).attr('href');
+      if (href && href.includes('/p/') && href.endsWith('.html')) {
+        productPageLink = href.startsWith('http') ? href : `https://pricebefore.com${href}`;
+        return false;
+      }
+    });
+  } catch (e) {
+    console.warn(`[PriceBefore Scrape] Search by URL failed: ${e.message}`);
+  }
+  
+  if (!productPageLink && productTitle) {
+    const cleanTitle = productTitle.split(/\s+/).slice(0, 5).join(' ').replace(/[^\w\s]/g, '');
+    const searchTitleUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(cleanTitle)}`;
+    console.log(`[PriceBefore Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchUrl);
+      html = await fetchPageHtml(searchTitleUrl);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -878,60 +1063,22 @@ async function scrapeHistoricalTracker(productUrl, productTitle) {
         }
       });
     } catch (e) {
-      console.warn(`[Tracker Scrape] URL search failed: ${e.message}`);
+      console.warn(`[PriceBefore Scrape] Search by Title failed: ${e.message}`);
     }
-    
-    // 2. Fallback: Search by clean product title
-    if (!productPageLink && productTitle) {
-      const cleanTitle = productTitle.split(/\s+/).slice(0, 5).join(' ').replace(/[^\w\s]/g, '');
-      const searchTitleUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(cleanTitle)}`;
-      console.log(`[Tracker Scrape] URL search returned nothing. Trying title fallback: "${cleanTitle}"`);
-      
-      try {
-        html = await fetchPageHtml(searchTitleUrl);
-        const $ = cheerio.load(html);
-        $('a').each((i, el) => {
-          const href = $(el).attr('href');
-          if (href && href.includes('/p/') && href.endsWith('.html')) {
-            productPageLink = href.startsWith('http') ? href : `https://pricebefore.com${href}`;
-            return false;
-          }
-        });
-      } catch (e) {
-        console.warn(`[Tracker Scrape] Title search failed: ${e.message}`);
-      }
-    }
-    
-    if (!productPageLink) {
-      console.log(`[Tracker Scrape] No matching product page found on PriceBefore.`);
-      return null;
-    }
-    
-    console.log(`[Tracker Scrape] Fetching product tracker page: ${productPageLink}`);
+  }
+  
+  if (!productPageLink) {
+    console.log(`[PriceBefore Scrape] No matching product link found.`);
+    return null;
+  }
+  
+  console.log(`[PriceBefore Scrape] Fetching product page: ${productPageLink}`);
+  try {
     const pageHtml = await fetchPageHtml(productPageLink);
-    
-    const dataPoints = [];
-    const scriptRegex = /\[\s*(\d{12,13})\s*,\s*(\d+(?:\.\d+)?)\s*\]/g;
-    
-    const $$ = cheerio.load(pageHtml);
-    $$('script').each((i, el) => {
-      const scriptContent = $$(el).html();
-      if (scriptContent && (scriptContent.includes('Highcharts') || scriptContent.includes('chart') || scriptContent.includes('series'))) {
-        let match;
-        scriptRegex.lastIndex = 0;
-        while ((match = scriptRegex.exec(scriptContent)) !== null) {
-          const timestamp = parseInt(match[1]);
-          const price = parseFloat(match[2]);
-          dataPoints.push({
-            timestamp: new Date(timestamp),
-            price: price
-          });
-        }
-      }
-    });
+    const dataPoints = parseChartPoints(pageHtml);
     
     if (dataPoints.length > 0) {
-      console.log(`[Tracker Scrape] Successfully parsed ${dataPoints.length} history points from PriceBefore!`);
+      console.log(`[PriceBefore Scrape] Successfully parsed ${dataPoints.length} points!`);
       dataPoints.sort((a, b) => a.timestamp - b.timestamp);
       return {
         url: productPageLink,
@@ -939,13 +1086,58 @@ async function scrapeHistoricalTracker(productUrl, productTitle) {
         dataPoints: dataPoints
       };
     }
-    
-    console.log(`[Tracker Scrape] No chart data found inside script tags on page.`);
-    return null;
-  } catch (err) {
-    console.error(`[Tracker Scrape Error] ${err.message}`);
-    return null;
+  } catch (e) {
+    console.error(`[PriceBefore Scrape Page Fetch Error] ${e.message}`);
   }
+  return null;
+}
+
+/**
+ * Orchestrator: Try PriceHistoryApp first, then BuyHatke (each with 1 retry),
+ * and fallback to PriceBefore.
+ */
+async function scrapeHistoricalTracker(productUrl, productTitle) {
+  // 1. Try PriceHistoryApp (Max 2 attempts: primary + 1 retry)
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    console.log(`[Historical Scraper] PriceHistoryApp - Attempt ${attempt}`);
+    const result = await scrapeFromPriceHistoryApp(productUrl, productTitle);
+    if (result && result.dataPoints && result.dataPoints.length > 0) {
+      return result;
+    }
+    if (attempt < 2) {
+      console.log(`[Historical Scraper] PriceHistoryApp failed, retrying in 1.5s...`);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  }
+
+  // 2. Try BuyHatke (Max 2 attempts: primary + 1 retry)
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    console.log(`[Historical Scraper] BuyHatke - Attempt ${attempt}`);
+    const result = await scrapeFromBuyHatke(productUrl, productTitle);
+    if (result && result.dataPoints && result.dataPoints.length > 0) {
+      return result;
+    }
+    if (attempt < 2) {
+      console.log(`[Historical Scraper] BuyHatke failed, retrying in 1.5s...`);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  }
+
+  // 3. Fallback to PriceBefore
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    console.log(`[Historical Scraper] PriceBefore Fallback - Attempt ${attempt}`);
+    const result = await scrapeFromPriceBefore(productUrl, productTitle);
+    if (result && result.dataPoints && result.dataPoints.length > 0) {
+      return result;
+    }
+    if (attempt < 2) {
+      console.log(`[Historical Scraper] PriceBefore failed, retrying in 1.5s...`);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  }
+
+  console.log(`[Historical Scraper] All trackers failed to retrieve price history.`);
+  return null;
 }
 
 module.exports = {
