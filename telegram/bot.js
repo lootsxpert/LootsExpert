@@ -572,24 +572,54 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
             data: {
               labels: labels,
               datasets: [{
-                label: 'Price History (₹)',
+                label: 'Price (₹)',
                 data: prices,
                 borderColor: '#4f46e5',
-                borderWidth: 2,
-                fill: false,
-                pointRadius: 4,
-                backgroundColor: '#818cf8'
+                borderWidth: 3,
+                pointBackgroundColor: '#4f46e5',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 1.5,
+                pointRadius: labels.length > 20 ? 0 : 3,
+                fill: true,
+                backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                lineTension: 0.3
               }]
             },
             options: {
               title: {
                 display: true,
-                text: product.product_name.substring(0, 25) + '... Trend'
+                text: product.product_name.substring(0, 32) + '... Trend',
+                fontSize: 14,
+                fontColor: '#1e293b',
+                fontFamily: 'Inter'
+              },
+              legend: {
+                display: false
+              },
+              scales: {
+                xAxes: [{
+                  gridLines: { display: false, drawBorder: false },
+                  ticks: {
+                    fontFamily: 'Inter',
+                    fontColor: '#64748b',
+                    fontSize: 10,
+                    maxTicksLimit: 8
+                  }
+                }],
+                yAxes: [{
+                  gridLines: { color: '#f1f5f9', drawBorder: false },
+                  ticks: {
+                    fontFamily: 'Inter',
+                    fontColor: '#64748b',
+                    fontSize: 10,
+                    callback: (val) => '₹' + parseInt(val).toLocaleString('en-IN')
+                  }
+                }]
               }
             }
           };
           
-          const graphUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+          const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
           await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
           await bot.sendPhoto(chatId, graphUrl, {
             caption: `📊 Price History graph for *${product.product_name}*`,
@@ -871,24 +901,54 @@ bot.on('callback_query', async (callbackQuery) => {
           data: {
             labels: labels,
             datasets: [{
-              label: 'Price History (₹)',
+              label: 'Price (₹)',
               data: prices,
               borderColor: '#4f46e5',
-              borderWidth: 2,
-              fill: false,
-              pointRadius: 4,
-              backgroundColor: '#818cf8'
+              borderWidth: 3,
+              pointBackgroundColor: '#4f46e5',
+              pointBorderColor: '#ffffff',
+              pointBorderWidth: 1.5,
+              pointRadius: labels.length > 20 ? 0 : 3,
+              fill: true,
+              backgroundColor: 'rgba(79, 70, 229, 0.1)',
+              lineTension: 0.3
             }]
           },
           options: {
             title: {
               display: true,
-              text: product.product_name.substring(0, 25) + '... Trend'
+              text: product.product_name.substring(0, 32) + '... Trend',
+              fontSize: 14,
+              fontColor: '#1e293b',
+              fontFamily: 'Inter'
+            },
+            legend: {
+              display: false
+            },
+            scales: {
+              xAxes: [{
+                gridLines: { display: false, drawBorder: false },
+                ticks: {
+                  fontFamily: 'Inter',
+                  fontColor: '#64748b',
+                  fontSize: 10,
+                  maxTicksLimit: 8
+                }
+              }],
+              yAxes: [{
+                gridLines: { color: '#f1f5f9', drawBorder: false },
+                ticks: {
+                  fontFamily: 'Inter',
+                  fontColor: '#64748b',
+                  fontSize: 10,
+                  callback: (val) => '₹' + parseInt(val).toLocaleString('en-IN')
+                }
+              }]
             }
           }
         };
         
-        const graphUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+        const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
         await bot.sendPhoto(chatId, graphUrl, {
           caption: `📊 Price History graph for *${product.product_name}*`,
           parse_mode: 'Markdown'

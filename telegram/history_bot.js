@@ -331,37 +331,50 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
         data: prices,
         borderColor: '#4f46e5',
         borderWidth: 3,
+        pointBackgroundColor: '#4f46e5',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 1.5,
+        pointRadius: filtered.length > 20 ? 0 : 3,
         fill: true,
         backgroundColor: 'rgba(79, 70, 229, 0.1)',
-        pointRadius: filtered.length > 20 ? 0 : 3,
-        pointBackgroundColor: '#818cf8',
-        lineTension: 0.1
+        lineTension: 0.3
       }]
     },
     options: {
       title: {
         display: true,
-        text: (productName.substring(0, 30) + '... History Trend'),
+        text: productName.substring(0, 32) + '... History Trend',
         fontSize: 14,
-        fontColor: '#1e293b'
+        fontColor: '#1e293b',
+        fontFamily: 'Inter'
       },
       legend: {
         display: false
       },
       scales: {
         xAxes: [{
-          gridLines: { display: false }
+          gridLines: { display: false, drawBorder: false },
+          ticks: {
+            fontFamily: 'Inter',
+            fontColor: '#64748b',
+            fontSize: 10,
+            maxTicksLimit: 8
+          }
         }],
         yAxes: [{
+          gridLines: { color: '#f1f5f9', drawBorder: false },
           ticks: {
-            callback: (val) => '₹' + val
+            fontFamily: 'Inter',
+            fontColor: '#64748b',
+            fontSize: 10,
+            callback: (val) => '₹' + parseInt(val).toLocaleString('en-IN')
           }
         }]
       }
     }
   };
 
-  return `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+  return `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
 }
 
 // Fetch historical data through API (with caching)
