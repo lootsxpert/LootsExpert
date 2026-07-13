@@ -791,8 +791,30 @@
     // Parse initial URL query parameter parameters
     parseUrlParams();
 
+    // Show skeleton loading cards
+    function showShimmer() {
+      if (!dealsGrid) return;
+      dealsGrid.innerHTML = '';
+      if (dealsEmptyState) dealsEmptyState.classList.add('hidden');
+      
+      for (let i = 0; i < 8; i++) {
+        const skeleton = document.createElement('div');
+        skeleton.className = 'deal-card skeleton-card';
+        skeleton.innerHTML = `
+          <div class="skeleton-image skeleton-shimmer"></div>
+          <div class="deal-card-content" style="padding: 14px; display: flex; flex-direction: column; gap: 8px;">
+            <div class="skeleton-title skeleton-shimmer"></div>
+            <div class="skeleton-text skeleton-shimmer" style="width: 50%;"></div>
+            <div class="skeleton-price skeleton-shimmer" style="width: 40%; margin-top: 10px;"></div>
+          </div>
+        `;
+        dealsGrid.appendChild(skeleton);
+      }
+    }
+
     // Load and Render Active Deals
     async function loadDeals() {
+      showShimmer();
       try {
         const params = new URLSearchParams();
         if (currentCategory) params.append('category', currentCategory);
@@ -808,9 +830,19 @@
         if (data && data.success) {
           renderDealsGrid(data.deals);
           updateUrlParams(); // Update URL parameter hashes
+        } else {
+          throw new Error('Deals API returned unsuccessful payload.');
         }
       } catch (err) {
         console.error('[Catalog Error]', err);
+        if (dealsGrid) dealsGrid.innerHTML = '';
+        if (dealsEmptyState) {
+          const title = dealsEmptyState.querySelector('h3');
+          const p = dealsEmptyState.querySelector('p');
+          if (title) title.textContent = 'Failed to Load Deals';
+          if (p) p.textContent = 'A network error occurred while retrieving products. Please try again.';
+          dealsEmptyState.classList.remove('hidden');
+        }
       }
     }
 
@@ -846,17 +878,23 @@
       dealsGrid.innerHTML = '';
       
       if (!deals || deals.length === 0) {
-        dealsEmptyState.classList.remove('hidden');
+        if (dealsEmptyState) {
+          const title = dealsEmptyState.querySelector('h3');
+          const p = dealsEmptyState.querySelector('p');
+          if (title) title.textContent = 'No Deals Found';
+          if (p) p.textContent = 'Try clearing your filters or broadening your search criteria.';
+          dealsEmptyState.classList.remove('hidden');
+        }
         return;
       }
       
-      dealsEmptyState.classList.add('hidden');
+      if (dealsEmptyState) dealsEmptyState.classList.add('hidden');
       
       deals.forEach(deal => {
         const card = document.createElement('div');
         card.className = 'deal-card';
         
-        const platformClass = deal.platform.toLowerCase();
+        const platformClass = (deal.platform || '').toLowerCase();
         const ratingHtml = deal.rating 
           ? `<div class="deal-card-rating"><i class="fa-solid fa-star"></i> ${deal.rating}</div>`
           : '';
@@ -871,7 +909,7 @@
 
         let tagClass = '';
         if (deal.deal_tag) {
-          tagClass = deal.deal_tag.toLowerCase().replace(/\s+/g, '-');
+          tagClass = String(deal.deal_tag).toLowerCase().replace(/\s+/g, '-');
         }
         
         const tagHtml = deal.deal_tag
