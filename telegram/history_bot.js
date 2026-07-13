@@ -1,6 +1,67 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 require('dotenv').config();
+const https = require('https');
+const http = require('http');
+const urlModule = require('url');
+
+function expandUrl(shortUrl) {
+  return new Promise((resolve) => {
+    let currentUrl = shortUrl;
+    let redirectsCount = 0;
+    
+    function follow(urlStr) {
+      if (redirectsCount >= 5) {
+        resolve(urlStr);
+        return;
+      }
+      
+      let parsed;
+      try {
+        parsed = new urlModule.URL(urlStr);
+      } catch (err) {
+        resolve(urlStr);
+        return;
+      }
+      
+      const client = parsed.protocol === 'https:' ? https : http;
+      const options = {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+        }
+      };
+      
+      const req = client.request(urlStr, options, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          redirectsCount++;
+          let nextUrl = res.headers.location;
+          if (!nextUrl.startsWith('http')) {
+            nextUrl = new urlModule.URL(nextUrl, urlStr).href;
+          }
+          follow(nextUrl);
+        } else {
+          resolve(urlStr);
+        }
+      });
+      
+      req.on('error', (err) => {
+        console.error(`[Expand URL Connection Error] ${urlStr}:`, err.message);
+        resolve(urlStr);
+      });
+      
+      req.setTimeout(4000, () => {
+        req.destroy();
+        resolve(urlStr);
+      });
+      
+      req.end();
+    }
+    
+    follow(currentUrl);
+  });
+}
+
 
 const db = require('./history_db');
 const affiliate = require('./affiliate');
@@ -69,7 +130,7 @@ const pendingTasks = new Map();
 async function verifyUserAndExecute(msg, taskType, taskData, executeCallback) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
-  const channel = process.env.AUTH_CHANNEL || '@botsxp';
+  const channel = "-1003849048564";
   
   try {
     // Check if user is banned
@@ -94,7 +155,7 @@ async function verifyUserAndExecute(msg, taskType, taskData, executeCallback) {
       // Store pending task in-memory
       pendingTasks.set(userId, { type: taskType, data: taskData, execute: executeCallback });
       
-      const channelLink = channel.startsWith('@') ? `https://t.me/${channel.substring(1)}` : `https://t.me/botsxp`;
+      const channelLink = "https://t.me/+rTx5B9g6XYxmNmE1";
       await bot.sendMessage(chatId, '⚠️ Please subscribe to our updates channel to use the bot:', {
         reply_markup: {
           inline_keyboard: [
@@ -471,19 +532,17 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
 
 // Command: /help
 bot.onText(/\/help/, async (msg) => {
-  await verifyUserAndExecute(msg, 'help', {}, async () => {
-    const helpText = `🤖 *How To Use*\n\n` +
-      `1. Copy any product link.\n` +
-      `2. Send it here.\n` +
-      `3. Instantly view:\n` +
-      `✔ Price Graph\n` +
-      `✔ Lowest Price\n` +
-      `✔ Highest Price\n` +
-      `✔ Average Price\n` +
-      `✔ Buy Recommendation`;
+  const helpText = `🤖 *How To Use*\n\n` +
+    `1. Copy any product link.\n` +
+    `2. Send it here.\n` +
+    `3. Instantly view:\n` +
+    `✔ Price Graph\n` +
+    `✔ Lowest Price\n` +
+    `✔ Highest Price\n` +
+    `✔ Average Price\n` +
+    `✔ Buy Recommendation`;
 
-    await bot.sendMessage(msg.chat.id, helpText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
-  });
+  await bot.sendMessage(msg.chat.id, helpText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
 });
 
 // Command: /about
@@ -607,21 +666,32 @@ bot.on('message', async (msg) => {
   const matches = text.match(urlRegex);
   
   if (!matches) {
-    await verifyUserAndExecute(msg, 'help', {}, async () => {
-      // Help fallback if no URL in simple text
-      const helpText = `🤖 *How To Use*\n\n` +
-        `1. Copy any product link.\n` +
-        `2. Send it here.\n` +
-        `3. Instantly view price graph.`;
-      await bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
-    });
+    // Help fallback if no URL in simple text
+    const helpText = `🤖 *How To Use*\n\n` +
+      `1. Copy any product link.\n` +
+      `2. Send it here.\n` +
+      `3. Instantly view price graph.`;
+    await bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
     return;
   }
 
   const productUrl = matches[0];
-  const detected = detectPlatformAndPid(productUrl);
+  let resolvedUrl = productUrl;
+  const urlLower = productUrl.toLowerCase();
+  const isShort = !urlLower.includes('amazon.in') && !urlLower.includes('flipkart.com') && 
+                  !urlLower.includes('shopsy.in') && !urlLower.includes('myntra.com') && 
+                  !urlLower.includes('ajio.com') && !urlLower.includes('meesho.com') &&
+                  !urlLower.includes('croma.com') && !urlLower.includes('tatacliq.com') &&
+                  !urlLower.includes('reliancedigital.in') && !urlLower.includes('nykaa.com');
+                  
+  if (isShort) {
+    const statusMsg = await bot.sendMessage(chatId, '🔍 Resolving link...');
+    resolvedUrl = await expandUrl(productUrl);
+    await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+  }
+  const detected = detectPlatformAndPid(resolvedUrl);
   
-  await verifyUserAndExecute(msg, 'check_history', { url: productUrl, detected: detected }, async () => {
+  await verifyUserAndExecute(msg, 'check_history', { url: resolvedUrl, detected: detected }, async () => {
     if (!detected) {
       await bot.sendMessage(chatId, '❌ This shopping platform is currently not supported.', {
         reply_markup: { inline_keyboard: getMainMenuButtons() }
