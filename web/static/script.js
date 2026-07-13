@@ -994,14 +994,14 @@ document.addEventListener('DOMContentLoaded', () => {
                   
                   <div class="flex items-baseline gap-2 mt-1" style="display: flex; align-items: baseline; gap: 8px;">
                     <span class="text-indigo-600 font-extrabold text-sm sm:text-base">₹${Math.round(deal.current_price).toLocaleString('en-IN')}</span>
-                    \${deal.original_price && parseFloat(deal.original_price) > parseFloat(deal.current_price) 
-                      ? `<span class="line-through text-slate-400 text-xs font-medium" style="font-size: 0.75rem;">₹\${Math.round(deal.original_price).toLocaleString('en-IN')}</span>` 
+                    ${deal.original_price && parseFloat(deal.original_price) > parseFloat(deal.current_price) 
+                      ? `<span class="line-through text-slate-400 text-xs font-medium" style="font-size: 0.75rem;">₹${Math.round(deal.original_price).toLocaleString('en-IN')}</span>` 
                       : ''
                     }
                   </div>
                   
-                  \${deal.discount && parseFloat(deal.discount) > 0
-                    ? `<span class="text-green-600 text-xs font-bold bg-green-50 px-2 py-0.5 rounded-full border border-green-100" style="font-size: 0.7rem; border-radius: 12px; padding: 2px 8px; background-color: #f0fdf4; border: 1px solid #dcfce7;">\${Math.round(deal.discount)}% OFF</span>`
+                  ${deal.discount
+                    ? `<span class="text-green-600 text-xs font-bold bg-green-50 px-2 py-0.5 rounded-full border border-green-100" style="font-size: 0.7rem; border-radius: 12px; padding: 2px 8px; background-color: #f0fdf4; border: 1px solid #dcfce7;">${deal.discount}</span>`
                     : ''
                   }
                 </div>
