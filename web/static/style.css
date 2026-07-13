@@ -3217,3 +3217,221 @@ body {
     justify-content: space-between;
   }
 }
+
+/* --- HOMEPAGE ADDITIONAL SECTIONS STYLES --- */
+.section-title-block {
+  text-align: center;
+  margin-bottom: 30px;
+}
+.section-title-block h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.section-title-block p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Why us section */
+.why-us-section, .carry-app-section, .stores-supported-section, .faq-accordion-section {
+  margin-top: 30px;
+}
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+.feature-card {
+  background-color: var(--bg-main);
+  border: 1px solid var(--border-clean);
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transition: var(--transition-smooth);
+}
+.feature-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-subtle);
+}
+.feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: rgba(79, 70, 229, 0.08);
+  color: var(--accent-indigo);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+}
+.feature-card h3 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.feature-card p {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+/* Carry App Section */
+.carry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+  align-items: center;
+}
+.carry-left h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+.carry-left p {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+.stats-row-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.stat-item {
+  display: flex;
+  flex-direction: column;
+}
+.stat-val {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent-indigo);
+}
+.stat-lbl {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+.carry-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.download-card {
+  background-color: var(--bg-main);
+  border: 1px solid var(--border-clean);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.download-icon {
+  font-size: 2rem;
+  color: var(--accent-indigo);
+}
+.download-text {
+  flex: 1;
+}
+.download-text h3 {
+  font-size: 0.95rem;
+}
+.download-text p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* Supported stores logo grid */
+.stores-logo-flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+.store-logo-item {
+  background-color: var(--bg-main);
+  border: 1px solid var(--border-clean);
+  border-radius: 50px;
+  padding: 8px 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.store-logo-item i {
+  font-size: 1.15rem;
+  color: var(--accent-indigo);
+}
+.store-logo-item.flipkart i { color: #2874f0; }
+.store-logo-item.myntra i { color: #ff3f6c; }
+.store-logo-item.ajio i { color: #2c3e50; }
+.store-logo-item.meesho i { color: #f43397; }
+.store-logo-item.shopsy i { color: #ff9900; }
+.store-logo-item.croma i { color: #000000; }
+.store-logo-item.reliance i { color: #e4252a; }
+.store-logo-item.tatacliq i { color: #da251d; }
+.store-logo-item.nykaa i { color: #fc2779; }
+
+/* FAQ Accordion Section */
+.accordion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.accordion-item {
+  border: 1px solid var(--border-clean);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: var(--bg-main);
+}
+.accordion-header {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 18px 24px;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.accordion-header:hover {
+  background-color: rgba(79, 70, 229, 0.02);
+}
+.accordion-header i {
+  transition: transform 0.3s ease;
+  color: var(--text-muted);
+}
+.accordion-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+.accordion-body p {
+  padding: 0 24px 18px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+@media(max-width: 768px) {
+  .carry-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .stats-row-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
