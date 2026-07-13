@@ -22,6 +22,10 @@
 }
 
 .hidden {
+  display: none;
+}
+
+#loader.hidden, #error-container.hidden, #result-view.hidden {
   display: none !important;
 }
 
