@@ -9,6 +9,10 @@ from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import generate_password_hash, check_password_hash
+import cloudinary
+import cloudinary.uploader
+from werkzeug.utils import secure_filename
+import time
 
 # Configure SSL context to bypass verification for Railway internal API queries
 ssl_context = ssl.create_default_context()
@@ -28,6 +32,46 @@ DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('DATABASE_PRIVAT
 
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'PriceGraph@2026')
+
+# Cloudinary Setup
+CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL')
+if CLOUDINARY_URL:
+    pass
+else:
+    cloudinary.config(
+        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        api_key = os.environ.get('CLOUDINARY_API_KEY'),
+        api_secret = os.environ.get('CLOUDINARY_API_SECRET'),
+        secure = True
+    )
+
+# Local Upload Fallback
+UPLOAD_FOLDER = os.path.join(app.root_path, 'static', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def upload_image_helper(file):
+    if not file:
+        return None
+    is_cloudinary_configured = (
+        CLOUDINARY_URL is not None or 
+        (os.environ.get('CLOUDINARY_CLOUD_NAME') is not None and 
+         os.environ.get('CLOUDINARY_API_KEY') is not None)
+    )
+    if is_cloudinary_configured:
+        try:
+            upload_result = cloudinary.uploader.upload(file)
+            return upload_result.get('secure_url')
+        except Exception as e:
+            print(f"[Cloudinary Upload Error] {str(e)}. Falling back to local storage.")
+    try:
+        filename = secure_filename(file.filename)
+        filename = f"{int(time.time())}_{filename}"
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(file_path)
+        return f"/static/uploads/{filename}"
+    except Exception as e:
+        print(f"[Local Upload Error] {str(e)}")
+        return None
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
@@ -93,6 +137,97 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+
+        # Create web_categories table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS web_categories (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) UNIQUE NOT NULL,
+                description TEXT,
+                image_url TEXT,
+                icon_class VARCHAR(50) DEFAULT 'fa-solid fa-tag',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+        # Create web_supported_stores table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS web_supported_stores (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) UNIQUE NOT NULL,
+                logo_url TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+        # Create web_marquee_items table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS web_marquee_items (
+                id SERIAL PRIMARY KEY,
+                text VARCHAR(255) NOT NULL,
+                logo_url TEXT,
+                link VARCHAR(255),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+        # Seed categories if empty
+        cur.execute("SELECT COUNT(*) FROM web_categories")
+        if cur.fetchone()[0] == 0:
+            default_categories = [
+                ('Mobiles', 'iPhones, Samsung Galaxy, OnePlus, and budget smartphones.', 'fa-solid fa-mobile-screen'),
+                ('Laptops', 'Gaming laptops, MacBook, Ultrabooks, and school accessories.', 'fa-solid fa-laptop'),
+                ('Electronics', 'Smart TVs, wireless speakers, smartwatches, and headphones.', 'fa-solid fa-plug'),
+                ('Fashion', 'Men\'s and women\'s clothing, athletic shoes, and watches.', 'fa-solid fa-shirt'),
+                ('Home Appliances', 'Refrigerators, washing machines, microwaves, and air conditioners.', 'fa-solid fa-fan'),
+                ('Beauty & Care', 'Skincare products, perfumes, hair dryers, and cosmetics.', 'fa-solid fa-sparkles'),
+                ('Furniture', 'Office chairs, study desks, sofas, and dining tables.', 'fa-solid fa-couch'),
+                ('Kitchen', 'Mixer grinders, air fryers, water purifiers, and cookware.', 'fa-solid fa-blender')
+            ]
+            cur.executemany("INSERT INTO web_categories (name, description, icon_class) VALUES (%s, %s, %s)", default_categories)
+            print("Seeded default categories!")
+
+        # Seed stores if empty
+        cur.execute("SELECT COUNT(*) FROM web_supported_stores")
+        if cur.fetchone()[0] == 0:
+            default_stores = [
+                ('Flipkart', 'https://compare.buyhatke.com/images/site_icons_m/flipkart1.png'),
+                ('Amazon', 'https://compare.buyhatke.com/images/site_icons_m/amazon.png'),
+                ('Myntra', 'https://compare.buyhatke.com/images/site_icons_m/myntra.png'),
+                ('Ajio', 'https://compare.buyhatke.com/images/site_icons_m/ajio.png'),
+                ('Meesho', 'https://compare.buyhatke.com/images/site_icons_m/meesho.png'),
+                ('Nykaa', 'https://compare.buyhatke.com/images/site_icons_m/nykaa.png'),
+                ('Tata Cliq', 'https://compare.buyhatke.com/images/site_icons_m/tatacliq.png'),
+                ('Ikea', 'https://compare.buyhatke.com/images/site_icons_m/ikea.png'),
+                ('Apple', 'https://compare.buyhatke.com/images/site_icons_m/apple.png'),
+                ('Jio Mart', 'https://compare.buyhatke.com/images/site_icons_m/jiomart.png'),
+                ('MakeMyTrip', 'https://compare.buyhatke.com/images/site_icons_m/makemytrip.png'),
+                ('Samsung', 'https://compare.buyhatke.com/images/site_icons_m/samsung.png'),
+                ('BookMyShow', 'https://compare.buyhatke.com/images/site_icons_m/bookMyShow.png'),
+                ('Croma', 'https://compare.buyhatke.com/images/site_icons_m/croma.png'),
+                ('FirstCry', 'https://compare.buyhatke.com/images/site_icons_m/firstCry.png'),
+                ('Decathlon', 'https://compare.buyhatke.com/images/site_icons_m/decathlon.png'),
+                ('Lenskart', 'https://compare.buyhatke.com/images/site_icons_m/lenskart.png'),
+                ('Redbus', 'https://compare.buyhatke.com/images/site_icons_m/redbus.png')
+            ]
+            cur.executemany("INSERT INTO web_supported_stores (name, logo_url) VALUES (%s, %s)", default_stores)
+            print("Seeded default stores!")
+
+        # Seed marquee items if empty
+        cur.execute("SELECT COUNT(*) FROM web_marquee_items")
+        if cur.fetchone()[0] == 0:
+            default_marquees = [
+                ('Amazon', 'https://compare.buyhatke.com/images/site_icons_m/amazon.png', '/deals?platform=Amazon'),
+                ('Flipkart', 'https://compare.buyhatke.com/images/site_icons_m/flipkart1.png', '/deals?platform=Flipkart'),
+                ('Myntra', 'https://compare.buyhatke.com/images/site_icons_m/myntra.png', '/deals?platform=Myntra'),
+                ('Meesho', 'https://compare.buyhatke.com/images/site_icons_m/meesho.png', '/deals?platform=Meesho'),
+                ('Croma', 'https://compare.buyhatke.com/images/site_icons_m/croma.png', '/deals?platform=Croma'),
+                ('Ajio', 'https://compare.buyhatke.com/images/site_icons_m/ajio.png', '/deals?platform=Ajio'),
+                ('Nykaa', 'https://compare.buyhatke.com/images/site_icons_m/nykaa.png', '/deals?platform=Nykaa'),
+                ('Tata Cliq', 'https://compare.buyhatke.com/images/site_icons_m/tatacliq.png', '/deals?platform=TatacliQ')
+            ]
+            cur.executemany("INSERT INTO web_marquee_items (text, logo_url, link) VALUES (%s, %s, %s)", default_marquees)
+            print("Seeded default marquee items!")
         
         conn.commit()
         cur.close()
@@ -106,7 +241,21 @@ init_db()
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT name, logo_url FROM web_supported_stores ORDER BY name ASC")
+        stores = cur.fetchall()
+        cur.execute("SELECT text, logo_url, link FROM web_marquee_items ORDER BY created_at DESC")
+        marquees = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"[Database Error in index route] {str(e)}")
+        stores = []
+        marquees = []
+        
+    return render_template("index.html", supported_stores=stores, marquee_items=marquees)
 
 @app.route("/app")
 def bh_app():
@@ -590,11 +739,32 @@ def admin():
         
         cur.execute("SELECT COUNT(*) FROM telegram_products")
         total_products = cur.fetchone()['count']
+
+        # Get categories, stores, and marquee items for admin panel management
+        cur.execute("SELECT id, name, description, image_url, icon_class FROM web_categories ORDER BY name ASC")
+        admin_categories = cur.fetchall()
+        
+        cur.execute("SELECT id, name, logo_url FROM web_supported_stores ORDER BY name ASC")
+        admin_stores = cur.fetchall()
+        
+        cur.execute("SELECT id, text, logo_url, link FROM web_marquee_items ORDER BY created_at DESC")
+        admin_marquees = cur.fetchall()
         
         cur.close()
         conn.close()
         
-        return render_template("admin.html", users=users, products=products, total_users=total_web_users, total_products=total_products)
+        return render_template(
+            "admin.html", 
+            users=users, 
+            products=products, 
+            total_users=total_web_users, 
+            total_products=total_products,
+            categories=admin_categories,
+            stores=admin_stores,
+            marquees=admin_marquees,
+            msg=request.args.get('msg'),
+            error=request.args.get('error')
+        )
     except Exception as e:
         return f"Database Error: {str(e)}"
 
@@ -658,7 +828,18 @@ def coupons():
 
 @app.route("/categories")
 def categories():
-    return render_template("categories.html")
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT name, description, image_url, icon_class FROM web_categories ORDER BY name ASC")
+        cats = cur.fetchall()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"[Database Error in categories route] {str(e)}")
+        cats = []
+        
+    return render_template("categories.html", categories=cats)
 
 @app.route("/brands")
 def brands():
@@ -675,6 +856,151 @@ def product_details(platform, pid):
 @app.route("/maintenance")
 def maintenance():
     return render_template("error.html", error_code="MAINTENANCE", error_title="System Maintenance", error_desc="We are updating our price crawling nodes. Check back in a few minutes!")
+
+
+# ==============================================================================
+# Admin Dynamic Management Endpoints (Categories, Stores, Marquee)
+# ==============================================================================
+
+@app.route("/admin/category/add", methods=["POST"])
+def admin_category_add():
+    if 'admin' not in session:
+        return redirect(url_for("login", msg="Access restricted to administrator."))
+    
+    name = request.form.get("name")
+    description = request.form.get("description")
+    icon_class = request.form.get("icon_class", "fa-solid fa-tag")
+    file = request.files.get("image")
+    
+    if not name:
+        return redirect(url_for("admin", error="Category name is required."))
+        
+    image_url = None
+    if file and file.filename != '':
+        image_url = upload_image_helper(file)
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO web_categories (name, description, image_url, icon_class) VALUES (%s, %s, %s, %s) ON CONFLICT (name) DO UPDATE SET description = EXCLUDED.description, image_url = COALESCE(EXCLUDED.image_url, web_categories.image_url), icon_class = EXCLUDED.icon_class",
+            (name, description, image_url, icon_class)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for("admin", msg=f"Category '{name}' added/updated successfully!"))
+    except Exception as e:
+        return f"Database Error: {str(e)}"
+
+@app.route("/admin/category/delete/<int:cat_id>", methods=["POST"])
+def admin_category_delete(cat_id):
+    if 'admin' not in session:
+        return redirect(url_for("login", msg="Access restricted to administrator."))
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM web_categories WHERE id = %s", (cat_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for("admin", msg="Category deleted successfully!"))
+    except Exception as e:
+        return f"Database Error: {str(e)}"
+
+@app.route("/admin/store/add", methods=["POST"])
+def admin_store_add():
+    if 'admin' not in session:
+        return redirect(url_for("login", msg="Access restricted to administrator."))
+        
+    name = request.form.get("name")
+    file = request.files.get("logo")
+    
+    if not name:
+        return redirect(url_for("admin", error="Store name is required."))
+    if not file or file.filename == '':
+        return redirect(url_for("admin", error="Store logo image is required."))
+        
+    logo_url = upload_image_helper(file)
+    if not logo_url:
+        return redirect(url_for("admin", error="Failed to upload logo."))
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO web_supported_stores (name, logo_url) VALUES (%s, %s) ON CONFLICT (name) DO UPDATE SET logo_url = EXCLUDED.logo_url",
+            (name, logo_url)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for("admin", msg=f"Supported store '{name}' added successfully!"))
+    except Exception as e:
+        return f"Database Error: {str(e)}"
+
+@app.route("/admin/store/delete/<int:store_id>", methods=["POST"])
+def admin_store_delete(store_id):
+    if 'admin' not in session:
+        return redirect(url_for("login", msg="Access restricted to administrator."))
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM web_supported_stores WHERE id = %s", (store_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for("admin", msg="Supported store deleted successfully!"))
+    except Exception as e:
+        return f"Database Error: {str(e)}"
+
+@app.route("/admin/marquee/add", methods=["POST"])
+def admin_marquee_add():
+    if 'admin' not in session:
+        return redirect(url_for("login", msg="Access restricted to administrator."))
+        
+    text = request.form.get("text")
+    link = request.form.get("link")
+    file = request.files.get("logo")
+    
+    if not text:
+        return redirect(url_for("admin", error="Marquee text is required."))
+        
+    logo_url = None
+    if file and file.filename != '':
+        logo_url = upload_image_helper(file)
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO web_marquee_items (text, logo_url, link) VALUES (%s, %s, %s)",
+            (text, logo_url, link)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for("admin", msg="Marquee item added successfully!"))
+    except Exception as e:
+        return f"Database Error: {str(e)}"
+
+@app.route("/admin/marquee/delete/<int:item_id>", methods=["POST"])
+def admin_marquee_delete(item_id):
+    if 'admin' not in session:
+        return redirect(url_for("login", msg="Access restricted to administrator."))
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM web_marquee_items WHERE id = %s", (item_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for("admin", msg="Marquee item deleted successfully!"))
+    except Exception as e:
+        return f"Database Error: {str(e)}"
 
 # Error pages routing
 @app.errorhandler(404)

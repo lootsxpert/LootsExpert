@@ -10,85 +10,32 @@
   </div>
 
   <div class="categories-grid">
-    <!-- Category 1 -->
-    <a href="/?search=Mobiles" class="category-card">
-      <div class="category-icon-wrapper mobiles"><i class="fa-solid fa-mobile-screen"></i></div>
-      <div class="category-info">
-        <h3>Mobiles</h3>
-        <p>iPhones, Samsung Galaxy, OnePlus, and budget smartphones.</p>
-        <span class="category-meta">1,420 Tracked Products</span>
+    {% for cat in categories %}
+      <a href="/?search={{ cat.name }}" class="category-card" style="text-decoration: none; color: inherit;">
+        <div class="flex flex-col items-center sm:items-start text-center sm:text-start" style="width: 100%;">
+          {% if cat.image_url %}
+            <div style="width: 100%; height: 140px; overflow: hidden; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e2e8f0; background: #fff;">
+              <img src="{{ cat.image_url }}" alt="{{ cat.name }}" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+          {% else %}
+            <div style="background-color: #e0e7ff; color: #4f46e5; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 1.4rem;">
+              <i class="{{ cat.icon_class or 'fa-solid fa-tag' }}"></i>
+            </div>
+          {% endif %}
+          <div class="category-info">
+            <h3 style="margin-top: 0; margin-bottom: 6px; font-family: 'Outfit', sans-serif; font-size: 1.1rem; color: #1e1b4b;">{{ cat.name }}</h3>
+            <p style="font-size: 0.85rem; color: #475569; line-height: 1.4; margin-bottom: 8px;">{{ cat.description or 'Compare historical trends & price metrics.' }}</p>
+            <span class="category-meta" style="font-size: 0.75rem; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.5px;">Tracked Segment</span>
+          </div>
+        </div>
+      </a>
+    {% else %}
+      <div style="grid-column: 1 / -1; text-align: center; color: #64748b; padding: 48px; background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1;">
+        <i class="fa-solid fa-folder-open" style="font-size: 3rem; margin-bottom: 12px; color: #cbd5e1; display: block;"></i>
+        <p style="font-weight: 600; margin-bottom: 4px;">No categories available</p>
+        <p style="font-size: 0.85rem; margin-top: 0;">Add segments in the admin panel to populate this catalog.</p>
       </div>
-    </a>
-
-    <!-- Category 2 -->
-    <a href="/?search=Laptops" class="category-card">
-      <div class="category-icon-wrapper laptops"><i class="fa-solid fa-laptop"></i></div>
-      <div class="category-info">
-        <h3>Laptops</h3>
-        <p>Gaming laptops, MacBook, Ultrabooks, and school accessories.</p>
-        <span class="category-meta">850 Tracked Products</span>
-      </div>
-    </a>
-
-    <!-- Category 3 -->
-    <a href="/?search=Electronics" class="category-card">
-      <div class="category-icon-wrapper electronics"><i class="fa-solid fa-plug"></i></div>
-      <div class="category-info">
-        <h3>Electronics</h3>
-        <p>Smart TVs, wireless speakers, smartwatches, and headphones.</p>
-        <span class="category-meta">2,110 Tracked Products</span>
-      </div>
-    </a>
-
-    <!-- Category 4 -->
-    <a href="/?search=Fashion" class="category-card">
-      <div class="category-icon-wrapper fashion"><i class="fa-solid fa-shirt"></i></div>
-      <div class="category-info">
-        <h3>Fashion</h3>
-        <p>Men's and women's clothing, athletic shoes, and watches.</p>
-        <span class="category-meta">3,450 Tracked Products</span>
-      </div>
-    </a>
-
-    <!-- Category 5 -->
-    <a href="/?search=Appliances" class="category-card">
-      <div class="category-icon-wrapper appliances"><i class="fa-solid fa-fan"></i></div>
-      <div class="category-info">
-        <h3>Home Appliances</h3>
-        <p>Refrigerators, washing machines, microwaves, and air conditioners.</p>
-        <span class="category-meta">620 Tracked Products</span>
-      </div>
-    </a>
-
-    <!-- Category 6 -->
-    <a href="/?search=Beauty" class="category-card">
-      <div class="category-icon-wrapper beauty"><i class="fa-solid fa-sparkles"></i></div>
-      <div class="category-info">
-        <h3>Beauty & Care</h3>
-        <p>Skincare products, perfumes, hair dryers, and cosmetics.</p>
-        <span class="category-meta">930 Tracked Products</span>
-      </div>
-    </a>
-
-    <!-- Category 7 -->
-    <a href="/?search=Furniture" class="category-card">
-      <div class="category-icon-wrapper furniture"><i class="fa-solid fa-couch"></i></div>
-      <div class="category-info">
-        <h3>Furniture</h3>
-        <p>Office chairs, study desks, sofas, and dining tables.</p>
-        <span class="category-meta">480 Tracked Products</span>
-      </div>
-    </a>
-
-    <!-- Category 8 -->
-    <a href="/?search=Kitchen" class="category-card">
-      <div class="category-icon-wrapper kitchen"><i class="fa-solid fa-blender"></i></div>
-      <div class="category-info">
-        <h3>Kitchen</h3>
-        <p>Mixer grinders, air fryers, water purifiers, and cookware.</p>
-        <span class="category-meta">770 Tracked Products</span>
-      </div>
-    </a>
+    {% endfor %}
   </div>
 </div>
 {% endblock %}

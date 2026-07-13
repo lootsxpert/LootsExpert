@@ -36,12 +36,27 @@
     <aside class="dashboard-sidebar">
       <button class="tab-btn active" data-tab="users"><i class="fa-solid fa-users"></i> Manage Users</button>
       <button class="tab-btn" data-tab="products"><i class="fa-solid fa-box"></i> Tracked Products</button>
+      <button class="tab-btn" data-tab="categories"><i class="fa-solid fa-folder-open"></i> Categories</button>
+      <button class="tab-btn" data-tab="stores"><i class="fa-solid fa-store"></i> Supported Stores</button>
+      <button class="tab-btn" data-tab="marquee"><i class="fa-solid fa-arrows-left-right"></i> Marquee Manager</button>
       <button class="tab-btn" data-tab="analytics"><i class="fa-solid fa-chart-pie"></i> Scraper Status</button>
       <button class="tab-btn" data-tab="logs"><i class="fa-solid fa-server"></i> System Logs</button>
     </aside>
 
     <!-- Content Sections -->
     <div class="dashboard-content">
+      
+      <!-- Notifications -->
+      {% if msg %}
+        <div class="alert alert-success" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-circle-check"></i> {{ msg }}
+        </div>
+      {% endif %}
+      {% if error %}
+        <div class="alert alert-danger" style="background-color: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+          <i class="fa-solid fa-circle-xmark"></i> {{ error }}
+        </div>
+      {% endif %}
       
       <!-- Tab 1: Users -->
       <section class="tab-content active" id="tab-users">
@@ -117,7 +132,196 @@
         {% endif %}
       </section>
 
-      <!-- Tab 3: Scraper Status / Analytics -->
+      <!-- Tab 3: Categories Manager -->
+      <section class="tab-content" id="tab-categories">
+        <h3>Product Categories</h3>
+        <p class="tab-desc">Manage the e-commerce product segments, metadata descriptions, and cover illustrations.</p>
+        
+        <form action="/admin/category/add" method="POST" enctype="multipart/form-data" class="admin-form">
+          <h4>Add / Update Category</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="cat-name">Category Name *</label>
+              <input type="text" id="cat-name" name="name" placeholder="e.g., Mobiles" required>
+            </div>
+            <div class="form-group">
+              <label for="cat-icon">Icon Class (FontAwesome tag fallback)</label>
+              <input type="text" id="cat-icon" name="icon_class" placeholder="e.g., fa-solid fa-mobile-screen">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="cat-desc">Description</label>
+            <textarea id="cat-desc" name="description" placeholder="Brief details about the category..." rows="2"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="cat-img">Category Banner Image (Cloudinary File Upload)</label>
+            <input type="file" id="cat-img" name="image" accept="image/*">
+          </div>
+          <button type="submit" class="submit-btn"><i class="fa-solid fa-floppy-disk mr-1"></i> Save Category</button>
+        </form>
+
+        <h4 class="mt-6">Existing Categories</h4>
+        {% if categories %}
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Visual cover</th>
+                  <th>Category Name</th>
+                  <th>Description</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in categories %}
+                  <tr>
+                    <td>{{ c['id'] }}</td>
+                    <td>
+                      {% if c['image_url'] %}
+                        <img src="{{ c['image_url'] }}" alt="" style="width: 32px; height: 32px; object-fit: cover; border-radius: 4px; border: 1px solid #e2e8f0;">
+                      {% else %}
+                        <span style="font-size: 1.2rem; color: #4f46e5;"><i class="{{ c['icon_class'] or 'fa-solid fa-tag' }}"></i></span>
+                      {% endif %}
+                    </td>
+                    <td><strong>{{ c['name'] }}</strong></td>
+                    <td class="text-secondary" style="font-size: 0.85rem;">{{ c['description'] or '-' }}</td>
+                    <td>
+                      <form action="/admin/category/delete/{{ c['id'] }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this category?');" style="display: inline;">
+                        <button type="submit" class="delete-action-btn"><i class="fa-solid fa-trash"></i> Delete</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty-text">No product categories registered in database.</p>
+        {% endif %}
+      </section>
+
+      <!-- Tab 4: Supported Stores Manager -->
+      <section class="tab-content" id="tab-stores">
+        <h3>Supported Stores</h3>
+        <p class="tab-desc">Add store names and uploading brand logo assets to display under Homepage partners section.</p>
+        
+        <form action="/admin/store/add" method="POST" enctype="multipart/form-data" class="admin-form">
+          <h4>Add New Supported Store</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="store-name">Store Name *</label>
+              <input type="text" id="store-name" name="name" placeholder="e.g., Walmart" required>
+            </div>
+            <div class="form-group">
+              <label for="store-logo">Store Logo Image * (Cloudinary Upload)</label>
+              <input type="file" id="store-logo" name="logo" accept="image/*" required>
+            </div>
+          </div>
+          <button type="submit" class="submit-btn"><i class="fa-solid fa-plus mr-1"></i> Add Store</button>
+        </form>
+
+        <h4 class="mt-6">Currently Supported Store Brands</h4>
+        {% if stores %}
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Brand Logo</th>
+                  <th>Brand Name</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for s in stores %}
+                  <tr>
+                    <td>{{ s['id'] }}</td>
+                    <td>
+                      <img src="{{ s['logo_url'] }}" alt="" style="width: 38px; height: 38px; object-fit: contain; border-radius: 50%; border: 1.5px solid #e2e8f0; background: #fff; padding: 2px;">
+                    </td>
+                    <td><strong>{{ s['name'] }}</strong></td>
+                    <td>
+                      <form action="/admin/store/delete/{{ s['id'] }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this store?');" style="display: inline;">
+                        <button type="submit" class="delete-action-btn"><i class="fa-solid fa-trash"></i> Delete</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty-text">No supported store logo items created yet.</p>
+        {% endif %}
+      </section>
+
+      <!-- Tab 5: Marquee scrolling bar manager -->
+      <section class="tab-content" id="tab-marquee">
+        <h3>Marquee Scrolling Bar Manager</h3>
+        <p class="tab-desc">Control items circulating inside the dynamic bottom crawling marquee bar.</p>
+        
+        <form action="/admin/marquee/add" method="POST" enctype="multipart/form-data" class="admin-form">
+          <h4>Add Running Marquee Item</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="marquee-text">Marquee Text * (Displays text label)</label>
+              <input type="text" id="marquee-text" name="text" placeholder="e.g., Amazon Special Deals" required>
+            </div>
+            <div class="form-group">
+              <label for="marquee-link">Target Redirect Link URL</label>
+              <input type="text" id="marquee-link" name="link" placeholder="e.g., /deals?platform=Amazon">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="marquee-logo">Marquee Item Small Logo (Cloudinary Upload)</label>
+            <input type="file" id="marquee-logo" name="logo" accept="image/*">
+          </div>
+          <button type="submit" class="submit-btn"><i class="fa-solid fa-plus mr-1"></i> Add Marquee Item</button>
+        </form>
+
+        <h4 class="mt-6">Running Marquee Items Pool</h4>
+        {% if marquees %}
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Small Icon</th>
+                  <th>Text Label</th>
+                  <th>Redirect Path</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for m in marquees %}
+                  <tr>
+                    <td>{{ m['id'] }}</td>
+                    <td>
+                      {% if m['logo_url'] %}
+                        <img src="{{ m['logo_url'] }}" alt="" style="width: 24px; height: 24px; object-fit: contain; border-radius: 50%; background: #fff; border: 1px solid #e2e8f0; padding: 1px;">
+                      {% else %}
+                        <span class="text-secondary">-</span>
+                      {% endif %}
+                    </td>
+                    <td><strong>{{ m['text'] }}</strong></td>
+                    <td><code class="admin-code-inline">{{ m['link'] or '-' }}</code></td>
+                    <td>
+                      <form action="/admin/marquee/delete/{{ m['id'] }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this marquee item?');" style="display: inline;">
+                        <button type="submit" class="delete-action-btn"><i class="fa-solid fa-trash"></i> Delete</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty-text">No active items in the marquee pool.</p>
+        {% endif %}
+      </section>
+
+      <!-- Tab 6: Scraper Status / Analytics -->
       <section class="tab-content" id="tab-analytics">
         <h3>Scraper Statistics</h3>
         <p class="tab-desc">Monitor latency statistics, proxy performance, and scraper response codes.</p>
@@ -181,7 +385,7 @@
         </div>
       </section>
 
-      <!-- Tab 4: System Logs -->
+      <!-- Tab 7: System Logs -->
       <section class="tab-content" id="tab-logs">
         <h3>System Logs</h3>
         <p class="tab-desc">Live output stream from Node API scraper and Flask auth nodes.</p>
@@ -209,14 +413,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const tabs = document.querySelectorAll('.tab-btn');
   const sections = document.querySelectorAll('.tab-content');
 
+  // Check URL queries to switch tabs automatically (for nice flow on save/delete actions)
+  const urlParams = new URLSearchParams(window.location.search);
+  const activeTabQuery = urlParams.get('tab');
+  
+  function switchTab(tabId) {
+    tabs.forEach(t => t.classList.remove('active'));
+    sections.forEach(s => s.classList.remove('active'));
+
+    const activeTabButton = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+    const activeSection = document.getElementById(`tab-${tabId}`);
+    
+    if (activeTabButton && activeSection) {
+      activeTabButton.classList.add('active');
+      activeSection.classList.add('active');
+    }
+  }
+
+  if (activeTabQuery) {
+    switchTab(activeTabQuery);
+  }
+
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'));
-      sections.forEach(s => s.classList.remove('active'));
-
-      tab.classList.add('active');
       const target = tab.getAttribute('data-tab');
-      document.getElementById(`tab-${target}`).classList.add('active');
+      switchTab(target);
+      
+      // Update browser search URL without refreshing (clean UX)
+      const newUrl = `${window.location.pathname}?tab=${target}`;
+      window.history.replaceState(null, '', newUrl);
     });
   });
 });
