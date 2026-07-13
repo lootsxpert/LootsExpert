@@ -713,7 +713,7 @@ bot.on('callback_query', async (callbackQuery) => {
   // Verify membership query callback
   if (callbackData === 'verify_member' || callbackData === 'verify_subscription') {
     const userId = callbackQuery.from.id;
-    const channel = process.env.AUTH_CHANNEL || '@botsxp';
+    const channel = "-1003849048564";
     
     try {
       const member = await bot.getChatMember(channel, userId);
