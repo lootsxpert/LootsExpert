@@ -108,6 +108,10 @@ init_db()
 def index():
     return render_template("index.html")
 
+@app.route("/app")
+def bh_app():
+    return render_template("myindex.html")
+
 @app.route("/deals")
 @app.route("/deal")
 def deals_catalog():
