@@ -100,87 +100,104 @@
 
   {% block content %}{% endblock %}
 
-  <!-- BuyHatke-style Rebranded Footer -->
-  <footer class="app-footer">
-    <div class="footer-container">
-      <div class="footer-top">
-        <div class="footer-logo">
-          <img src="{{ url_for('static', filename='images/logos.png') }}" alt="Price Graph Logo" class="footer-logo-img">
+  <div class="w-full bg-indigo-950 mt-8 font-sans" style="background-color: #1e1b4b; border-top: 1px solid #312e81;">
+  <div class="max-w-[1200px] mx-auto pt-10 sm:pt-16 px-6 xl:px-0 pb-10">
+    
+    <!-- Top Row: Logo & Socials -->
+    <div class="flex flex-col sm:flex-row gap-6 justify-between sm:items-center pb-8">
+      <a href="/" class="flex items-center gap-2" style="text-decoration: none;">
+        <div style="width: 38px; height: 38px; border-radius: 8px; background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); display: flex; align-items: center; justify-content: center; color: white;">
+          <i class="fa-solid fa-chart-line" style="font-size: 1.2rem;"></i>
         </div>
-        <div class="footer-socials">
-          <a href="#" class="social-icon"><i class="fa-brands fa-facebook-f"></i></a>
-          <a href="#" class="social-icon"><i class="fa-brands fa-instagram"></i></a>
-          <a href="#" class="social-icon"><i class="fa-brands fa-x-twitter"></i></a>
-          <a href="#" class="social-icon"><i class="fa-brands fa-linkedin-in"></i></a>
-          <a href="#" class="social-icon"><i class="fa-brands fa-youtube"></i></a>
-          <a href="https://t.me/The_PriceHistory_Bot" class="social-icon" target="_blank"><i
-              class="fa-brands fa-telegram"></i></a>
-        </div>
-      </div>
-
-      <div class="footer-links-grid">
-        <div class="footer-column app-download-col">
-          <div class="app-download-box">
-            <div class="qr-code-placeholder">
-              <i class="fa-solid fa-qrcode"></i>
-            </div>
-            <div class="app-buttons">
-              <a href="#" class="app-btn"><i class="fa-brands fa-apple"></i> App Store</a>
-              <a href="#" class="app-btn"><i class="fa-brands fa-google-play"></i> Google Play</a>
-            </div>
-          </div>
-        </div>
-
-        <div class="footer-column">
-          <h4>Products</h4>
-          <ul>
-            <li><a href="/#deals-hub-card">Hot Deals</a></li>
-            <li><a href="/pricing-intelligence">Price Drop alerts</a></li>
-            <li><a href="#">Gift Cards</a></li>
-            <li><a href="#">Referrals</a></li>
-            <li><a href="#">Goodies</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-column">
-          <h4>Price History Tracker</h4>
-          <ul>
-            <li><a href="/amazon-tracker">Amazon Price History Tracker</a></li>
-            <li><a href="/flipkart-tracker">Flipkart Price History Tracker</a></li>
-            <li><a href="/amazon-quiz">Amazon Quiz Answers</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-column">
-          <h4>Company</h4>
-          <ul>
-            <li><a href="/about">About</a></li>
-            <li><a href="/contact">Contact Us</a></li>
-            <li><a href="/what-we-do">What We Do</a></li>
-            <li><a href="/how-we-earn">How We Earn</a></li>
-          </ul>
-        </div>
-
-        <div class="footer-column">
-          <h4>Other</h4>
-          <ul>
-            <li><a href="/supported-stores">Supported Stores</a></li>
-            <li><a href="/advertise">Advertise With Us</a></li>
-            <li><a href="/pricing-intelligence">Pricing Intelligence</a></li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="footer-bottom">
-        <p class="copyright">Price Graph Internet Pvt. Ltd. © 2026</p>
-        <p class="legal-links">
-          <a href="/privacy-policy">Privacy Policy</a> • 
-          <a href="/terms">Terms & Conditions</a> • 
-          <a href="/affiliate-policy">Affiliate Policy</a>
-        </p>
+        <span style="font-family: 'Outfit', sans-serif; font-size: 1.4rem; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">Price Graph</span>
+      </a>
+      
+      <div class="flex gap-3">
+        <a href="https://facebook.com/" class="w-10 h-10 rounded-full bg-indigo-900 hover:bg-indigo-700 text-indigo-200 transition-colors flex items-center justify-center" style="text-decoration: none; color: #c7d2fe !important;" target="_blank"><i class="fa-brands fa-facebook-f" style="font-size: 1rem;"></i></a>
+        <a href="https://instagram.com/" class="w-10 h-10 rounded-full bg-indigo-900 hover:bg-indigo-700 text-indigo-200 transition-colors flex items-center justify-center" style="text-decoration: none; color: #c7d2fe !important;" target="_blank"><i class="fa-brands fa-instagram" style="font-size: 1rem;"></i></a>
+        <a href="https://x.com/" class="w-10 h-10 rounded-full bg-indigo-900 hover:bg-indigo-700 text-indigo-200 transition-colors flex items-center justify-center" style="text-decoration: none; color: #c7d2fe !important;" target="_blank"><i class="fa-brands fa-x-twitter" style="font-size: 1rem;"></i></a>
+        <a href="https://linkedin.com/" class="w-10 h-10 rounded-full bg-indigo-900 hover:bg-indigo-700 text-indigo-200 transition-colors flex items-center justify-center" style="text-decoration: none; color: #c7d2fe !important;" target="_blank"><i class="fa-brands fa-linkedin-in" style="font-size: 1rem;"></i></a>
+        <a href="https://youtube.com/" class="w-10 h-10 rounded-full bg-indigo-900 hover:bg-indigo-700 text-indigo-200 transition-colors flex items-center justify-center" style="text-decoration: none; color: #c7d2fe !important;" target="_blank"><i class="fa-brands fa-youtube" style="font-size: 1rem;"></i></a>
+        <a href="https://t.me/price_tracker_bot" class="w-10 h-10 rounded-full bg-indigo-900 hover:bg-indigo-700 text-indigo-200 transition-colors flex items-center justify-center" style="text-decoration: none; color: #c7d2fe !important;" target="_blank"><i class="fa-brands fa-telegram" style="font-size: 1rem;"></i></a>
       </div>
     </div>
-  </footer>
+    
+    <div class="w-full border-t border-indigo-900" style="border-color: #312e81; opacity: 0.6; margin-bottom: 30px;"></div>
+    
+    <!-- Columns Grid Row -->
+    <div class="pb-10 flex flex-col md:flex-row gap-8 justify-between flex-wrap overflow-hidden">
+      <!-- QR & Badges Column -->
+      <div class="flex flex-col gap-4">
+        <div class="border border-indigo-700 p-3 rounded bg-indigo-900 w-fit flex gap-4 items-center" style="background-color: rgba(30, 27, 75, 0.5); border-color: #312e81;">
+          <div class="p-1 bg-white rounded" style="width: 80px; height: 80px;">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://t.me/price_tracker_bot" alt="QR Code" width="72" height="72" style="display: block;">
+          </div>
+          <div class="flex flex-col gap-2">
+            <a href="https://t.me/price_tracker_bot" target="_blank" style="display: block;">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store" style="height: 32px; width: auto; border-radius: 4px;">
+            </a>
+            <a href="https://t.me/price_tracker_bot" target="_blank" style="display: block;">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play" style="height: 32px; width: auto; border-radius: 4px;">
+            </a>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Links Columns -->
+      <div class="flex flex-col gap-3" style="min-width: 140px;">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Products</h2>
+        <div class="flex flex-col gap-2">
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/deals" style="text-decoration: none; color: #c7d2fe !important;">Hot Deals</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/dashboard" style="text-decoration: none; color: #c7d2fe !important;">Price Drop Alerts</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">Gift Cards</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">Referrals</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">Goodies</a>
+        </div>
+      </div>
+      
+      <div class="flex flex-col gap-3" style="min-width: 160px;">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Price History Tracker</h2>
+        <div class="flex flex-col gap-2">
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/" style="text-decoration: none; color: #c7d2fe !important;">Amazon Price History</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/" style="text-decoration: none; color: #c7d2fe !important;">Flipkart Price History</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">Amazon Quiz Answers</a>
+        </div>
+      </div>
+      
+      <div class="flex flex-col gap-3" style="min-width: 140px;">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Company</h2>
+        <div class="flex flex-col gap-2">
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">About</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">Contact Us</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">What We Do</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">How We Earn</a>
+        </div>
+      </div>
+      
+      <div class="flex flex-col gap-3" style="min-width: 140px;">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Other</h2>
+        <div class="flex flex-col gap-2">
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/" style="text-decoration: none; color: #c7d2fe !important;">Supported Stores</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">Advertise With Us</a>
+          <a class="hover:underline text-sm font-medium text-indigo-200" href="/faq" style="text-decoration: none; color: #c7d2fe !important;">Pricing Intelligence</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="w-full border-t border-indigo-900" style="border-color: #312e81; opacity: 0.6; margin-bottom: 24px;"></div>
+    
+    <!-- Bottom Row -->
+    <div class="w-full flex flex-col gap-3 sm:flex-row justify-between items-center text-xs font-medium text-indigo-200">
+      <div style="color: #cbd5e1;">Price Graph Pvt. Ltd. © 2026</div>
+      <div class="flex gap-3 items-center">
+        <a href="/faq#terms" class="hover:underline text-indigo-200" style="text-decoration: none; color: #c7d2fe !important;">Legal Terms</a>
+        <span style="width: 4px; height: 4px; background-color: #818cf8; border-radius: 50%; display: inline-block;"></span>
+        <a href="/faq#privacy" class="hover:underline text-indigo-200" style="text-decoration: none; color: #c7d2fe !important;">Privacy & Policies</a>
+      </div>
+    </div>
+    
+  </div>
+</div>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
