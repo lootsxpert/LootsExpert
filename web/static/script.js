@@ -1103,7 +1103,57 @@
     
     // Initial fetch on home load
     loadHomepageDeals();
+  }  // Load and Render Homepage "Deals Once in a Lifetime" (Top 5 deals by deal_score)
+  const dealsOnceInLifetimeGrid = document.getElementById('deals-once-in-lifetime-grid');
+  if (dealsOnceInLifetimeGrid) {
+    async function loadOnceInLifetimeDeals() {
+      try {
+        const response = await fetch('/api/deals?sort=deal_score');
+        if (!response.ok) throw new Error('Failed to load once in a lifetime deals.');
+        const data = await response.json();
+        if (data && data.success && data.deals && data.deals.length > 0) {
+          dealsOnceInLifetimeGrid.innerHTML = '';
+          const topDeals = data.deals.slice(0, 5);
+          
+          topDeals.forEach(deal => {
+            const card = document.createElement('div');
+            card.innerHTML = `
+              <a href="/?analyze_url=${encodeURIComponent(deal.url)}" class="border rounded-lg border-slate-200 bg-slate-50 flex flex-col relative group hover:border-indigo-600 hover:shadow-md transition-all cursor-pointer" style="text-decoration: none; overflow: hidden; height: 100%; display: flex; flex-direction: column;">
+                <span class="absolute top-2 left-2 py-1 px-2.5 bg-indigo-600 text-white rounded text-xxs font-bold uppercase tracking-wider z-10" style="font-size: 0.65rem;">${deal.platform}</span>
+                
+                <div style="width: 100%; height: 180px; background-color: white; display: flex; align-items: center; justify-content: center; padding: 12px; overflow: hidden; position: relative;">
+                  <img src="${formatProductImage(deal.image)}" alt="${deal.title}" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.3s;" class="group-hover:scale-105">
+                </div>
+                
+                <div class="flex flex-col items-start gap-2 py-3 px-3 flex-grow bg-white border-t border-slate-100" style="display: flex; flex-direction: column; flex-grow: 1;">
+                  <h3 class="text-xs sm:text-sm font-bold text-slate-800 line-clamp-2 text-start" style="margin: 0; min-height: 38px; font-family: 'Inter', sans-serif; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${deal.title}</h3>
+                  
+                  <div class="flex items-baseline gap-2 mt-1" style="display: flex; align-items: baseline; gap: 8px;">
+                    <span class="text-indigo-600 font-extrabold text-sm sm:text-base">₹${Math.round(deal.current_price).toLocaleString('en-IN')}</span>
+                    ${deal.original_price && parseFloat(deal.original_price) > parseFloat(deal.current_price) 
+                      ? `<span class="line-through text-slate-400 text-xs font-medium" style="font-size: 0.75rem;">₹${Math.round(deal.original_price).toLocaleString('en-IN')}</span>` 
+                      : ''
+                    }
+                  </div>
+                  
+                  ${deal.discount
+                    ? `<span class="text-green-600 text-xs font-bold bg-green-50 px-2 py-0.5 rounded-full border border-green-100" style="font-size: 0.7rem; border-radius: 12px; padding: 2px 8px; background-color: #f0fdf4; border: 1px solid #dcfce7;">${deal.discount}</span>`
+                    : ''
+                  }
+                </div>
+              </a>
+            `;
+            dealsOnceInLifetimeGrid.appendChild(card.firstElementChild);
+          });
+        }
+      } catch (err) {
+        console.error('[Once In Lifetime Deals Error]', err);
+      }
+    }
+    loadOnceInLifetimeDeals();
   }
+
+
 
   // Auto-analyze URL if passed in home query parameter
   const homepageParams = new URLSearchParams(window.location.search);
