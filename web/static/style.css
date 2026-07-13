@@ -1947,7 +1947,7 @@ body {
 }
 
 /* --- DEALS CATALOG SIDEBAR LAYOUT --- */
-.deals-catalog-layout {
+.deals-store-layout {
   display: flex;
   gap: 30px;
   width: 100%;
@@ -2117,7 +2117,7 @@ body {
 }
 
 @media (max-width: 992px) {
-  .deals-catalog-layout {
+  .deals-store-layout {
     flex-direction: column;
   }
   .catalog-sidebar {
