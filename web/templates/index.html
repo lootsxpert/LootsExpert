@@ -13,11 +13,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <link rel="apple-touch-icon" href="/static/images/logo.png" />
-  
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,1..1000&display=swap');
     @import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,1..1000&family=Pacifico&display=swap');
-    
+
     /* FAQ Accordion Hidden by Default */
     .accordion .box-border {
       max-height: 0;
@@ -35,15 +35,18 @@
   <link href="/static/css/20.css" rel="stylesheet">
   <link href="/static/css/swiper-bundle.css" rel="stylesheet">
   <title>Price Graph — Find Real Deals, Skip the Fake Ones</title>
-  
+
   <meta name="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="og:title" content="Price Graph — Find Real Deals, Skip the Fake Ones">
   <meta name="twitter:title" content="Price Graph — Find Real Deals, Skip the Fake Ones">
   <meta name="robots" content="index, follow">
-  <meta name="description" content="Compare prices, track historical drops, and find genuine deals across Amazon, Flipkart, Myntra, Ajio, Meesho, and Shopsy on pricegraph.in.">
-  <meta name="og:description" content="Compare prices, track historical drops, and find genuine deals across Amazon, Flipkart, Myntra, Ajio, Meesho, and Shopsy on pricegraph.in.">
-  <meta name="twitter:description" content="Compare prices, track historical drops, and find genuine deals across Amazon, Flipkart, Myntra, Ajio, Meesho, and Shopsy on pricegraph.in.">
+  <meta name="description"
+    content="Compare prices, track historical drops, and find genuine deals across Amazon, Flipkart, Myntra, Ajio, Meesho, and Shopsy on pricegraph.in.">
+  <meta name="og:description"
+    content="Compare prices, track historical drops, and find genuine deals across Amazon, Flipkart, Myntra, Ajio, Meesho, and Shopsy on pricegraph.in.">
+  <meta name="twitter:description"
+    content="Compare prices, track historical drops, and find genuine deals across Amazon, Flipkart, Myntra, Ajio, Meesho, and Shopsy on pricegraph.in.">
   <link rel="canonical" href="https://pricegraph.in">
   <meta name="og:url" content="https://pricegraph.in">
   <meta property="og:site_name" content="Price Graph">
@@ -162,7 +165,7 @@
               <a href="/login" class="login-btn">Login</a>
               {% endif %}
             </div>
-            
+
             <!-- Hamburger Toggle Button -->
             <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle Menu">
               <i class="fa-solid fa-bars"></i>
@@ -211,7 +214,8 @@
               </div>
               <div class="flex flex-col gap-3 mb-4 md:mb-8">
                 <p class="text-xl md:text-5xl font-bold text-white md:!leading-[3.75rem]"><!-- HTML_TAG_START -->Find
-                  <span class="text-green-500">Real Deals</span> <br /> Skip the Fake Ones<!-- HTML_TAG_END --></p>
+                  <span class="text-green-500">Real Deals</span> <br /> Skip the Fake Ones<!-- HTML_TAG_END -->
+                </p>
                 <p class="text-xs md:text-2xl text-slate-50 font-medium px-10"><!-- HTML_TAG_START -->Track genuine
                   price drops, compare across stores, and shop smarter every day<!-- HTML_TAG_END --></p>
               </div>
@@ -597,8 +601,7 @@
             {% if item.logo_url %}
             <img src="{{ item.logo_url }}" alt="" class="w-5 h-5 object-contain rounded-full">
             {% endif %}
-            <span
-              class="text-sm text-slate-950 group-hover:text-indigo-600 font-medium font-sans whitespace-nowrap">{{
+            <span class="text-sm text-slate-950 group-hover:text-indigo-600 font-medium font-sans whitespace-nowrap">{{
               item.text }}</span>
           </a>
           {% endfor %}
@@ -609,8 +612,7 @@
             {% if item.logo_url %}
             <img src="{{ item.logo_url }}" alt="" class="w-5 h-5 object-contain rounded-full">
             {% endif %}
-            <span
-              class="text-sm text-slate-950 group-hover:text-indigo-600 font-medium font-sans whitespace-nowrap">{{
+            <span class="text-sm text-slate-950 group-hover:text-indigo-600 font-medium font-sans whitespace-nowrap">{{
               item.text }}</span>
           </a>
           {% endfor %}
@@ -661,19 +663,21 @@
               </div>
             </div>
           </div>
-          
+
           <!-- Right Column: App Downloads (50%) -->
           <div class="flex-grow flex-1 min-w-[280px]">
             <div class="flex flex-col gap-4 md:grid md:grid-cols-2">
               <!-- Android App Card -->
               <div class="bg-slate-100 rounded-2xl p-6 flex flex-col items-center md:items-start gap-4">
-                <div class="aspect-square h-[56px] w-[56px] bg-white rounded-full flex items-center justify-center text-green-600 text-3xl shadow-sm">
+                <div
+                  class="aspect-square h-[56px] w-[56px] bg-white rounded-full flex items-center justify-center text-green-600 text-3xl shadow-sm">
                   <i class="fa-brands fa-android"></i>
                 </div>
                 <div class="w-full text-center md:text-left">
-                  <h3 class="text-lg font-bold text-gray-900 mb-2">Download Android App</h3>
+                  <h3 class="text-lg font-bold text-gray-900 mb-2">Download Android</h3>
                   <p class="text-sm text-gray-600 mb-4">Track prices and compare deals directly on your phone.</p>
-                  <a href="https://play.google.com/store/apps/details?id=com.starwish.pricegraph" target="_blank" rel="noopener noreferrer"
+                  <a href="https://play.google.com/store/apps/details?id=com.starwish.pricegraph" target="_blank"
+                    rel="noopener noreferrer"
                     class="py-3 px-6 text-white bg-indigo-600 hover:bg-indigo-700 active:opacity-50 text-sm font-bold gap-2 cursor-pointer whitespace-nowrap flex justify-center items-center rounded-lg w-full"
                     style="text-decoration: none;">
                     <i class="fa-brands fa-google-play"></i> Google Play Store
@@ -682,21 +686,24 @@
               </div>
               <!-- iOS App Card -->
               <div class="bg-slate-100 rounded-2xl p-6 flex flex-col items-center md:items-start gap-4">
-                <div class="aspect-square h-[56px] w-[56px] bg-white rounded-full flex items-center justify-center text-slate-800 text-3xl shadow-sm">
+                <div
+                  class="aspect-square h-[56px] w-[56px] bg-white rounded-full flex items-center justify-center text-slate-800 text-3xl shadow-sm">
                   <i class="fa-brands fa-apple"></i>
                 </div>
                 <div class="w-full text-center md:text-left">
-                  <h3 class="text-lg font-bold text-gray-900 mb-2">Download iOS App</h3>
+                  <h3 class="text-lg font-bold text-gray-900 mb-2">Download iOS </h3>
                   <p class="text-sm text-gray-600 mb-4">Stay updated with instant price drop alerts on iOS devices.</p>
-                  <button onclick="alert('iOS App is not published yet. We are working hard to bring it to the App Store soon!')"
+                  <button
+                    onclick="alert('iOS App is not published yet. We are working hard to bring it to the App Store soon!')"
                     class="rounded-lg cursor-pointer px-6 py-3 flex items-center justify-center font-bold border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 active:opacity-50 w-full gap-2"
                     style="background: none;" type="button">
-                    <i class="fa-brands fa-apple"></i> Apple App Store
+                    <i class="fa-brands fa-apple"></i> App Store
                   </button>
                 </div>
               </div>
             </div>
-          </div></section>
+          </div>
+    </section>
     <section class="my-16 w-full max-w-[1440px] mx-auto">
       <div class="mx-auto">
         <div class="flex flex-col gap-2 sm:gap-3 mb-8" data-svelte-h="svelte-leztqm">
@@ -726,21 +733,23 @@
             </div>
           </button><button
             class="border rounded-lg border-slate-200 bg-slate-50 max-w-[160px] sm:max-w-[224px] w-full flex flex-col relative">
-            <img src="https://compare.buyhatke.com/assets/img/in/rideCompare.png" alt="Ride Compare"
+            <img src="https://telegram.org/file/400780400761/5/NUQtbBXaUtw.48273.jpg/7966009f2fbda9e53b"
+              alt="Ride Compare"
               class="rounded-t-lg w-[160px] h-[160px] sm:h-[254px] sm:w-auto object-cover object-center">
             <div class="flex flex-col items-start gap-2 py-2 px-3">
-              <h3 class="text-sm sm:text-lg font-bold text-gray-900 text-start">Ride Compare</h3>
-              <p class="text-gray-600 text-xs sm:text-sm leading-relaxed text-start">Ola vs Uber vs more — pick the
-                cheapest ride.</p>
+              <h3 class="text-sm sm:text-lg font-bold text-gray-900 text-start">Telegram Bot</h3>
+              <p class="text-gray-600 text-xs sm:text-sm leading-relaxed text-start">Our Telegram bot send you
+                Notifications for Prices Update
+              </p>
             </div>
           </button><button
             class="border rounded-lg border-slate-200 bg-slate-50 max-w-[160px] sm:max-w-[224px] w-full flex flex-col relative">
             <img src="https://compare.buyhatke.com/assets/img/in/groceryCompare.png" alt="Grocery Compare"
               class="rounded-t-lg w-[160px] h-[160px] sm:h-[254px] sm:w-auto object-cover object-center">
             <div class="flex flex-col items-start gap-2 py-2 px-3">
-              <h3 class="text-sm sm:text-lg font-bold text-gray-900 text-start">Grocery Compare</h3>
-              <p class="text-gray-600 text-xs sm:text-sm leading-relaxed text-start">Compare grocery prices across apps
-                and save more.</p>
+              <h3 class="text-sm sm:text-lg font-bold text-gray-900 text-start">Store Compare</h3>
+              <p class="text-gray-600 text-xs sm:text-sm leading-relaxed text-start">Our App compares Product across
+                Stores</p>
             </div>
           </button><button
             class="border rounded-lg border-slate-200 bg-slate-50 max-w-[160px] sm:max-w-[224px] w-full flex flex-col relative">
@@ -785,7 +794,9 @@
             </div>
           </button>
           <div class="box-border text-xs md:text-sm text-slate-600">
-            <p style="padding-top: 8px;">Simply copy the product URL from Amazon, Flipkart, Myntra, or other supported sites, paste it into our search bar at the top of the homepage, and click Search. Price Graph will load the price history chart instantly.</p>
+            <p style="padding-top: 8px;">Simply copy the product URL from Amazon, Flipkart, Myntra, or other supported
+              sites, paste it into our search bar at the top of the homepage, and click Search. Price Graph will load
+              the price history chart instantly.</p>
           </div>
         </div>
         <!-- FAQ 2 -->
@@ -797,7 +808,9 @@
             </div>
           </button>
           <div class="box-border text-xs md:text-sm text-slate-600">
-            <p style="padding-top: 8px;">Price history is a historical record of the price changes of a product over time. It lets you inspect if the current sale price is a real discount or if the vendor raised it beforehand.</p>
+            <p style="padding-top: 8px;">Price history is a historical record of the price changes of a product over
+              time. It lets you inspect if the current sale price is a real discount or if the vendor raised it
+              beforehand.</p>
           </div>
         </div>
         <!-- FAQ 3 -->
@@ -809,7 +822,9 @@
             </div>
           </button>
           <div class="box-border text-xs md:text-sm text-slate-600">
-            <p style="padding-top: 8px;">A price tracker is an automated search tool that monitors product prices and stores the values. Instead of checking manually, you configure trackers that watch items and recommend best buying times.</p>
+            <p style="padding-top: 8px;">A price tracker is an automated search tool that monitors product prices and
+              stores the values. Instead of checking manually, you configure trackers that watch items and recommend
+              best buying times.</p>
           </div>
         </div>
         <!-- FAQ 4 -->
@@ -821,7 +836,8 @@
             </div>
           </button>
           <div class="box-border text-xs md:text-sm text-slate-600">
-            <p style="padding-top: 8px;">A price drop alert is an automated notification (sent via Email or Telegram) triggered when a tracked product falls below your desired target price threshold.</p>
+            <p style="padding-top: 8px;">A price drop alert is an automated notification (sent via Email or Telegram)
+              triggered when a tracked product falls below your desired target price threshold.</p>
           </div>
         </div>
         <!-- FAQ 5 -->
@@ -833,7 +849,8 @@
             </div>
           </button>
           <div class="box-border text-xs md:text-sm text-slate-600">
-            <p style="padding-top: 8px;">Price tracking helps you save up to 40% on purchases by revealing price drop trends, identifying artificial sale hikes, and sending alerts directly to Telegram.</p>
+            <p style="padding-top: 8px;">Price tracking helps you save up to 40% on purchases by revealing price drop
+              trends, identifying artificial sale hikes, and sending alerts directly to Telegram.</p>
           </div>
         </div>
       </div>
@@ -841,8 +858,7 @@
     </main>
   </div>
   <div class="w-full bg-indigo-950 mt-8 font-sans" style="background-color: #1e1b4b; border-top: 1px solid #312e81;">
-    <div class="max-w-[1200px] mx-auto pt-10 sm:pt-16 px-6 xl:px-0 pb-10">
-
+    <div class="max-w-[1200px] mx-auto pt-10 sm:pt-16 px-6 pb-10">
       <!-- Top Row: Logo & Socials -->
       <div class="flex flex-col sm:flex-row gap-6 justify-between sm:items-center pb-8">
         <a href="/" class="flex items-center gap-2" style="text-decoration: none;">
@@ -864,10 +880,7 @@
             class="w-10 h-10 rounded-full bg-indigo-900 hover:bg-indigo-700 text-indigo-200 transition-colors flex items-center justify-center"
             style="text-decoration: none; color: #c7d2fe !important;" target="_blank"><i class="fa-brands fa-instagram"
               style="font-size: 1rem;"></i></a>
-          <a href="https://x.com/"
-            class="w-10 h-10 rounded-full bg-indigo-900 hover:bg-indigo-700 text-indigo-200 transition-colors flex items-center justify-center"
-            style="text-decoration: none; color: #c7d2fe !important;" target="_blank"><i class="fa-brands fa-x-twitter"
-              style="font-size: 1rem;"></i></a>
+
           <a href="https://linkedin.com/"
             class="w-10 h-10 rounded-full bg-indigo-900 hover:bg-indigo-700 text-indigo-200 transition-colors flex items-center justify-center"
             style="text-decoration: none; color: #c7d2fe !important;" target="_blank"><i
@@ -1020,8 +1033,8 @@
     data-cf-beacon='{"version":"2024.11.0","token":"a9f79204eefa41c39ccd3f9a8670bb5d","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}'
     crossorigin="anonymous"></script>
 
-    <script>
-    (function() {
+  <script>
+    (function () {
       // 1. Mobile Menu Toggler inside index.html header
       const toggleBtn = document.getElementById('mobile-menu-toggle');
       const navMenu = document.querySelector('.nav-menu');
@@ -1029,7 +1042,7 @@
         toggleBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           navMenu.classList.toggle('open');
-          
+
           const icon = toggleBtn.querySelector('i');
           if (icon) {
             if (navMenu.classList.contains('open')) {
@@ -1039,7 +1052,7 @@
             }
           }
         });
-        
+
         document.addEventListener('click', (e) => {
           if (!navMenu.contains(e.target) && !toggleBtn.contains(e.target)) {
             navMenu.classList.remove('open');
@@ -1055,16 +1068,16 @@
         const btn = acc.querySelector('button');
         const panel = acc.querySelector('.box-border');
         const icon = btn.querySelector('i');
-        
+
         // Ensure closed initially by default
         panel.style.maxHeight = '0px';
         panel.style.overflow = 'hidden';
         panel.style.padding = '0px';
 
-        btn.addEventListener('click', function(e) {
+        btn.addEventListener('click', function (e) {
           e.preventDefault();
           const isOpen = panel.style.maxHeight !== '0px' && panel.style.maxHeight !== '';
-          
+
           // Collapse all panels first
           accordions.forEach(a => {
             const p = a.querySelector('.box-border');
@@ -1078,7 +1091,7 @@
               ic.className = 'fa-solid fa-chevron-down text-slate-400';
             }
           });
-          
+
           // If the clicked one was closed, expand it
           if (!isOpen) {
             panel.style.maxHeight = panel.scrollHeight + "px";
