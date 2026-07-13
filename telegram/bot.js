@@ -1193,11 +1193,31 @@ bot.on('message', async (msg) => {
       await new Promise(resolve => setTimeout(resolve, 800));
       await bot.editMessageText('Getting Product Info...', { chat_id: chatId, message_id: statusMsg.message_id });
       
-      // Scrape details from API scraper service
-      const response = await axios.get(`${scraperApiUrl}/api/scrape`, {
-        params: { url: productUrl },
-        timeout: 20000
-      });
+      // Scrape details from API scraper service with a 30s timeout and a 6s loading retry fallback
+      let response;
+      try {
+        response = await axios.get(`${scraperApiUrl}/api/scrape`, {
+          params: { url: productUrl },
+          timeout: 30000
+        });
+      } catch (err) {
+        console.log('[Automatic Tracking Fetch] First attempt failed. Showing status and retrying...');
+        await bot.editMessageText('⏳ Scraping is taking a bit longer than expected...\n\nWe are still retrieving the product details, please wait...', {
+          chat_id: chatId,
+          message_id: statusMsg.message_id
+        }).catch(() => {});
+        
+        await new Promise(resolve => setTimeout(resolve, 6000));
+        
+        try {
+          response = await axios.get(`${scraperApiUrl}/api/scrape`, {
+            params: { url: productUrl },
+            timeout: 30000
+          });
+        } catch (retryErr) {
+          throw retryErr;
+        }
+      }
       
       const data = response.data;
       if (!data || !data.success) {

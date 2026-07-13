@@ -423,7 +423,27 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
       await db.clearHistoryCache(platform, pid);
     }
 
-    const data = await fetchProductHistory(platform, pid);
+    let data;
+    try {
+      data = await fetchProductHistory(platform, pid);
+    } catch (err) {
+      console.log('[History Bot Fetch] First attempt failed. Showing status and retrying...');
+      const statusText = `⏳ *Scraping is taking a bit longer than expected...*\n\nWe are still compiling the price graph. Please wait a moment while we compile the details...`;
+      if (editMessageId) {
+        await bot.editMessageText(statusText, { chat_id: chatId, message_id: editMessageId, parse_mode: 'Markdown' }).catch(() => {});
+      } else {
+        await bot.deleteMessage(chatId, resultMsg.message_id).catch(() => {});
+        resultMsg = await bot.sendMessage(chatId, statusText, { parse_mode: 'Markdown' });
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 6000));
+      
+      try {
+        data = await fetchProductHistory(platform, pid);
+      } catch (retryErr) {
+        throw retryErr;
+      }
+    }
     const history = data.history || [];
     
     if (history.length === 0) {
