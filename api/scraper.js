@@ -627,6 +627,128 @@ function parseGenericMeta($, url) {
 }
 
 /**
+ * Custom Parser for Croma
+ */
+function parseCroma($, url) {
+  let title = $('meta[property="og:title"]').attr('content') || $('h1').text().trim();
+  let priceText = $('.pdp-price, .new-price, [class*="amount"]').first().text().trim() ||
+                  $('meta[property="og:price:amount"]').attr('content');
+  let price = parsePrice(priceText);
+  
+  let originalPriceText = $('.mrp-price, .old-price, [class*="mrp"]').first().text().trim() ||
+                          $('meta[property="og:price:standard_amount"]').attr('content');
+  let originalPrice = parsePrice(originalPriceText) || price;
+
+  let image = $('meta[property="og:image"]').attr('content') || 
+              $('.pdp-main-image img').attr('src') || 
+              $('img.pdp-main-image').attr('src') ||
+              $('img[class*="main"]').attr('src');
+              
+  return {
+    success: !!title,
+    platform: 'Croma',
+    title,
+    price: price || 0,
+    originalPrice: originalPrice || price || 0,
+    discount: (originalPrice > price) ? `${Math.round(((originalPrice - price) / originalPrice) * 100)}% off` : '0%',
+    currency: '₹',
+    image: image || '',
+    url
+  };
+}
+
+/**
+ * Custom Parser for Reliance Digital
+ */
+function parseRelianceDigital($, url) {
+  let title = $('meta[property="og:title"]').attr('content') || $('.pdp__title').text().trim() || $('h1').text().trim();
+  let priceText = $('.pdp__offerPrice, [class*="offerPrice"]').first().text().trim() ||
+                  $('meta[property="og:price:amount"]').attr('content');
+  let price = parsePrice(priceText);
+  
+  let originalPriceText = $('.pdp__mrp, [class*="mrp"]').first().text().trim() ||
+                          $('meta[property="og:price:standard_amount"]').attr('content');
+  let originalPrice = parsePrice(originalPriceText) || price;
+
+  let image = $('meta[property="og:image"]').attr('content') || 
+              $('.pdp__mainImage img').attr('src') ||
+              $('#main-image img').attr('src') ||
+              $('img[class*="main"]').attr('src');
+              
+  return {
+    success: !!title,
+    platform: 'Reliance Digital',
+    title,
+    price: price || 0,
+    originalPrice: originalPrice || price || 0,
+    discount: (originalPrice > price) ? `${Math.round(((originalPrice - price) / originalPrice) * 100)}% off` : '0%',
+    currency: '₹',
+    image: image || '',
+    url
+  };
+}
+
+/**
+ * Custom Parser for Tata Cliq
+ */
+function parseTataCliq($, url) {
+  let title = $('meta[property="og:title"]').attr('content') || $('.ProductDescription__name').text().trim() || $('h1').text().trim();
+  let priceText = $('.ProductDescription__price, .ProductDescription__offerPrice').first().text().trim() ||
+                  $('meta[property="og:price:amount"]').attr('content');
+  let price = parsePrice(priceText);
+  
+  let originalPriceText = $('.ProductDescription__mrp').first().text().trim() ||
+                          $('meta[property="og:price:standard_amount"]').attr('content');
+  let originalPrice = parsePrice(originalPriceText) || price;
+
+  let image = $('meta[property="og:image"]').attr('content') || 
+              $('.ProductImage__image').attr('src') ||
+              $('img.ProductImage__image').attr('src');
+              
+  return {
+    success: !!title,
+    platform: 'Tata Cliq',
+    title,
+    price: price || 0,
+    originalPrice: originalPrice || price || 0,
+    discount: (originalPrice > price) ? `${Math.round(((originalPrice - price) / originalPrice) * 100)}% off` : '0%',
+    currency: '₹',
+    image: image || '',
+    url
+  };
+}
+
+/**
+ * Custom Parser for Nykaa
+ */
+function parseNykaa($, url) {
+  let title = $('meta[property="og:title"]').attr('content') || $('h1').text().trim();
+  let priceText = $('.css-111pz9q, .css-ly177r, [class*="price"]').first().text().trim() ||
+                  $('meta[property="og:price:amount"]').attr('content');
+  let price = parsePrice(priceText);
+  
+  let originalPriceText = $('.css-mrp, [class*="mrp"]').first().text().trim() ||
+                          $('meta[property="og:price:standard_amount"]').attr('content');
+  let originalPrice = parsePrice(originalPriceText) || price;
+
+  let image = $('meta[property="og:image"]').attr('content') || 
+              $('.css-11v2j49 img').attr('src') ||
+              $('img[class*="main"]').attr('src');
+              
+  return {
+    success: !!title,
+    platform: 'Nykaa',
+    title,
+    price: price || 0,
+    originalPrice: originalPrice || price || 0,
+    discount: (originalPrice > price) ? `${Math.round(((originalPrice - price) / originalPrice) * 100)}% off` : '0%',
+    currency: '₹',
+    image: image || '',
+    url
+  };
+}
+
+/**
  * Main Scrape Function
  */
 async function scrapeProduct(url) {
@@ -679,6 +801,26 @@ async function scrapeProduct(url) {
         data = parseMeesho($, url);
         if (!data.title) {
           throw new Error('Failed to parse Meesho product details.');
+        }
+      } else if (url.includes('croma.com')) {
+        data = parseCroma($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Croma product details.');
+        }
+      } else if (url.includes('reliancedigital.in')) {
+        data = parseRelianceDigital($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Reliance Digital product details.');
+        }
+      } else if (url.includes('tatacliq.com')) {
+        data = parseTataCliq($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Tata Cliq product details.');
+        }
+      } else if (url.includes('nykaa.com')) {
+        data = parseNykaa($, url);
+        if (!data.title) {
+          throw new Error('Failed to parse Nykaa product details.');
         }
       } else {
         data = parseGenericMeta($, url);

@@ -336,6 +336,61 @@ async function getStats() {
   }
 }
 
+/**
+ * Fetch a single product tracking by Platform Product ID (pid) for a specific user (including history)
+ */
+async function getProductByPid(userId, productPid) {
+  try {
+    const res = await pool.query(
+      'SELECT * FROM telegram_products WHERE user_id = $1 AND product_id = $2 LIMIT 1',
+      [userId, productPid]
+    );
+    const product = res.rows[0] || null;
+    
+    if (product) {
+      const historyRes = await pool.query(
+        'SELECT price, date FROM telegram_price_history WHERE product_id = $1 ORDER BY date ASC',
+        [product.id]
+      );
+      product.price_history = historyRes.rows;
+    }
+    return product;
+  } catch (err) {
+    console.error('[DB Error] getProductByPid:', err);
+    return null;
+  }
+}
+
+/**
+ * Stop tracking a product by Platform Product ID (pid) for a specific user
+ */
+async function stopTrackingByPid(userId, productPid) {
+  try {
+    const res = await pool.query(
+      `UPDATE telegram_products SET tracking_status = 'stopped', updated_at = CURRENT_TIMESTAMP 
+       WHERE user_id = $1 AND product_id = $2 RETURNING *`,
+      [userId, productPid]
+    );
+    return res.rows[0] || null;
+  } catch (err) {
+    console.error('[DB Error] stopTrackingByPid:', err);
+    return null;
+  }
+}
+
+/**
+ * Fetch all registered user IDs (for /broadcast)
+ */
+async function getAllUsers() {
+  try {
+    const res = await pool.query('SELECT telegram_id FROM telegram_users');
+    return res.rows.map(r => r.telegram_id);
+  } catch (err) {
+    console.error('[DB Error] getAllUsers:', err);
+    return [];
+  }
+}
+
 module.exports = {
   initDatabase,
   saveUser,
@@ -343,11 +398,14 @@ module.exports = {
   getUserTracking,
   getExistingAffUrl,
   getProductById,
+  getProductByPid,
   addProduct,
   stopTracking,
+  stopTrackingByPid,
   getUserTrackings,
   getAllActiveTrackings,
   updateProductPrice,
   getStats,
+  getAllUsers,
   pool
 };

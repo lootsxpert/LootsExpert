@@ -62,39 +62,52 @@ function isAdmin(userId) {
   return adminIds.includes(String(userId));
 }
 
-// Helper: Check channel membership
-async function checkMembership(msg) {
-  const channel = process.env.AUTH_CHANNEL;
-  if (!channel) return true;
-  
+// Pending tasks map for verification flow
+const pendingTasks = new Map();
+
+// Helper: Verify subscription and execute task
+async function verifyUserAndExecute(msg, taskType, taskData, executeCallback) {
+  const chatId = msg.chat.id;
   const userId = msg.from.id;
+  const channel = process.env.AUTH_CHANNEL || '@botsxp';
+  
   try {
-    const member = await bot.getChatMember(channel, userId);
-    const isMember = ['member', 'administrator', 'creator'].includes(member.status);
-    if (!isMember) {
-      const channelLink = channel.startsWith('@') ? `https://t.me/${channel.substring(1)}` : 'https://t.me/pricegraph';
-      await bot.sendMessage(userId, '🔒 Please join our updates channel before using this bot.', {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔔 Join Channel', url: channelLink }],
-            [{ text: '🔄 Verify Again', callback_data: 'verify_member' }]
-          ]
-        }
-      });
-      return false;
-    }
-    
     // Check if user is banned
     const dbUser = await db.getHistoryUser(userId);
     if (dbUser && dbUser.is_banned) {
       await bot.sendMessage(userId, '❌ You are banned from using this bot.');
-      return false;
+      return;
     }
+
+    const member = await bot.getChatMember(channel, userId);
+    const isMember = ['member', 'administrator', 'creator'].includes(member.status);
     
-    return true;
+    if (isMember) {
+      // Show temporary subscriber status message
+      const statusMsg = await bot.sendMessage(chatId, '✅ You are a subscriber, continuing your task...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+      
+      // Execute actual task callback
+      await executeCallback();
+    } else {
+      // Store pending task in-memory
+      pendingTasks.set(userId, { type: taskType, data: taskData, execute: executeCallback });
+      
+      const channelLink = channel.startsWith('@') ? `https://t.me/${channel.substring(1)}` : `https://t.me/botsxp`;
+      await bot.sendMessage(chatId, '⚠️ Please subscribe to our updates channel to use the bot:', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔔 Join Updates Channel', url: channelLink }],
+            [{ text: '🔄 Check Joined', callback_data: 'verify_subscription' }]
+          ]
+        }
+      });
+    }
   } catch (err) {
-    console.error('[History Bot Membership Check Error]', err.message);
-    return true; // Fallback to allow usability on API failures
+    console.error('[Verification Check Error]', err.message);
+    // In case of API failure, let user proceed to avoid lockout
+    await executeCallback();
   }
 }
 
@@ -144,12 +157,33 @@ function detectPlatformAndPid(url) {
       const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/i);
       if (match) return { platform: 'meesho', pid: match[1] };
     }
+    if (host.includes('croma.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/) || parsed.pathname.match(/-([a-zA-Z0-9]+)$/);
+      const pid = match ? match[1] : parsed.pathname.split('/').pop() || 'croma_pid';
+      return { platform: 'croma', pid };
+    }
+    if (host.includes('tatacliq.com')) {
+      const match = parsed.pathname.match(/\/p-([a-zA-Z0-9]+)/) || parsed.pathname.match(/-([a-zA-Z0-9]+)$/);
+      const pid = match ? match[1] : parsed.pathname.split('/').pop() || 'tatacliq_pid';
+      return { platform: 'tatacliq', pid };
+    }
+    if (host.includes('reliancedigital.in')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/);
+      const pid = match ? match[1] : parsed.pathname.split('/').pop() || 'reliancedigital_pid';
+      return { platform: 'reliancedigital', pid };
+    }
+    if (host.includes('nykaa.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/) || parsed.searchParams.get('productId');
+      const pid = match ? (typeof match === 'string' ? match : match[1]) : parsed.pathname.split('/').pop() || 'nykaa_pid';
+      return { platform: 'nykaa', pid };
+    }
+    
     // Generic host extraction for fallback metadata parser
     const hostParts = host.split('.');
     if (hostParts.length >= 2) {
       const name = hostParts[hostParts.length - 2];
       const matchPath = parsed.pathname.match(/\/p\/([a-zA-Z0-9_-]+)/i) || parsed.pathname.match(/\/product\/([a-zA-Z0-9_-]+)/i);
-      const pid = matchPath ? matchPath[1] : encodeURIComponent(url.substring(0, 50));
+      const pid = matchPath ? matchPath[1] : encodeURIComponent(url);
       return { platform: name, pid };
     }
   } catch (e) {}
@@ -405,9 +439,6 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
 
   await db.saveHistoryUser(chatId, msg.from.first_name || '', msg.from.username || '');
 
-  const joined = await checkMembership(msg);
-  if (!joined) return;
-
   if (deepLink && deepLink.startsWith('graph_')) {
     // Deep Link format: graph_<store>_<pid>
     const parts = deepLink.split('_');
@@ -440,34 +471,32 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
 
 // Command: /help
 bot.onText(/\/help/, async (msg) => {
-  const joined = await checkMembership(msg);
-  if (!joined) return;
+  await verifyUserAndExecute(msg, 'help', {}, async () => {
+    const helpText = `🤖 *How To Use*\n\n` +
+      `1. Copy any product link.\n` +
+      `2. Send it here.\n` +
+      `3. Instantly view:\n` +
+      `✔ Price Graph\n` +
+      `✔ Lowest Price\n` +
+      `✔ Highest Price\n` +
+      `✔ Average Price\n` +
+      `✔ Buy Recommendation`;
 
-  const helpText = `🤖 *How To Use*\n\n` +
-    `1. Copy any product link.\n` +
-    `2. Send it here.\n` +
-    `3. Instantly view:\n` +
-    `✔ Price Graph\n` +
-    `✔ Lowest Price\n` +
-    `✔ Highest Price\n` +
-    `✔ Average Price\n` +
-    `✔ Buy Recommendation`;
-
-  await bot.sendMessage(msg.chat.id, helpText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
+    await bot.sendMessage(msg.chat.id, helpText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
+  });
 });
 
 // Command: /about
 bot.onText(/\/about/, async (msg) => {
-  const joined = await checkMembership(msg);
-  if (!joined) return;
+  await verifyUserAndExecute(msg, 'about', {}, async () => {
+    const aboutText = `ℹ *About Price History Bot*\n\n` +
+      `• *Version:* 1.0\n` +
+      `• *Supported Stores:* Amazon, Flipkart, Myntra, Ajio, Meesho, Shopsy, Croma, TataCliq, Reliance Digital, Nykaa, and more.\n` +
+      `• *Developer:* Price Graph Devs\n\n` +
+      `Fetches live price history charts dynamically using high-fidelity scraping coordinate systems.`;
 
-  const aboutText = `ℹ *About Price History Bot*\n\n` +
-    `• *Version:* 1.0\n` +
-    `• *Supported Stores:* Amazon, Flipkart, Myntra, Ajio, Meesho, Shopsy, and more.\n` +
-    `• *Developer:* Price Graph Devs\n\n` +
-    `Fetches live price history charts dynamically using high-fidelity scraping coordinate systems.`;
-
-  await bot.sendMessage(msg.chat.id, aboutText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
+    await bot.sendMessage(msg.chat.id, aboutText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
+  });
 });
 
 // Command: /stats (Admin)
@@ -570,41 +599,39 @@ bot.onText(/\/broadcast/, async (msg) => {
 // Message Listener for product URLs
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
-  const text = msg.text;
+  const text = msg.text || msg.caption;
 
   if (!text || text.startsWith('/')) return;
 
-  const urlRegex = /(https?:\/\/[^\s]+)/gi;
+  const urlRegex = /(https?:\/[^\s]+)/gi;
   const matches = text.match(urlRegex);
   
   if (!matches) {
-    const joined = await checkMembership(msg);
-    if (!joined) return;
-    
-    // Help fallback if no URL in simple text
-    const helpText = `🤖 *How To Use*\n\n` +
-      `1. Copy any product link.\n` +
-      `2. Send it here.\n` +
-      `3. Instantly view price graph.`;
-    await bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
+    await verifyUserAndExecute(msg, 'help', {}, async () => {
+      // Help fallback if no URL in simple text
+      const helpText = `🤖 *How To Use*\n\n` +
+        `1. Copy any product link.\n` +
+        `2. Send it here.\n` +
+        `3. Instantly view price graph.`;
+      await bot.sendMessage(chatId, helpText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
+    });
     return;
   }
 
   const productUrl = matches[0];
   const detected = detectPlatformAndPid(productUrl);
   
-  const joined = await checkMembership(msg);
-  if (!joined) return;
+  await verifyUserAndExecute(msg, 'check_history', { url: productUrl, detected: detected }, async () => {
+    if (!detected) {
+      await bot.sendMessage(chatId, '❌ This shopping platform is currently not supported.', {
+        reply_markup: { inline_keyboard: getMainMenuButtons() }
+      });
+      return;
+    }
 
-  if (!detected) {
-    await bot.sendMessage(chatId, '❌ This shopping platform is currently not supported.', {
-      reply_markup: { inline_keyboard: getMainMenuButtons() }
-    });
-    return;
-  }
-
-  const { platform, pid } = detected;
-  await renderHistoryCard(chatId, platform, pid, 'all', null, false);
+    const { platform, pid } = detected;
+    await renderHistoryCard(chatId, platform, pid, 'all', null, false);
+  });
 });
 
 // Callback Query Handler (buttons clicks)
@@ -614,15 +641,36 @@ bot.on('callback_query', async (callbackQuery) => {
   const callbackData = callbackQuery.data;
 
   // Verify membership query callback
-  if (callbackData === 'verify_member') {
-    const member = await bot.getChatMember(process.env.AUTH_CHANNEL, callbackQuery.from.id).catch(() => null);
-    if (member && ['member', 'administrator', 'creator'].includes(member.status)) {
-      await bot.answerCallbackQuery(callbackQuery.id, { text: '✅ Verified successfully!' });
-      await bot.sendMessage(chatId, 'Welcome! Send me a product URL to check its price history.', {
-        reply_markup: { inline_keyboard: getMainMenuButtons() }
-      });
-    } else {
-      await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ You still have not joined the channel.', show_alert: true });
+  if (callbackData === 'verify_member' || callbackData === 'verify_subscription') {
+    const userId = callbackQuery.from.id;
+    const channel = process.env.AUTH_CHANNEL || '@botsxp';
+    
+    try {
+      const member = await bot.getChatMember(channel, userId);
+      const isMember = ['member', 'administrator', 'creator'].includes(member.status);
+      
+      if (isMember) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: '✅ Verified successfully!' });
+        await bot.editMessageText("🎉 Thank you for subscribing! Executing your pending task...", {
+          chat_id: chatId,
+          message_id: message.message_id
+        }).catch(() => {});
+        
+        const task = pendingTasks.get(userId);
+        if (task && task.execute) {
+          pendingTasks.delete(userId);
+          await task.execute();
+        } else {
+          await bot.sendMessage(chatId, 'Welcome! Send me a product URL to check its price history.', {
+            reply_markup: { inline_keyboard: getMainMenuButtons() }
+          });
+        }
+      } else {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: '❌ You still have not joined the channel.', show_alert: true });
+      }
+    } catch (err) {
+      console.error('[verify_subscription error]', err.message);
+      await bot.answerCallbackQuery(callbackQuery.id, { text: 'Error checking membership status.' });
     }
     return;
   }

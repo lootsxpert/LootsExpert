@@ -51,31 +51,45 @@ function getMainButtons() {
   ];
 }
 
-// Helper: Check channel membership
-async function checkMembership(msg) {
-  const channel = process.env.AUTH_CHANNEL || process.env.TELEGRAM_CHANNEL;
-  if (!channel) return true; // Skip verification if not configured
-  
+// Pending tasks map for verification flow
+const pendingTasks = new Map();
+
+// Helper: Verify subscription and execute task
+async function verifyUserAndExecute(msg, taskType, taskData, executeCallback) {
+  const chatId = msg.chat.id;
   const userId = msg.from.id;
+  const channel = process.env.AUTH_CHANNEL || '@botsxp';
+  
   try {
     const member = await bot.getChatMember(channel, userId);
     const isMember = ['member', 'administrator', 'creator'].includes(member.status);
-    if (!isMember) {
-      const channelLink = channel.startsWith('@') ? `https://t.me/${channel.substring(1)}` : 'https://t.me/pricegraph';
-      await bot.sendMessage(userId, 'Join our channel first 👇', {
+    
+    if (isMember) {
+      // Show temporary subscriber status message
+      const statusMsg = await bot.sendMessage(chatId, '✅ You are a subscriber, continuing your task...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+      
+      // Execute actual task callback
+      await executeCallback();
+    } else {
+      // Store pending task in-memory
+      pendingTasks.set(userId, { type: taskType, data: taskData, execute: executeCallback });
+      
+      const channelLink = channel.startsWith('@') ? `https://t.me/${channel.substring(1)}` : `https://t.me/botsxp`;
+      await bot.sendMessage(chatId, '⚠️ Please subscribe to our updates channel to use the bot:', {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🔔 Join Channel to Use Bot', url: channelLink }]
+            [{ text: '🔔 Join Updates Channel', url: channelLink }],
+            [{ text: '🔄 Check Joined', callback_data: 'verify_subscription' }]
           ]
         }
       });
-      return false;
     }
-    return true;
   } catch (err) {
-    console.error('[Membership Check Error]', err.message);
-    // Return true in case of bot API errors to prevent lockout
-    return true;
+    console.error('[Verification Check Error]', err.message);
+    // In case of API failure or if bot is not admin in channel, let user proceed to avoid lockout
+    await executeCallback();
   }
 }
 
@@ -118,6 +132,10 @@ function detectPlatformAndPid(url) {
       if (match) {
         return { platform: 'myntra', pid: match[1] };
       }
+      const matchAlt = parsed.pathname.match(/\/(\d+)/);
+      if (matchAlt) {
+        return { platform: 'myntra', pid: matchAlt[1] };
+      }
     }
     if (host.includes('ajio.com')) {
       const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9_]+)/i);
@@ -131,6 +149,35 @@ function detectPlatformAndPid(url) {
       if (match) {
         return { platform: 'meesho', pid: match[1] };
       }
+    }
+    if (host.includes('croma.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/) || parsed.pathname.match(/-([a-zA-Z0-9]+)$/);
+      const pid = match ? match[1] : parsed.pathname.split('/').pop() || 'croma_pid';
+      return { platform: 'croma', pid };
+    }
+    if (host.includes('tatacliq.com')) {
+      const match = parsed.pathname.match(/\/p-([a-zA-Z0-9]+)/) || parsed.pathname.match(/-([a-zA-Z0-9]+)$/);
+      const pid = match ? match[1] : parsed.pathname.split('/').pop() || 'tatacliq_pid';
+      return { platform: 'tatacliq', pid };
+    }
+    if (host.includes('reliancedigital.in')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/);
+      const pid = match ? match[1] : parsed.pathname.split('/').pop() || 'reliancedigital_pid';
+      return { platform: 'reliancedigital', pid };
+    }
+    if (host.includes('nykaa.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/) || parsed.searchParams.get('productId');
+      const pid = match ? (typeof match === 'string' ? match : match[1]) : parsed.pathname.split('/').pop() || 'nykaa_pid';
+      return { platform: 'nykaa', pid };
+    }
+    
+    // Generic fallback for any other site
+    const hostParts = host.split('.');
+    if (hostParts.length >= 2) {
+      const name = hostParts[hostParts.length - 2];
+      const matchPath = parsed.pathname.match(/\/p\/([a-zA-Z0-9_-]+)/i) || parsed.pathname.match(/\/product\/([a-zA-Z0-9_-]+)/i);
+      const pid = matchPath ? matchPath[1] : encodeURIComponent(url);
+      return { platform: name, pid };
     }
   } catch (e) {
     // URL parse error
@@ -147,6 +194,14 @@ function reconstructUrl(platform, pid) {
   if (p === 'myntra') return `https://www.myntra.com/p/${pid}/buy`;
   if (p === 'ajio') return `https://www.ajio.com/p/${pid}`;
   if (p === 'meesho') return `https://www.meesho.com/p/${pid}`;
+  if (p === 'croma') return `https://www.croma.com/p/${pid}`;
+  if (p === 'tatacliq') return `https://www.tatacliq.com/p-${pid}`;
+  if (p === 'reliancedigital') return `https://www.reliancedigital.in/p/${pid}`;
+  if (p === 'nykaa') return `https://www.nykaa.com/p/${pid}`;
+  
+  if (pid.startsWith('http') || decodeURIComponent(pid).startsWith('http')) {
+    return decodeURIComponent(pid);
+  }
   return null;
 }
 
@@ -164,10 +219,6 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
 
   // Save User
   await db.saveUser(chatId, msg.from.first_name || '', msg.from.username || '');
-
-  // Membership check
-  const joined = await checkMembership(msg);
-  if (!joined) return;
 
   if (deepLinkParam && deepLinkParam.startsWith('track_')) {
     // Process deep link start parameter: track_<store>_<pid>
@@ -291,149 +342,326 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
 
 // Command: /help
 bot.onText(/\/help/, async (msg) => {
-  const joined = await checkMembership(msg);
-  if (!joined) return;
+  await verifyUserAndExecute(msg, 'help', {}, async () => {
+    const helpText = `🤖 *Price Tracker Bot Help*\n\n` +
+      `*Commands:*\n` +
+      `/my_trackings - View tracked products\n` +
+      `/product_<product_id> - View product details\n` +
+      `/stop_<product_id> - Stop tracking\n` +
+      `/pricegraph - View list to generate graph\n` +
+      `/pricegraph_<product_id> - Generate price graph\n\n` +
+      `*How it works:*\n` +
+      `1. Send a product link (Amazon, Flipkart, Myntra, Ajio, Meesho, Shopsy, Croma, TataCliq, Reliance Digital, Nykaa, etc.)\n` +
+      `2. Bot tracks the product\n` +
+      `3. Receive notification whenever the price changes.`;
 
-  const helpText = `🤖 *Price Tracker Bot Help*\n\n` +
-    `*Commands:*\n` +
-    `/my_trackings - View tracked products\n` +
-    `/product_<id> - View product details\n` +
-    `/stop_<id> - Stop tracking\n\n` +
-    `*How it works:*\n` +
-    `1. Send a product link\n` +
-    `2. Bot tracks the product\n` +
-    `3. Receive notification whenever the price changes.`;
-
-  await bot.sendMessage(msg.chat.id, helpText, {
-    parse_mode: 'Markdown',
-    reply_markup: { inline_keyboard: [getMainButtons()] }
+    await bot.sendMessage(msg.chat.id, helpText, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: [getMainButtons()] }
+    });
   });
 });
 
 // Command: /my_trackings
 bot.onText(/\/my_trackings/, async (msg) => {
-  const chatId = msg.chat.id;
-  
-  const joined = await checkMembership(msg);
-  if (!joined) return;
+  await verifyUserAndExecute(msg, 'my_trackings', {}, async () => {
+    const chatId = msg.chat.id;
+    const loadingMsg = await bot.sendMessage(chatId, '🔍 Fetching Your Products...');
 
-  const loadingMsg = await bot.sendMessage(chatId, '🔍 Fetching Your Products...');
+    try {
+      const trackings = await db.getUserTrackings(chatId);
+      await bot.deleteMessage(chatId, loadingMsg.message_id);
 
-  try {
-    const trackings = await db.getUserTrackings(chatId);
-    
-    await bot.deleteMessage(chatId, loadingMsg.message_id);
+      if (trackings.length === 0) {
+        await bot.sendMessage(chatId, 'You are not tracking any products.', {
+          reply_markup: { inline_keyboard: [getMainButtons()] }
+        });
+        return;
+      }
 
-    if (trackings.length === 0) {
-      await bot.sendMessage(chatId, 'You are not tracking any products.', {
+      let reply = `📂 *Your Tracked Products*\n\n`;
+      trackings.forEach((t, index) => {
+        reply += `${index + 1}.\n` +
+          `*${t.product_name.substring(0, 60)}...*\n` +
+          `/product_${t.product_id}\n` +
+          `/stop_${t.product_id}\n` +
+          `*Current Price:* ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
+          `----------------\n\n`;
+      });
+
+      await bot.sendMessage(chatId, reply, {
+        parse_mode: 'Markdown',
         reply_markup: { inline_keyboard: [getMainButtons()] }
       });
-      return;
+    } catch (err) {
+      console.error('[Command /my_trackings Error]', err.message);
+      await bot.sendMessage(chatId, '⚠️ Failed to fetch tracking list.');
     }
-
-    let reply = `📂 *Your Tracked Products*\n\n`;
-    trackings.forEach((t, index) => {
-      reply += `${index + 1}.\n` +
-        `*${t.product_name.substring(0, 60)}...*\n` +
-        `/product_${t.id}\n` +
-        `/stop_${t.id}\n` +
-        `*Current Price:* ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
-        `----------------\n\n`;
-    });
-
-    await bot.sendMessage(chatId, reply, {
-      parse_mode: 'Markdown',
-      reply_markup: { inline_keyboard: [getMainButtons()] }
-    });
-  } catch (err) {
-    console.error('[Command /my_trackings Error]', err.message);
-    await bot.sendMessage(chatId, '⚠️ Failed to fetch tracking list.');
-  }
+  });
 });
 
 // Command: /product_<id>
-bot.onText(/\/product_(\d+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const productId = parseInt(match[1]);
+bot.onText(/\/product_([a-zA-Z0-9]+)/, async (msg, match) => {
+  const productPid = match[1];
 
-  const joined = await checkMembership(msg);
-  if (!joined) return;
+  await verifyUserAndExecute(msg, 'product', { pid: productPid }, async () => {
+    const chatId = msg.chat.id;
+    const infoMsg = await bot.sendMessage(chatId, '🔍 Getting Product Info...');
 
-  const infoMsg = await bot.sendMessage(chatId, '🔍 Getting Product Info...');
+    try {
+      const product = await db.getProductByPid(chatId, productPid);
+      await bot.deleteMessage(chatId, infoMsg.message_id);
 
-  try {
-    const product = await db.getProductById(productId);
-    
-    await bot.deleteMessage(chatId, infoMsg.message_id);
-
-    if (!product || product.user_id !== String(chatId)) {
-      await bot.sendMessage(chatId, '❌ Product not found or you are not tracking it.');
-      return;
-    }
-
-    const caption = `🛍️ *${escapeMarkdown(product.platform.toUpperCase())} Product Details*\n\n` +
-      `📌 *${escapeMarkdown(product.product_name)}*\n\n` +
-      `💵 *Current Price:* ₹${parseFloat(product.current_price).toLocaleString('en-IN')}\n` +
-      `🏪 *Platform:* ${escapeMarkdown(product.platform.toUpperCase())}\n` +
-      `🔗 [Product Link](${product.product_url})`;
-
-    const opts = {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🛒 Buy Now', url: product.aff_url || product.product_url }],
-          [
-            { text: '❌ Stop Tracking', callback_data: `stop:${product.id}` },
-            { text: '📊 Price Graph', callback_data: `graph:${product.id}` }
-          ],
-          [
-            { text: '🔍 View Full Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }
-          ],
-          getMainButtons()
-        ]
+      if (!product || String(product.user_id) !== String(chatId)) {
+        await bot.sendMessage(chatId, '❌ Product not found or you are not tracking it.');
+        return;
       }
-    };
 
-    if (product.image_url) {
-      await bot.sendPhoto(chatId, product.image_url, { caption: caption, ...opts });
-    } else {
-      await bot.sendMessage(chatId, caption, opts);
+      const caption = `🛍️ *${escapeMarkdown(product.platform.toUpperCase())} Product Details*\n\n` +
+        `📌 *${escapeMarkdown(product.product_name)}*\n\n` +
+        `💵 *Current Price:* ₹${parseFloat(product.current_price).toLocaleString('en-IN')}\n` +
+        `🏪 *Platform:* ${escapeMarkdown(product.platform.toUpperCase())}\n` +
+        `🔗 [Product Link](${product.product_url})`;
+
+      const opts = {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🛒 Buy Now', url: product.aff_url || product.product_url }],
+            [
+              { text: '❌ Stop Tracking', callback_data: `stop:${product.product_id}` },
+              { text: '📊 Price Graph', callback_data: `graph:${product.product_id}` }
+            ],
+            [
+              { text: '🔍 View Full Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }
+            ],
+            getMainButtons()
+          ]
+        }
+      };
+
+      if (product.image_url) {
+        await bot.sendPhoto(chatId, product.image_url, { caption: caption, ...opts });
+      } else {
+        await bot.sendMessage(chatId, caption, opts);
+      }
+    } catch (err) {
+      console.error('[Command /product Error]', err.message);
+      await bot.sendMessage(chatId, '⚠️ Failed to retrieve product information.');
     }
-  } catch (err) {
-    console.error('[Command /product Error]', err.message);
-    await bot.sendMessage(chatId, '⚠️ Failed to retrieve product information.');
-  }
+  });
 });
 
 // Command: /stop_<id>
-bot.onText(/\/stop_(\d+)/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  const productId = parseInt(match[1]);
+bot.onText(/\/stop_([a-zA-Z0-9]+)/, async (msg, match) => {
+  const productPid = match[1];
 
-  const joined = await checkMembership(msg);
-  if (!joined) return;
+  await verifyUserAndExecute(msg, 'stop', { pid: productPid }, async () => {
+    const chatId = msg.chat.id;
+    const statusMsg = await bot.sendMessage(chatId, '🗑️ Deleting Product...');
 
-  const statusMsg = await bot.sendMessage(chatId, '🗑️ Deleting Product...');
+    try {
+      const product = await db.getProductByPid(chatId, productPid);
+      if (!product || String(product.user_id) !== String(chatId)) {
+        await bot.deleteMessage(chatId, statusMsg.message_id);
+        await bot.sendMessage(chatId, '❌ Product tracking record not found.');
+        return;
+      }
 
-  try {
-    const product = await db.getProductById(productId);
-    if (!product || product.user_id !== String(chatId)) {
+      await db.stopTrackingByPid(chatId, productPid);
       await bot.deleteMessage(chatId, statusMsg.message_id);
-      await bot.sendMessage(chatId, '❌ Product tracking record not found.');
-      return;
+      
+      await bot.sendMessage(chatId, `✅ *Product removed successfully.*\n\nYou will no longer receive alerts.`, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: [getMainButtons()] }
+      });
+    } catch (err) {
+      console.error('[Command /stop Error]', err.message);
+      await bot.sendMessage(chatId, '⚠️ Failed to delete tracking record.');
     }
+  });
+});
 
-    await db.stopTracking(productId);
-    await bot.deleteMessage(chatId, statusMsg.message_id);
+// Command: /pricegraph (with optional product ID)
+bot.onText(/^\/pricegraph(?:[_ ](.+))?$/, async (msg, match) => {
+  const productPid = match[1];
+  
+  await verifyUserAndExecute(msg, 'pricegraph', { pid: productPid }, async () => {
+    const chatId = msg.chat.id;
     
-    await bot.sendMessage(chatId, `✅ *Product removed successfully.*\n\nYou will no longer receive alerts.`, {
-      parse_mode: 'Markdown',
-      reply_markup: { inline_keyboard: [getMainButtons()] }
+    if (productPid) {
+      const statusMsg = await bot.sendMessage(chatId, '📊 Generating price graph...');
+      try {
+        const product = await db.getProductByPid(chatId, productPid);
+        if (product && product.price_history && product.price_history.length > 0) {
+          const labels = product.price_history.map(h => {
+            const d = new Date(h.date);
+            return `${d.getDate()}/${d.getMonth() + 1}`;
+          });
+          const prices = product.price_history.map(h => parseFloat(h.price));
+          
+          const chartConfig = {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Price History (₹)',
+                data: prices,
+                borderColor: '#4f46e5',
+                borderWidth: 2,
+                fill: false,
+                pointRadius: 4,
+                backgroundColor: '#818cf8'
+              }]
+            },
+            options: {
+              title: {
+                display: true,
+                text: product.product_name.substring(0, 25) + '... Trend'
+              }
+            }
+          };
+          
+          const graphUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+          await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+          await bot.sendPhoto(chatId, graphUrl, {
+            caption: `📊 Price History graph for *${product.product_name}*`,
+            parse_mode: 'Markdown'
+          });
+        } else {
+          await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+          await bot.sendMessage(chatId, '⚠️ Not enough price history points to generate a graph.');
+        }
+      } catch (err) {
+        console.error('[Pricegraph command error]', err.message);
+        await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+        await bot.sendMessage(chatId, '⚠️ Failed to generate chart.');
+      }
+    } else {
+      const loadingMsg = await bot.sendMessage(chatId, '🔍 Fetching Your Products...');
+      try {
+        const trackings = await db.getUserTrackings(chatId);
+        await bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => {});
+        
+        if (trackings.length === 0) {
+          await bot.sendMessage(chatId, 'You are not tracking any products. Send me a product URL to start tracking.');
+          return;
+        }
+        
+        let reply = `📈 *Generate Price Graph*\n\nSelect a product to generate its price history graph:\n\n`;
+        trackings.forEach((t, index) => {
+          reply += `${index + 1}. *${t.product_name.substring(0, 60)}...*\n` +
+                   `📊 Generate Graph: /pricegraph_${t.product_id}\n\n`;
+        });
+        
+        await bot.sendMessage(chatId, reply, {
+          parse_mode: 'Markdown',
+          reply_markup: { inline_keyboard: [getMainButtons()] }
+        });
+      } catch (err) {
+        await bot.deleteMessage(chatId, loadingMsg.message_id).catch(() => {});
+        await bot.sendMessage(chatId, '⚠️ Failed to fetch tracking list.');
+      }
+    }
+  });
+});
+
+// Command alias for click triggering: /pricegraph_<id>
+bot.onText(/\/pricegraph_([a-zA-Z0-9]+)/, async (msg, match) => {
+  const productPid = match[1];
+  await verifyUserAndExecute(msg, 'pricegraph', { pid: productPid }, async () => {
+    const chatId = msg.chat.id;
+    const statusMsg = await bot.sendMessage(chatId, '📊 Generating price graph...');
+    try {
+      const product = await db.getProductByPid(chatId, productPid);
+      if (product && product.price_history && product.price_history.length > 0) {
+        const labels = product.price_history.map(h => {
+          const d = new Date(h.date);
+          return `${d.getDate()}/${d.getMonth() + 1}`;
+        });
+        const prices = product.price_history.map(h => parseFloat(h.price));
+        
+        const chartConfig = {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Price History (₹)',
+              data: prices,
+              borderColor: '#4f46e5',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: 4,
+              backgroundColor: '#818cf8'
+            }]
+          },
+          options: {
+            title: {
+              display: true,
+              text: product.product_name.substring(0, 25) + '... Trend'
+            }
+          }
+        };
+        
+        const graphUrl = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+        await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+        await bot.sendPhoto(chatId, graphUrl, {
+          caption: `📊 Price History graph for *${product.product_name}*`,
+          parse_mode: 'Markdown'
+        });
+      } else {
+        await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+        await bot.sendMessage(chatId, '⚠️ Not enough price history points to generate a graph.');
+      }
+    } catch (err) {
+      console.error('[Pricegraph command error]', err.message);
+      await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+      await bot.sendMessage(chatId, '⚠️ Failed to generate chart.');
+    }
+  });
+});
+
+// Command: /broadcast (Admin)
+bot.onText(/\/broadcast/, async (msg) => {
+  const chatId = msg.chat.id;
+  if (!isAdmin(chatId)) return;
+
+  await bot.sendMessage(chatId, `🎙 Send the message (text, photo, or video with caption) that you want to broadcast.\n\nReply to this message with your content.`);
+  
+  // Set next message listener
+  const listenerId = bot.onReplyToMessage(chatId, msg.message_id, async (reply) => {
+    bot.removeReplyListener(listenerId);
+    
+    const statusMsg = await bot.sendMessage(chatId, '📤 Broadcasting message in progress...');
+    const users = await db.getAllUsers();
+    
+    let success = 0;
+    let failed = 0;
+    
+    for (const userId of users) {
+      try {
+        if (reply.photo) {
+          const fileId = reply.photo[reply.photo.length - 1].file_id;
+          await bot.sendPhoto(userId, fileId, { caption: reply.caption || '', parse_mode: 'HTML' });
+        } else if (reply.video) {
+          await bot.sendVideo(userId, reply.video.file_id, { caption: reply.caption || '', parse_mode: 'HTML' });
+        } else if (reply.text) {
+          await bot.sendMessage(userId, reply.text, { parse_mode: 'HTML' });
+        }
+        success++;
+      } catch (err) {
+        failed++;
+      }
+      // Courteous broadcast sleep
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    await bot.editMessageText(`📢 *Broadcast completed*\n\n• Success: ${success}\n• Failed: ${failed}`, {
+      chat_id: chatId,
+      message_id: statusMsg.message_id,
+      parse_mode: 'Markdown'
     });
-  } catch (err) {
-    console.error('[Command /stop Error]', err.message);
-    await bot.sendMessage(chatId, '⚠️ Failed to delete tracking record.');
-  }
+  });
 });
 
 // Command: /stats (Admin)
@@ -588,11 +816,11 @@ bot.on('callback_query', async (callbackQuery) => {
   }
   
   if (callbackData.startsWith('stop:')) {
-    const productId = parseInt(callbackData.split(':')[1]);
+    const productPid = callbackData.split(':')[1];
     await bot.answerCallbackQuery(callbackQuery.id);
     
     try {
-      await db.stopTracking(productId);
+      await db.stopTrackingByPid(chatId, productPid);
       await bot.sendMessage(chatId, '✅ *Product removed successfully.*\n\nYou will no longer receive alerts.', {
         parse_mode: 'Markdown',
         reply_markup: { inline_keyboard: [getMainButtons()] }
@@ -603,11 +831,11 @@ bot.on('callback_query', async (callbackQuery) => {
   }
   
   if (callbackData.startsWith('graph:')) {
-    const productId = parseInt(callbackData.split(':')[1]);
+    const productPid = callbackData.split(':')[1];
     await bot.answerCallbackQuery(callbackQuery.id, { text: 'Generating price graph...' });
     
     try {
-      const product = await db.getProductById(productId);
+      const product = await db.getProductByPid(chatId, productPid);
       if (product && product.price_history && product.price_history.length > 0) {
         // Construct QuickChart config
         const labels = product.price_history.map(h => {
@@ -667,8 +895,8 @@ bot.on('callback_query', async (callbackQuery) => {
     trackings.forEach((t, index) => {
       reply += `${index + 1}.\n` +
         `*${t.product_name.substring(0, 60)}...*\n` +
-        `/product_${t.id}\n` +
-        `/stop_${t.id}\n` +
+        `/product_${t.product_id}\n` +
+        `/stop_${t.product_id}\n` +
         `*Current Price:* ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
         `----------------\n\n`;
     });
@@ -678,12 +906,46 @@ bot.on('callback_query', async (callbackQuery) => {
       reply_markup: { inline_keyboard: [getMainButtons()] }
     });
   }
+
+  if (callbackData === 'verify_subscription') {
+    const userId = callbackQuery.from.id;
+    const channel = process.env.AUTH_CHANNEL || '@botsxp';
+    
+    try {
+      const member = await bot.getChatMember(channel, userId);
+      const isMember = ['member', 'administrator', 'creator'].includes(member.status);
+      
+      if (isMember) {
+        await bot.answerCallbackQuery(callbackQuery.id, { text: "✅ Subscription verified!" });
+        await bot.editMessageText("🎉 Thank you for subscribing! Executing your pending task...", {
+          chat_id: chatId,
+          message_id: message.message_id
+        }).catch(() => {});
+        
+        const task = pendingTasks.get(userId);
+        if (task && task.execute) {
+          pendingTasks.delete(userId);
+          await task.execute();
+        } else {
+          await bot.sendMessage(chatId, "Verification successful! You can now use the bot.");
+        }
+      } else {
+        await bot.answerCallbackQuery(callbackQuery.id, {
+          text: "⚠️ You have not joined yet! Please join the channel first.",
+          show_alert: true
+        });
+      }
+    } catch (err) {
+      console.error('[verify_subscription error]', err.message);
+      await bot.answerCallbackQuery(callbackQuery.id, { text: "Error checking membership status." });
+    }
+  }
 });
 
 // Listener for general messages containing URLs (automatic track)
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
-  const text = msg.text;
+  const text = msg.text || msg.caption;
 
   // Skip commands
   if (!text || text.startsWith('/')) {
@@ -696,161 +958,159 @@ bot.on('message', async (msg) => {
   
   if (!matches) {
     // If message contains no URL
-    const joined = await checkMembership(msg);
-    if (!joined) return;
-
-    await bot.sendMessage(
-      chatId, 
-      `Link not found.\n\nGive me a product link and I will alert you whenever the price changes.`,
-      { reply_markup: { inline_keyboard: [getMainButtons()] } }
-    );
+    await verifyUserAndExecute(msg, 'help', {}, async () => {
+      await bot.sendMessage(
+        chatId, 
+        `Link not found.\n\nGive me a product link and I will alert you whenever the price changes.`,
+        { reply_markup: { inline_keyboard: [getMainButtons()] } }
+      );
+    });
     return;
   }
 
   const productUrl = matches[0];
   const detected = detectPlatformAndPid(productUrl);
   
-  const joined = await checkMembership(msg);
-  if (!joined) return;
+  await verifyUserAndExecute(msg, 'track_url', { url: productUrl, detected: detected }, async () => {
+    if (!detected) {
+      // Unsupported platform
+      await bot.sendMessage(
+        chatId,
+        `Unsupported platform.\n\n*Supported:*\nAmazon, Flipkart, Myntra, Ajio, Meesho, Shopsy, Croma, TataCliq, Reliance Digital, Nykaa, or any other generic URL.`,
+        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [getMainButtons()] } }
+      );
+      return;
+    }
 
-  if (!detected) {
-    // Unsupported platform
-    await bot.sendMessage(
-      chatId,
-      `Unsupported platform.\n\n*Supported:*\nAmazon\nFlipkart\nShopsy\nAjio\nMyntra\nMeesho`,
-      { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [getMainButtons()] } }
-    );
-    return;
-  }
+    const { platform, pid } = detected;
 
-  const { platform, pid } = detected;
+    // Validate limits
+    const limit = parseInt(process.env.MAX_TRACK_PRODUCTS) || 10;
+    const currentCount = await db.getUserTrackedCount(chatId);
+    
+    if (currentCount >= limit) {
+      await bot.sendMessage(
+        chatId, 
+        `⚠️ *Tracking limit reached.*\n\n` +
+        `You are already tracking ${currentCount} products.\n\n` +
+        `Please remove one or more products from /my_trackings before adding a new one.`,
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
 
-  // Validate limits
-  const limit = parseInt(process.env.MAX_TRACK_PRODUCTS) || 10;
-  const currentCount = await db.getUserTrackedCount(chatId);
-  
-  if (currentCount >= limit) {
-    await bot.sendMessage(
-      chatId, 
-      `⚠️ *Tracking limit reached.*\n\n` +
-      `You are already tracking ${currentCount} products.\n\n` +
-      `Please remove one or more products from /my_trackings before adding a new one.`,
-      { parse_mode: 'Markdown' }
-    );
-    return;
-  }
-
-  // Check if already tracking
-  const alreadyTracking = await db.getUserTracking(chatId, platform, pid);
-  if (alreadyTracking) {
-    await bot.sendMessage(
-      chatId,
-      `ℹ️ *You're already tracking this product.*\n\nWe'll notify you whenever its price changes.`,
-      {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '📂 My Trackings', callback_data: 'my_trackings' },
-              { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${platform}_${pid}` }
+    // Check if already tracking
+    const alreadyTracking = await db.getUserTracking(chatId, platform, pid);
+    if (alreadyTracking) {
+      await bot.sendMessage(
+        chatId,
+        `ℹ️ *You're already tracking this product.*\n\nWe'll notify you whenever its price changes.`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '📂 My Trackings', callback_data: 'my_trackings' },
+                { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${platform}_${pid}` }
+              ]
             ]
-          ]
+          }
+        }
+      );
+      return;
+    }
+
+    // Sequence of replies: Please Wait...!! -> Getting Product Info... -> Adding Your Product...
+    const statusMsg = await bot.sendMessage(chatId, 'Please Wait...!!');
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      await bot.editMessageText('Getting Product Info...', { chat_id: chatId, message_id: statusMsg.message_id });
+      
+      // Scrape details from API scraper service
+      const response = await axios.get(`${scraperApiUrl}/api/scrape`, {
+        params: { url: productUrl },
+        timeout: 20000
+      });
+      
+      const data = response.data;
+      if (!data || !data.success) {
+        await bot.deleteMessage(chatId, statusMsg.message_id);
+        await bot.sendMessage(chatId, 'Failed to get your product.\n\nPlease report it to the admin.', {
+          reply_markup: { inline_keyboard: [getMainButtons()] }
+        });
+        return;
+      }
+
+      const livePrice = parseFloat(data.price);
+      
+      // Out of Stock check
+      if (!livePrice || isNaN(livePrice) || livePrice <= 0) {
+        await bot.deleteMessage(chatId, statusMsg.message_id);
+        await bot.sendMessage(chatId, 'Looks like this product is Out Of Stock.\n\nPlease try again later.', {
+          reply_markup: { inline_keyboard: [getMainButtons()] }
+        });
+        return;
+      }
+
+      await bot.editMessageText('Adding Your Product...', { chat_id: chatId, message_id: statusMsg.message_id });
+      
+      // Convert to affiliate URL (check global DB first to avoid redundant API hits)
+      let affUrl = await db.getExistingAffUrl(platform, pid);
+      if (!affUrl) {
+        affUrl = await affiliate.convert(productUrl, platform);
+      }
+      
+      // Save to database
+      const saved = await db.addProduct(
+        chatId,
+        platform,
+        pid,
+        data.title,
+        productUrl,
+        affUrl,
+        data.image,
+        livePrice
+      );
+      
+      await bot.deleteMessage(chatId, statusMsg.message_id);
+      
+      if (saved) {
+        const successText = `🛍️ *Tracking your product*\n\n` +
+          `*${escapeMarkdown(data.title)}*\n\n` +
+          `*Current Price:*\n₹${livePrice.toLocaleString('en-IN')}\n\n` +
+          `/product_${saved.product_id}\n` +
+          `/stop_${saved.product_id}`;
+          
+        const opts = {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🛒 Buy Now', url: affUrl || productUrl }],
+              [
+                { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${platform}_${pid}` },
+                { text: '📂 My Trackings', callback_data: 'my_trackings' }
+              ],
+              getMainButtons()
+            ]
+          }
+        };
+
+        if (data.image) {
+          await bot.sendPhoto(chatId, data.image, { caption: successText, ...opts });
+        } else {
+          await bot.sendMessage(chatId, successText, opts);
         }
       }
-    );
-    return;
-  }
-
-  // Sequence of replies: Please Wait...!! -> Getting Product Info... -> Adding Your Product...
-  const statusMsg = await bot.sendMessage(chatId, 'Please Wait...!!');
-  
-  try {
-    await new Promise(resolve => setTimeout(resolve, 800));
-    await bot.editMessageText('Getting Product Info...', { chat_id: chatId, message_id: statusMsg.message_id });
-    
-    // Scrape details from API scraper service
-    const response = await axios.get(`${scraperApiUrl}/api/scrape`, {
-      params: { url: productUrl },
-      timeout: 20000
-    });
-    
-    const data = response.data;
-    if (!data || !data.success) {
-      await bot.deleteMessage(chatId, statusMsg.message_id);
+      
+    } catch (err) {
+      console.error('[Automatic Tracking Error]', err.message);
+      await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
       await bot.sendMessage(chatId, 'Failed to get your product.\n\nPlease report it to the admin.', {
         reply_markup: { inline_keyboard: [getMainButtons()] }
       });
-      return;
     }
-
-    const livePrice = parseFloat(data.price);
-    
-    // Out of Stock check
-    if (!livePrice || isNaN(livePrice) || livePrice <= 0) {
-      await bot.deleteMessage(chatId, statusMsg.message_id);
-      await bot.sendMessage(chatId, 'Looks like this product is Out Of Stock.\n\nPlease try again later.', {
-        reply_markup: { inline_keyboard: [getMainButtons()] }
-      });
-      return;
-    }
-
-    await bot.editMessageText('Adding Your Product...', { chat_id: chatId, message_id: statusMsg.message_id });
-    
-    // Convert to affiliate URL (check global DB first to avoid redundant API hits)
-    let affUrl = await db.getExistingAffUrl(platform, pid);
-    if (!affUrl) {
-      affUrl = await affiliate.convert(productUrl, platform);
-    }
-    
-    // Save to database
-    const saved = await db.addProduct(
-      chatId,
-      platform,
-      pid,
-      data.title,
-      productUrl,
-      affUrl,
-      data.image,
-      livePrice
-    );
-    
-    await bot.deleteMessage(chatId, statusMsg.message_id);
-    
-    if (saved) {
-      const successText = `🛍️ *Tracking your product*\n\n` +
-        `*${escapeMarkdown(data.title)}*\n\n` +
-        `*Current Price:*\n₹${livePrice.toLocaleString('en-IN')}\n\n` +
-        `/product_${saved.id}\n` +
-        `/stop_${saved.id}`;
-        
-      const opts = {
-        parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🛒 Buy Now', url: affUrl || productUrl }],
-            [
-              { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${platform}_${pid}` },
-              { text: '📂 My Trackings', callback_data: 'my_trackings' }
-            ],
-            getMainButtons()
-          ]
-        }
-      };
-
-      if (data.image) {
-        await bot.sendPhoto(chatId, data.image, { caption: successText, ...opts });
-      } else {
-        await bot.sendMessage(chatId, successText, opts);
-      }
-    }
-    
-  } catch (err) {
-    console.error('[Automatic Tracking Error]', err.message);
-    await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
-    await bot.sendMessage(chatId, 'Failed to get your product.\n\nPlease report it to the admin.', {
-      reply_markup: { inline_keyboard: [getMainButtons()] }
-    });
-  }
+  });
 });
 
 // Background Scheduler
@@ -883,6 +1143,7 @@ function startScheduler() {
                 const oldPrice = updateResult.oldPrice;
                 const newPrice = livePrice;
                 const diff = newPrice - oldPrice;
+                const pct = ((Math.abs(diff) / oldPrice) * 100).toFixed(1);
                 
                 let notifyMsg = '';
                 if (diff < 0) {
@@ -890,13 +1151,13 @@ function startScheduler() {
                     `*${escapeMarkdown(product.product_name)}*\n\n` +
                     `*Old Price:* ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `*Current Price:* ₹${newPrice.toLocaleString('en-IN')}\n` +
-                    `*Difference:* -₹${Math.abs(diff).toLocaleString('en-IN')}\n`;
+                    `*Difference:* -₹${Math.abs(diff).toLocaleString('en-IN')} (-${pct}%)\n`;
                 } else {
                   notifyMsg = `📈 *Price Increased!*\n\n` +
                     `*${escapeMarkdown(product.product_name)}*\n\n` +
                     `*Old Price:* ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `*New Price:* ₹${newPrice.toLocaleString('en-IN')}\n` +
-                    `*Difference:* +₹${diff.toLocaleString('en-IN')}\n`;
+                    `*Difference:* +₹${diff.toLocaleString('en-IN')} (+${pct}%)\n`;
                 }
                 
                 const opts = {
@@ -905,7 +1166,7 @@ function startScheduler() {
                     inline_keyboard: [
                       [{ text: '🛒 Buy Now', url: product.aff_url || product.product_url }],
                       [
-                        { text: '📊 Price Graph', callback_data: `graph:${product.id}` },
+                        { text: '📊 Price Graph', callback_data: `graph:${product.product_id}` },
                         { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }
                       ],
                       getMainButtons()

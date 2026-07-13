@@ -259,7 +259,13 @@ app.get('/api/history', async (req, res) => {
     else if (store === 'myntra') canonicalUrl = `https://www.myntra.com/p/${pid}/buy`;
     else if (store === 'ajio') canonicalUrl = `https://www.ajio.com/p/${cleanAjioPid(pid)}`;
     else if (store === 'meesho') canonicalUrl = `https://www.meesho.com/p/${pid}`;
-    else {
+    else if (store === 'croma') canonicalUrl = `https://www.croma.com/p/${pid}`;
+    else if (store === 'tatacliq') canonicalUrl = `https://www.tatacliq.com/p-${pid}`;
+    else if (store === 'reliancedigital') canonicalUrl = `https://www.reliancedigital.in/p/${pid}`;
+    else if (store === 'nykaa') canonicalUrl = `https://www.nykaa.com/p/${pid}`;
+    else if (pid.startsWith('http') || decodeURIComponent(pid).startsWith('http')) {
+      canonicalUrl = decodeURIComponent(pid);
+    } else {
       return res.status(400).json({ success: false, error: 'Unsupported store platform.' });
     }
   } else {
