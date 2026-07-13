@@ -291,6 +291,7 @@
     <!-- FontAwesome & Custom styles for Price Graph widgets -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/static/widget.css?v=2">
+    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
@@ -336,104 +337,55 @@
 		/></noscript> -->
 		<!-- End Meta Pixel Code -->
 
-		<div style="display: contents">   <svg width="0" height="0" style="position: absolute; visibility: hidden"><defs><symbol id="star"><path fill="#FF6D1F" stroke="#FF6D1F" stroke-linecap="round" stroke-linejoin="round" stroke-width=".5625" d="m5.19793 1.25547.6599 1.33076c.09.18525.3299.36293.5324.39696l1.1961.20037c.765.12854.945.68806.3938 1.24003l-.9299.93757c-.1575.15878-.2437.465-.195.6843l.2662 1.16063c.21.91867-.2737 1.27406-1.0799.79391l-1.1211-.66915c-.2025-.12098-.5362-.12098-.7424 0L3.05693 8c-.8025.48015-1.2899.12097-1.0799-.79391l.2662-1.16063c.0487-.2193-.0375-.52552-.195-.6843l-.9299-.93757c-.5474-.55197-.371201-1.11149.3937-1.24003l1.1961-.20037c.1988-.03403.4387-.21171.5287-.39696l.66-1.33076c.3599-.722095.9448-.722095 1.3011 0Z"></path></symbol><symbol id="emptyStar" fill="white"><path stroke="#FF6D1F" stroke-linecap="round" stroke-linejoin="round" stroke-width=".5625" d="m5.19793 1.25547.6599 1.33076c.09.18525.3299.36293.5324.39696l1.1961.20037c.765.12854.945.68806.3938 1.24003l-.9299.93757c-.1575.15878-.2437.465-.195.6843l.2662 1.16063c.21.91867-.2737 1.27406-1.0799.79391l-1.1211-.66915c-.2025-.12098-.5362-.12098-.7424 0L3.05693 8c-.8025.48015-1.2899.12097-1.0799-.79391l.2662-1.16063c.0487-.2193-.0375-.52552-.195-.6843l-.9299-.93757c-.5474-.55197-.371201-1.11149.3937-1.24003l1.1961-.20037c.1988-.03403.4387-.21171.5287-.39696l.66-1.33076c.3599-.722095.9448-.722095 1.3011 0Z"></path></symbol></defs></svg>  <div data-sveltekit-reload>   <div class="app flex flex-col min-h-screen"> <div class="w-full bg-white sticky top-0 z-40 header border-b border-slate-200">     <div class="px-4 sm:px-6 md:px-8 py-3 relative z-10"> 
-<div class="flex gap-2 justify-between items-center mobile-header" style="width: 100%;">
-  <a href="/" class="flex items-center gap-2" style="text-decoration: none;">
-    <div class="logo-icon-wrapper" style="width: 32px; height: 32px; border-radius: 6px; background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); display: flex; align-items: center; justify-content: center; color: white;">
-      <i class="fa-solid fa-chart-line" style="font-size: 1rem;"></i>
-    </div>
-    <span class="logo-title" style="font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 800; color: #1e1b4b;">Price Graph</span>
-  </a>
-
-  <div class="flex gap-2 items-center">
-    <div class="flex items-center gap-1" style="border: 1px solid #e2e8f0; border-radius: 20px; padding: 2px 8px; background-color: #f8fafc; scale: 0.95;">
-      <img src="https://flagcdn.com/w40/in.png" alt="India" style="width: 14px; height: 10px; border-radius: 1px;">
-      <span style="font-size: 0.65rem; font-weight: 700; color: #475569;">IN</span>
-    </div>
-
-    {% if session.get('user_id') %}
-      <a href="/dashboard" class="rounded-lg cursor-pointer px-3 py-1 flex items-center justify-center font-semibold bg-primary text-white text-xs !rounded-full" style="text-decoration: none; color: white !important;">Dashboard</a>
-    {% else %}
-      <a href="/login" class="rounded-lg cursor-pointer px-3 py-1 flex items-center justify-center font-semibold bg-primary text-white text-xs !rounded-full" style="text-decoration: none; color: white !important;">Login</a>
-    {% endif %}
-  </div>
-</div>
-<!-- Keep padding and header wrapper open for desktop header -->
-<div class="desktop-header font-sans" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
-  
-  <!-- Left Side: Logo & Brand Name -->
-  <div class="flex items-center">
-    <a href="/" class="flex items-center gap-2" style="text-decoration: none;">
-      <div style="width: 38px; height: 38px; border-radius: 8px; background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); display: flex; align-items: center; justify-content: center; color: white;">
-        <i class="fa-solid fa-chart-line" style="font-size: 1.2rem;"></i>
-      </div>
-      <div style="display: flex; flex-direction: column;">
-        <span style="font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 800; color: #1e1b4b; line-height: 1.1; letter-spacing: -0.2px;">Price Graph</span>
-        <span style="font-size: 0.65rem; color: #64748b; font-weight: 600; letter-spacing: 0.5px;">Find Real Deals</span>
-      </div>
-    </a>
-  </div>
-
-  <!-- Center Side: Navigation Menu & Dropdowns -->
-  <div class="flex gap-8 items-center justify-center">
-    <a href="/" class="text-slate-600 hover:text-indigo-600 text-sm font-semibold transition-colors" style="text-decoration: none; font-family: 'Inter', sans-serif;">Home</a>
-    
-    <a href="/deals" class="text-slate-600 hover:text-indigo-600 text-sm font-semibold transition-colors" style="text-decoration: none; font-family: 'Inter', sans-serif;">Deals</a>
-    
-    <!-- Telegram Bots Dropdown -->
-    <div class="header-dropdown">
-      <button class="header-dropdown-btn text-slate-600 text-sm font-semibold hover:text-indigo-600 transition-colors" style="display: flex; align-items: center; gap: 4px; font-family: 'Inter', sans-serif; border: none; background: transparent; cursor: pointer; padding: 0;">
-        Telegram Bots <i class="fa-solid fa-chevron-down" style="font-size: 0.65rem;"></i>
-      </button>
-      <div class="header-dropdown-content">
-        <a href="https://t.me/price_tracker_bot" target="_blank"><i class="fa-solid fa-bell-slash"></i> Price Tracker Bot</a>
-        <a href="https://t.me/price_history_bot" target="_blank"><i class="fa-solid fa-chart-simple"></i> Price History Bot</a>
+		<div style="display: contents">   <svg width="0" height="0" style="position: absolute; visibility: hidden"><defs><symbol id="star"><path fill="#FF6D1F" stroke="#FF6D1F" stroke-linecap="round" stroke-linejoin="round" stroke-width=".5625" d="m5.19793 1.25547.6599 1.33076c.09.18525.3299.36293.5324.39696l1.1961.20037c.765.12854.945.68806.3938 1.24003l-.9299.93757c-.1575.15878-.2437.465-.195.6843l.2662 1.16063c.21.91867-.2737 1.27406-1.0799.79391l-1.1211-.66915c-.2025-.12098-.5362-.12098-.7424 0L3.05693 8c-.8025.48015-1.2899.12097-1.0799-.79391l.2662-1.16063c.0487-.2193-.0375-.52552-.195-.6843l-.9299-.93757c-.5474-.55197-.371201-1.11149.3937-1.24003l1.1961-.20037c.1988-.03403.4387-.21171.5287-.39696l.66-1.33076c.3599-.722095.9448-.722095 1.3011 0Z"></path></symbol><symbol id="emptyStar" fill="white"><path stroke="#FF6D1F" stroke-linecap="round" stroke-linejoin="round" stroke-width=".5625" d="m5.19793 1.25547.6599 1.33076c.09.18525.3299.36293.5324.39696l1.1961.20037c.765.12854.945.68806.3938 1.24003l-.9299.93757c-.1575.15878-.2437.465-.195.6843l.2662 1.16063c.21.91867-.2737 1.27406-1.0799.79391l-1.1211-.66915c-.2025-.12098-.5362-.12098-.7424 0L3.05693 8c-.8025.48015-1.2899.12097-1.0799-.79391l.2662-1.16063c.0487-.2193-.0375-.52552-.195-.6843l-.9299-.93757c-.5474-.55197-.371201-1.11149.3937-1.24003l1.1961-.20037c.1988-.03403.4387-.21171.5287-.39696l.66-1.33076c.3599-.722095.9448-.722095 1.3011 0Z"></path></symbol></defs></svg>  <div data-sveltekit-reload>   <div class="app flex flex-col min-h-screen">   <header class="app-nav-header">
+    <div class="nav-container">
+      <a href="/" class="logo">
+        <img src="{{ url_for('static', filename='images/logos.png') }}" alt="Price Graph Logo" class="header-logo-img">
+        <span class="domain-badge">pricegraph.in</span>
+      </a>
+      <nav class="nav-menu">
+        <a href="/#deals-hub-card" class="nav-link"><i class="fa-solid fa-fire text-red-glow"></i> Deals</a>
+        <a href="/categories" class="nav-link">Categories</a>
+        <a href="/coupons" class="nav-link">Coupons</a>
+        
+        <!-- Telegram Bots Links -->
+        <div class="nav-dropdown-wrapper">
+          <a href="#" class="nav-link text-beta-tag"><i class="fa-brands fa-telegram"></i> Telegram Bots <i class="fa-solid fa-chevron-down nav-chevron"></i></a>
+          <div class="nav-dropdown-content">
+            <a href="https://t.me/botsxp_bot" target="_blank"><i class="fa-solid fa-bell"></i> Price Tracker Bot</a>
+            <a href="https://t.me/The_PriceHistory_Bot" target="_blank"><i class="fa-solid fa-chart-line"></i> Price History Bot</a>
+          </div>
+        </div>
+        
+        <!-- Policies Dropdown menu -->
+        <div class="nav-dropdown-wrapper">
+          <a href="#" class="nav-link">Policies <i class="fa-solid fa-chevron-down nav-chevron"></i></a>
+          <div class="nav-dropdown-content">
+            <a href="/privacy-policy">Privacy Policy</a>
+            <a href="/terms">Terms & Conditions</a>
+            <a href="/affiliate-policy">Affiliate Policy</a>
+          </div>
+        </div>
+      </nav>
+      <div class="nav-actions">
+        <!-- Indian Flag -->
+        <span class="flag-icon" title="India">🇮🇳</span>
+        
+        {% if session.get('user_id') %}
+          <a href="/dashboard" class="nav-link nav-user-profile">
+            <img src="{{ session.get('profile_pic') or 'https://api.dicebear.com/7.x/bottts/svg?seed=' ~ session.get('username') }}" class="nav-avatar" alt="Avatar">
+            <span>{{ session.get('name') }}</span>
+          </a>
+          <a href="/logout" class="login-btn">Logout</a>
+        {% elif session.get('admin') %}
+          <a href="/admin" class="nav-link"><i class="fa-solid fa-user-shield"></i> Admin Panel</a>
+          <a href="/logout" class="login-btn">Logout</a>
+        {% else %}
+          <a href="/login" class="login-btn">Login</a>
+        {% endif %}
       </div>
     </div>
-
-    <!-- Policies Dropdown -->
-    <div class="header-dropdown">
-      <button class="header-dropdown-btn text-slate-600 text-sm font-semibold hover:text-indigo-600 transition-colors" style="display: flex; align-items: center; gap: 4px; font-family: 'Inter', sans-serif; border: none; background: transparent; cursor: pointer; padding: 0;">
-        Policies <i class="fa-solid fa-chevron-down" style="font-size: 0.65rem;"></i>
-      </button>
-      <div class="header-dropdown-content">
-        <a href="/faq#terms"><i class="fa-solid fa-file-contract"></i> Terms of Service</a>
-        <a href="/faq#privacy"><i class="fa-solid fa-shield-halved"></i> Privacy Policy</a>
-        <a href="/faq#disclaimer"><i class="fa-solid fa-scale-balanced"></i> Disclaimer</a>
-      </div>
-    </div>
-  </div>
-
-  <!-- Right Side: Flags, Install Extension, Auth Buttons -->
-  <div class="flex gap-4 items-center">
-    <!-- Indian Flag Logo Badge (Circular like the mock) -->
-    <img src="https://flagcdn.com/w40/in.png" alt="India" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1.5px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer;">
-    
-    <!-- Translate Icon -->
-    <svg style="width: 20px; height: 20px; color: #4f46e5; cursor: pointer; fill: none; stroke: currentColor; stroke-width: 2;" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="m10.5 21 5.25-11.25L21 21m-9-3h7.5M3 5.621a48.474 48.474 0 0 1 6-.371m0 0c1.12 0 2.233.038 3.334.114M9 5.25V3m3.334 2.364C11.176 10.658 7.69 15.08 3 17.502m9.334-12.138A27.515 27.515 0 0 1 8.59 12m-.3 5.25c1.47-2.316 2.766-4.945 3.593-7.75H3" />
-    </svg>
-
-    <!-- Chrome Install Extension button -->
-    <a href="https://t.me/price_tracker_bot" target="_blank" class="flex items-center bg-slate-50 hover:bg-slate-100 text-indigo-600 font-semibold transition-all hover:shadow-sm" style="text-decoration: none; font-size: 0.8rem; font-family: 'Inter', sans-serif; height: 38px; border-radius: 20px; padding: 0 16px; border: 1px solid #e2e8f0;">
-      <svg class="mr-1.5" style="width: 16px; height: 16px;" viewBox="0 0 24 24">
-        <path fill="#4285F4" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-      </svg>
-      <span>Install, it's free</span>
-    </a>
-
-    <!-- Dynamic Session Authentication Login/Logout Button -->
-    {% if session.get('user_id') %}
-      <a href="/dashboard" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold flex items-center justify-center transition-all hover:shadow-md" style="text-decoration: none; color: white !important; font-size: 0.85rem; height: 38px; border-radius: 20px; padding: 0 20px; font-family: 'Inter', sans-serif;">Dashboard</a>
-      <a href="/logout" class="border border-indigo-600 hover:bg-indigo-50 text-indigo-600 font-semibold flex items-center justify-center transition-all" style="text-decoration: none; color: #4f46e5 !important; font-size: 0.85rem; height: 38px; border-radius: 20px; padding: 0 16px; font-family: 'Inter', sans-serif; margin-left: 4px;">Logout</a>
-    {% else %}
-      <a href="/login" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold flex items-center justify-center transition-all hover:shadow-md" style="text-decoration: none; color: white !important; font-size: 0.85rem; height: 38px; border-radius: 20px; padding: 0 24px; font-family: 'Inter', sans-serif;">Login</a>
-    {% endif %}
-  </div>
-
-</div>
-</div> <!-- Close padding wrapper -->
-</div> <!-- Close header sticky container -->
+  </header>
    <main class="w-full md:mx-auto flex-grow relative bg-white md:bg-transparent"><div class="absolute top-0 w-full h-24 bg-gradient-to-b from-indigo-50 to-white z-[-1]"></div>      <div class="bg-indigo-950 p-3 overflow-hidden w-full block md:hidden"><div class="flex flex-row items-center mx-auto gap-4 animate-marquee-link svelte-1x00yvg"><div class="flex gap-3 flex-shrink-0"><div class="w-5 h-5 sm:w-6 sm:h-6 p-1 bg-indigo-800 rounded-full animate-pulse bg-primary bg-opacity-5"></div> <p class="text-base sm:text-xl font-bold text-white">Magic Trick for Online Shopping</p></div> <span class="w-5 h-5 inline-block text-indigo-600 flex-shrink-0"><!-- HTML_TAG_START --><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
 	<path fill="currentColor" d="m10 0 2.7 7.3L20 10l-7.3 2.7L10 20l-2.7-7.3L0 10l7.3-2.7z" />
 </svg>
