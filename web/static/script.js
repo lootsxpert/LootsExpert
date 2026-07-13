@@ -711,6 +711,18 @@
   }
 
   // --- DEALS HUB CONTROLLER LOGIC ---
+    // Helper to format e-commerce product image URLs and apply premium fallbacks
+  function formatProductImage(imgUrl) {
+    if (!imgUrl || typeof imgUrl !== 'string' || imgUrl.trim() === '') {
+      return 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80';
+    }
+    let formatted = imgUrl.trim();
+    if (formatted.startsWith('//')) {
+      formatted = 'https:' + formatted;
+    }
+    return formatted;
+  }
+
   let currentCategory = '';
   let currentMaxPrice = '';
   let currentPlatform = '';
@@ -918,7 +930,7 @@
 
         card.innerHTML = `
           <div class="deal-card-image-wrapper">
-            <img src="${deal.image || 'https://via.placeholder.com/150?text=No+Image'}" alt="${deal.title}">
+            <img src="${formatProductImage(deal.image)}" alt="${deal.title}">
             <span class="deal-card-platform-badge ${platformClass}">${deal.platform}</span>
             <span class="deal-card-score-badge">
               <i class="fa-solid fa-bolt"></i> ${deal.deal_score} Score
@@ -1057,7 +1069,7 @@
                 <span class="absolute top-2 left-2 py-1 px-2.5 bg-indigo-600 text-white rounded text-xxs font-bold uppercase tracking-wider z-10" style="font-size: 0.65rem;">${deal.platform}</span>
                 
                 <div style="width: 100%; height: 180px; background-color: white; display: flex; align-items: center; justify-content: center; padding: 12px; overflow: hidden; position: relative;">
-                  <img src="${deal.image}" alt="${deal.title}" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.3s;" class="group-hover:scale-105">
+                  <img src="${formatProductImage(deal.image)}" alt="${deal.title}" style="max-width: 100%; max-height: 100%; object-fit: contain; transition: transform 0.3s;" class="group-hover:scale-105">
                 </div>
                 
                 <div class="flex flex-col items-start gap-2 py-3 px-3 flex-grow bg-white border-t border-slate-100" style="display: flex; flex-direction: column; flex-grow: 1;">
