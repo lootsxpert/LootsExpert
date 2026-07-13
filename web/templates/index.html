@@ -556,45 +556,83 @@
         </div>
       </div>
     </div>
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 mt-16 md:mt-0">
-      <div class="mb-6 md:mb-8">
-        <p class="text-xl md:text-3xl font-bold text-gray-900 text-center" data-svelte-h="svelte-19hb2wp">
-          Verified by Deal Scanner</p>
-        <p class="text-center font-medium text-base md:text-xl text-slate-600">Deals that passed the scanner test.</p>
-      </div>
-      <div class="mx-auto">
-        <div>
-          <div class="flex justify-between md:justify-end mb-6 px-4"><button
-              class="text-black bg-white border border-gray-300 rounded-lg px-6 py-1 md:hidden">Filters</button>
-            <div class="flex items-center gap-2 relative">
-              <p class="text-black text-opacity-75 text-sm">Sort By:</p>
-              <div class=""><button type="button"
-                  class="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-0 cursor-pointer flex gap-2 items-center justify-between w-full min-w-[160px] disabled:opacity-50 disabled:cursor-not-allowed"><span>Popularity</span>
-                  <svg class="w-4 h-4 text-gray-500 transition-transform " fill="none" stroke="currentColor"
-                    viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                  </svg></button> </div>
+          <!-- Deals Hub Section (Visible on page load) -->
+      <section class="card deals-hub-card" id="deals-hub-card">
+        <div class="deals-hub-header">
+          <h2><i class="fa-solid fa-fire text-red-glow"></i> Hot Deals</h2>
+          <p class="hub-subtitle">Real discounts scanned and verified against history</p>
+        </div>
+
+        <!-- Hot Deals Under Price Brackets -->
+        <div class="price-brackets">
+          <button class="bracket-btn active" data-price="">All Deals</button>
+          <button class="bracket-btn" data-price="99">Under ₹99</button>
+          <button class="bracket-btn" data-price="199">Under ₹199</button>
+          <button class="bracket-btn" data-price="299">Under ₹299</button>
+          <button class="bracket-btn" data-price="499">Under ₹499</button>
+          <button class="bracket-btn" data-price="999">Under ₹999</button>
+          <button class="bracket-btn" data-price="15000">Under ₹15,000</button>
+          <button class="bracket-btn" data-price="35000">Under ₹35,000</button>
+        </div>
+
+        <div class="deals-catalog-layout">
+          <!-- Filters Toolbar -->
+          <div class="catalog-controls">
+            <!-- Categories Navigation Bar -->
+            <div class="control-group">
+              <span class="control-label">Categories</span>
+              <div class="category-chips" id="category-chips">
+                <button class="chip-btn active" data-category="">All Categories</button>
+                <!-- Dynamically loaded -->
+              </div>
             </div>
-          </div>
-          <div>
-            <div class="flex flex-row gap-8">
-              <div class="lg:w-64 flex-shrink-0 md:block hidden"></div>
-              <div class="w-full">
-                <div class="flex flex-col justify-center items-center h-full my-auto min-h-[200px]">
-                  <div
-                    class="text-center md:col-span-3 col-span-2 text-slate-600 font-medium text-base md:text-2xl mb-4">
-                    No valid deals for given selection</div> <button
-                    class="rounded-lg cursor-pointer px-6 py-3 flex items-center justify-center font-semibold border-2 border-primary text-primary hover:opacity-90 active:opacity-50 !bg-indigo-50"
-                    type="button">
-                    <div class="text-sm ">Go to Deal Scanner</div>
-                  </button>
-                </div>
+
+            <!-- Additional filters row -->
+            <div class="filters-row">
+              <!-- Search inside catalog -->
+              <div class="search-filter-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="deal-search" placeholder="Search deals by title...">
+              </div>
+
+              <!-- Store Platform -->
+              <div class="select-filter-wrapper">
+                <i class="fa-solid fa-shop"></i>
+                <select id="deal-platform">
+                  <option value="">All Stores</option>
+                  <option value="Amazon">Amazon</option>
+                  <option value="Flipkart">Flipkart</option>
+                </select>
+              </div>
+
+              <!-- Sort Order -->
+              <div class="select-filter-wrapper">
+                <i class="fa-solid fa-arrow-down-wide-short"></i>
+                <select id="deal-sort">
+                  <option value="deal_score">Best Deals (Score)</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                  <option value="popularity">Popularity</option>
+                </select>
               </div>
             </div>
           </div>
+
+          <!-- Catalog Grid -->
+          <div class="deals-grid-container">
+            <div class="deals-grid" id="deals-grid">
+              <!-- Product cards populated dynamically -->
+            </div>
+            
+            <!-- Empty state -->
+            <div id="deals-empty-state" class="empty-state hidden">
+              <i class="fa-solid fa-box-open empty-icon"></i>
+              <h3>No Deals Found</h3>
+              <p>Try clearing your filters or broadening your search criteria.</p>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
     <div class="flex justify-center overflow-hidden relative bg-indigo-50 py-4 mt-8 -mb-6 md:mb-0">
       <div class="marquee-container w-full svelte-1x00yvg">
         <div class="marquee-content flex items-center gap-4 svelte-1x00yvg"

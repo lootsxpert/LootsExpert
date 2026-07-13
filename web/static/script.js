@@ -1027,7 +1027,6 @@
   // Auto-analyze URL if passed in home query parameter
   const homepageParams = new URLSearchParams(window.location.search);
   const analyzeUrl = homepageParams.get('analyze_url');
-  const productUrlInput = document.getElementById('product-url');
   if (analyzeUrl && productUrlInput) {
     productUrlInput.value = analyzeUrl;
     fetchProductDetails(analyzeUrl);

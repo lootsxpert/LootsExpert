@@ -3653,6 +3653,8 @@ body {
   
   .nav-actions {
     gap: 10px;
+    margin-left: auto;
+    margin-right: 12px;
   }
   
   .nav-actions .flag-icon {
