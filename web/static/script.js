@@ -284,8 +284,9 @@ document.addEventListener('DOMContentLoaded', () => {
       productDiscount.classList.add('hidden');
     }
     
-    // Buy button link
-    buyButton.href = data.url;
+    // Buy button link routed through redirect telemetry
+    const redirectUrl = `/redirect?url=${encodeURIComponent(data.url)}&platform=${encodeURIComponent(data.platform || '')}&title=${encodeURIComponent(data.title || '')}&price=${encodeURIComponent(data.price || '0.00')}&category=${encodeURIComponent(data.category || '')}`;
+    buyButton.href = redirectUrl;
     
     // Compare prices on different platforms
     const rawPriceStr = String(data.price) || '0';

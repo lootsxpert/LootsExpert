@@ -171,6 +171,31 @@ def init_db():
             );
         """)
 
+        # Create web_affiliate_configs table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS web_affiliate_configs (
+                id SERIAL PRIMARY KEY,
+                platform VARCHAR(100) UNIQUE NOT NULL,
+                tag_value VARCHAR(255) NOT NULL,
+                conversion_rate NUMERIC(5, 2) DEFAULT 2.00,
+                commission_rate NUMERIC(5, 2) DEFAULT 5.00,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
+        # Create web_redirect_logs table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS web_redirect_logs (
+                id SERIAL PRIMARY KEY,
+                platform VARCHAR(100) NOT NULL,
+                product_title TEXT,
+                category VARCHAR(100),
+                price NUMERIC(10, 2) DEFAULT 0.00,
+                url TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+
         # Seed categories if empty
         cur.execute("SELECT COUNT(*) FROM web_categories")
         if cur.fetchone()[0] == 0:
@@ -228,6 +253,20 @@ def init_db():
             ]
             cur.executemany("INSERT INTO web_marquee_items (text, logo_url, link) VALUES (%s, %s, %s)", default_marquees)
             print("Seeded default marquee items!")
+
+        # Seed default affiliate configurations if empty
+        cur.execute("SELECT COUNT(*) FROM web_affiliate_configs")
+        if cur.fetchone()[0] == 0:
+            default_affiliates = [
+                ('Amazon', 'pricegraph-21', 2.50, 4.00),
+                ('Flipkart', 'pg-21', 2.00, 6.00),
+                ('Myntra', 'myntra-pg', 2.00, 5.00),
+                ('Ajio', 'ajio-pg', 1.80, 8.00),
+                ('Meesho', 'meesho-pg', 3.00, 10.00),
+                ('Nykaa', 'nykaa-pg', 2.20, 6.00)
+            ]
+            cur.executemany("INSERT INTO web_affiliate_configs (platform, tag_value, conversion_rate, commission_rate) VALUES (%s, %s, %s, %s)", default_affiliates)
+            print("Seeded default affiliate configs!")
         
         conn.commit()
         cur.close()
@@ -749,6 +788,132 @@ def admin():
         
         cur.execute("SELECT id, text, logo_url, link FROM web_marquee_items ORDER BY created_at DESC")
         admin_marquees = cur.fetchall()
+
+        # Get affiliate configs
+        cur.execute("SELECT id, platform, tag_value, conversion_rate, commission_rate FROM web_affiliate_configs ORDER BY platform ASC")
+        affiliate_configs = cur.fetchall()
+        
+        # Calculate totals from web_redirect_logs and join with configs for rates
+        # Projected commission = SUM(click_price * (conversion_rate / 100) * (commission_rate / 100))
+        # Projected referrals = SUM(conversion_rate / 100)
+        cur.execute("""
+            SELECT 
+                COUNT(*)::integer as total_taps,
+                COALESCE(SUM(c.conversion_rate / 100.0), 0)::numeric as total_referrals,
+                COALESCE(SUM(l.price * (c.conversion_rate / 100.0) * (c.commission_rate / 100.0)), 0)::numeric as forecast_earnings
+            FROM web_redirect_logs l
+            LEFT JOIN web_affiliate_configs c ON l.platform ILIKE c.platform
+        """)
+        totals_row = cur.fetchone()
+        
+        # Format values to avoid decimal types passing directly
+        totals = {
+            'total_taps': totals_row['total_taps'] if totals_row else 0,
+            'total_referrals': round(float(totals_row['total_referrals']), 1) if totals_row else 0.0,
+            'forecast_earnings': round(float(totals_row['forecast_earnings']), 2) if totals_row else 0.0
+        }
+        
+        # Day Breakdown
+        cur.execute("""
+            SELECT 
+                TO_CHAR(l.created_at, 'YYYY-MM-DD') as period,
+                COUNT(*)::integer as taps,
+                COALESCE(SUM(c.conversion_rate / 100.0), 0)::numeric as referrals,
+                COALESCE(SUM(l.price * (c.conversion_rate / 100.0) * (c.commission_rate / 100.0)), 0)::numeric as earnings
+            FROM web_redirect_logs l
+            LEFT JOIN web_affiliate_configs c ON l.platform ILIKE c.platform
+            GROUP BY period
+            ORDER BY period DESC
+            LIMIT 30
+        """)
+        day_stats_raw = cur.fetchall()
+        day_stats = [{
+            'period': r['period'],
+            'taps': r['taps'],
+            'referrals': round(float(r['referrals']), 1),
+            'earnings': round(float(r['earnings']), 2)
+        } for r in day_stats_raw]
+        
+        # Month Breakdown
+        cur.execute("""
+            SELECT 
+                TO_CHAR(l.created_at, 'YYYY-MM') as period,
+                COUNT(*)::integer as taps,
+                COALESCE(SUM(c.conversion_rate / 100.0), 0)::numeric as referrals,
+                COALESCE(SUM(l.price * (c.conversion_rate / 100.0) * (c.commission_rate / 100.0)), 0)::numeric as earnings
+            FROM web_redirect_logs l
+            LEFT JOIN web_affiliate_configs c ON l.platform ILIKE c.platform
+            GROUP BY period
+            ORDER BY period DESC
+        """)
+        month_stats_raw = cur.fetchall()
+        month_stats = [{
+            'period': r['period'],
+            'taps': r['taps'],
+            'referrals': round(float(r['referrals']), 1),
+            'earnings': round(float(r['earnings']), 2)
+        } for r in month_stats_raw]
+        
+        # Year Breakdown
+        cur.execute("""
+            SELECT 
+                TO_CHAR(l.created_at, 'YYYY') as period,
+                COUNT(*)::integer as taps,
+                COALESCE(SUM(c.conversion_rate / 100.0), 0)::numeric as referrals,
+                COALESCE(SUM(l.price * (c.conversion_rate / 100.0) * (c.commission_rate / 100.0)), 0)::numeric as earnings
+            FROM web_redirect_logs l
+            LEFT JOIN web_affiliate_configs c ON l.platform ILIKE c.platform
+            GROUP BY period
+            ORDER BY period DESC
+        """)
+        year_stats_raw = cur.fetchall()
+        year_stats = [{
+            'period': r['period'],
+            'taps': r['taps'],
+            'referrals': round(float(r['referrals']), 1),
+            'earnings': round(float(r['earnings']), 2)
+        } for r in year_stats_raw]
+        
+        # Category Breakdown
+        cur.execute("""
+            SELECT 
+                COALESCE(NULLIF(l.category, ''), 'Uncategorized') as period,
+                COUNT(*)::integer as taps,
+                COALESCE(SUM(c.conversion_rate / 100.0), 0)::numeric as referrals,
+                COALESCE(SUM(l.price * (c.conversion_rate / 100.0) * (c.commission_rate / 100.0)), 0)::numeric as earnings
+            FROM web_redirect_logs l
+            LEFT JOIN web_affiliate_configs c ON l.platform ILIKE c.platform
+            GROUP BY period
+            ORDER BY taps DESC
+        """)
+        category_stats_raw = cur.fetchall()
+        category_stats = [{
+            'period': r['period'],
+            'taps': r['taps'],
+            'referrals': round(float(r['referrals']), 1),
+            'earnings': round(float(r['earnings']), 2)
+        } for r in category_stats_raw]
+        
+        # Product Breakdown
+        cur.execute("""
+            SELECT 
+                COALESCE(NULLIF(l.product_title, ''), 'Unknown Product') as period,
+                COUNT(*)::integer as taps,
+                COALESCE(SUM(c.conversion_rate / 100.0), 0)::numeric as referrals,
+                COALESCE(SUM(l.price * (c.conversion_rate / 100.0) * (c.commission_rate / 100.0)), 0)::numeric as earnings
+            FROM web_redirect_logs l
+            LEFT JOIN web_affiliate_configs c ON l.platform ILIKE c.platform
+            GROUP BY period
+            ORDER BY taps DESC
+            LIMIT 15
+        """)
+        product_stats_raw = cur.fetchall()
+        product_stats = [{
+            'period': r['period'],
+            'taps': r['taps'],
+            'referrals': round(float(r['referrals']), 1),
+            'earnings': round(float(r['earnings']), 2)
+        } for r in product_stats_raw]
         
         cur.close()
         conn.close()
@@ -762,6 +927,13 @@ def admin():
             categories=admin_categories,
             stores=admin_stores,
             marquees=admin_marquees,
+            affiliates=affiliate_configs,
+            totals=totals,
+            day_stats=day_stats,
+            month_stats=month_stats,
+            year_stats=year_stats,
+            category_stats=category_stats,
+            product_stats=product_stats,
             msg=request.args.get('msg'),
             error=request.args.get('error')
         )
@@ -1001,6 +1173,109 @@ def admin_marquee_delete(item_id):
         return redirect(url_for("admin", msg="Marquee item deleted successfully!"))
     except Exception as e:
         return f"Database Error: {str(e)}"
+
+
+# ==============================================================================
+# Outbound Affiliate Redirect & Click-Tracking Telemetry
+# ==============================================================================
+
+@app.route("/redirect")
+def outbound_redirect():
+    target_url = request.args.get('url')
+    platform = request.args.get('platform', 'General')
+    title = request.args.get('title', '')
+    category = request.args.get('category', '')
+    price_val = request.args.get('price', '0.00')
+    
+    if not target_url:
+        return "URL parameter is required. Usage: /redirect?url=...", 400
+        
+    try:
+        import re
+        price_cleaned = re.sub(r'[^\d.]', '', str(price_val))
+        price = float(price_cleaned) if price_cleaned else 0.00
+    except Exception:
+        price = 0.00
+        
+    # Log the redirect click telemetry
+    tag = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO web_redirect_logs (platform, product_title, category, price, url) VALUES (%s, %s, %s, %s, %s)",
+            (platform, title, category, price, target_url)
+        )
+        
+        # Query platform tag
+        cur.execute("SELECT tag_value FROM web_affiliate_configs WHERE platform ILIKE %s", (platform,))
+        row = cur.fetchone()
+        tag = row[0] if row else None
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"[Redirect Tracking Error] {str(e)}")
+        
+    # Build final url applying tag parameter
+    final_url = target_url
+    if tag:
+        try:
+            parsed_url = urllib.parse.urlparse(target_url)
+            query_params = urllib.parse.parse_qs(parsed_url.query)
+            
+            lower_platform = platform.lower()
+            if 'amazon' in lower_platform:
+                query_params['tag'] = [tag]
+            elif 'flipkart' in lower_platform:
+                query_params['affid'] = [tag]
+            elif 'myntra' in lower_platform:
+                query_params['utm_source'] = ['affiliate']
+                query_params['utm_campaign'] = [tag]
+            else:
+                query_params['subid'] = [tag]
+                
+            new_query = urllib.parse.urlencode(query_params, doseq=True)
+            final_url = urllib.parse.urlunparse((
+                parsed_url.scheme,
+                parsed_url.netloc,
+                parsed_url.path,
+                parsed_url.params,
+                new_query,
+                parsed_url.fragment
+            ))
+        except Exception as e:
+            print(f"[Affiliate URL Injection Error] {str(e)}")
+            
+    return redirect(final_url)
+
+@app.route("/admin/affiliate/save", methods=["POST"])
+def admin_affiliate_save():
+    if 'admin' not in session:
+        return redirect(url_for("login", msg="Access restricted to administrator."))
+        
+    platform = request.form.get("platform")
+    tag_value = request.form.get("tag_value")
+    conv_rate = request.form.get("conversion_rate", "2.00")
+    comm_rate = request.form.get("commission_rate", "5.00")
+    
+    if not platform or not tag_value:
+        return redirect(url_for("admin", error="Platform and referral tag value are required.", tab="affiliate"))
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO web_affiliate_configs (platform, tag_value, conversion_rate, commission_rate) VALUES (%s, %s, %s, %s) ON CONFLICT (platform) DO UPDATE SET tag_value = EXCLUDED.tag_value, conversion_rate = EXCLUDED.conversion_rate, commission_rate = EXCLUDED.commission_rate",
+            (platform, tag_value, float(conv_rate), float(comm_rate))
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect(url_for("admin", msg=f"Affiliate config for {platform} saved successfully!", tab="affiliate"))
+    except Exception as e:
+        return redirect(url_for("admin", error=f"Database Error: {str(e)}", tab="affiliate"))
 
 # Error pages routing
 @app.errorhandler(404)

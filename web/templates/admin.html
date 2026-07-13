@@ -39,6 +39,8 @@
       <button class="tab-btn" data-tab="categories"><i class="fa-solid fa-folder-open"></i> Categories</button>
       <button class="tab-btn" data-tab="stores"><i class="fa-solid fa-store"></i> Supported Stores</button>
       <button class="tab-btn" data-tab="marquee"><i class="fa-solid fa-arrows-left-right"></i> Marquee Manager</button>
+      <button class="tab-btn" data-tab="affiliate"><i class="fa-solid fa-link"></i> Affiliate Configs</button>
+      <button class="tab-btn" data-tab="referrals"><i class="fa-solid fa-chart-line"></i> Referrals & Earnings</button>
       <button class="tab-btn" data-tab="analytics"><i class="fa-solid fa-chart-pie"></i> Scraper Status</button>
       <button class="tab-btn" data-tab="logs"><i class="fa-solid fa-server"></i> System Logs</button>
     </aside>
@@ -321,7 +323,247 @@
         {% endif %}
       </section>
 
-      <!-- Tab 6: Scraper Status / Analytics -->
+      <!-- Tab 6: Affiliate Configs Manager -->
+      <section class="tab-content" id="tab-affiliate">
+        <h3>Referral Tag Configurations</h3>
+        <p class="tab-desc">Specify tracking referral parameters, expected conversion rates, and commissions for outbound redirection links.</p>
+        
+        <form action="/admin/affiliate/save" method="POST" class="admin-form">
+          <h4>Configure Referral Tag & Projected Baselines</h4>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="aff-platform">Platform Store *</label>
+              <select id="aff-platform" name="platform" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; background: #f8fafc;" required>
+                <option value="Amazon">Amazon</option>
+                <option value="Flipkart">Flipkart</option>
+                <option value="Myntra">Myntra</option>
+                <option value="Ajio">Ajio</option>
+                <option value="Meesho">Meesho</option>
+                <option value="Nykaa">Nykaa</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="aff-tag">Referral Tag / SubID Value *</label>
+              <input type="text" id="aff-tag" name="tag_value" placeholder="e.g., pricegraph-21" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="aff-conv">Projected Conversion Rate (%)</label>
+              <input type="number" id="aff-conv" name="conversion_rate" step="0.01" min="0" max="100" value="2.00" required>
+            </div>
+            <div class="form-group">
+              <label for="aff-comm">Projected Commission Rate (%)</label>
+              <input type="number" id="aff-comm" name="commission_rate" step="0.01" min="0" max="100" value="5.00" required>
+            </div>
+          </div>
+          <button type="submit" class="submit-btn"><i class="fa-solid fa-floppy-disk mr-1"></i> Save Configuration</button>
+        </form>
+
+        <h4 class="mt-6">Currently Configured Platforms</h4>
+        {% if affiliates %}
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Platform Store</th>
+                  <th>Referral Parameter Tag</th>
+                  <th>Est. Conversion Rate</th>
+                  <th>Est. Commission Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for a in affiliates %}
+                  <tr>
+                    <td><strong>{{ a['platform'] }}</strong></td>
+                    <td><code class="admin-code-inline">{{ a['tag_value'] }}</code></td>
+                    <td>{{ a['conversion_rate'] }}%</td>
+                    <td>{{ a['commission_rate'] }}%</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty-text">No referral tag configurations defined yet.</p>
+        {% endif %}
+      </section>
+
+      <!-- Tab 7: Referrals & Earnings Dashboard -->
+      <section class="tab-content" id="tab-referrals">
+        <h3>Affiliate Referrals & Projected Revenue Analytics</h3>
+        <p class="tab-desc">Monitor total clicks (taps), projected conversions, and estimated forecast earnings based on configuration variables.</p>
+        
+        <div class="dashboard-stats-grid mt-4 mb-6">
+          <div class="stat-card" style="border-top: 4px solid #4f46e5;">
+            <span class="stat-num" style="color: #4f46e5;">{{ totals['total_taps'] }}</span>
+            <span class="stat-label">Total Outbound Clicks</span>
+          </div>
+          <div class="stat-card" style="border-top: 4px solid #0891b2;">
+            <span class="stat-num" style="color: #0891b2;">{{ totals['total_referrals'] }}</span>
+            <span class="stat-label">Projected Conversions</span>
+          </div>
+          <div class="stat-card font-success" style="border-top: 4px solid #16a34a;">
+            <span class="stat-num" style="color: #16a34a;">₹{{ totals['forecast_earnings'] }}</span>
+            <span class="stat-label">Forecast Earnings</span>
+          </div>
+        </div>
+
+        <div class="analytics-sub-menu mb-6" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px;">
+          <button class="analytics-sub-btn active" data-sub="day">By Day</button>
+          <button class="analytics-sub-btn" data-sub="month">By Month</button>
+          <button class="analytics-sub-btn" data-sub="year">By Year</button>
+          <button class="analytics-sub-btn" data-sub="category">By Category</button>
+          <button class="analytics-sub-btn" data-sub="product">By Product</button>
+        </div>
+
+        <!-- Sub Tab: Day -->
+        <div class="analytics-sub-content active" id="sub-day">
+          <h4>Daily Breakdown — Traffic & Earnings Forecast</h4>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Outbound Taps</th>
+                  <th>Projected Conversions</th>
+                  <th>Forecast Earnings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in day_stats %}
+                  <tr>
+                    <td>{{ r['period'] }}</td>
+                    <td>{{ r['taps'] }}</td>
+                    <td>{{ r['referrals'] }}</td>
+                    <td class="font-success"><strong>₹{{ r['earnings'] }}</strong></td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="4" class="text-center text-secondary py-4">No traffic logs found for recent days.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sub Tab: Month -->
+        <div class="analytics-sub-content" id="sub-month">
+          <h4>Monthly Breakdown — Traffic & Earnings Forecast</h4>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Outbound Taps</th>
+                  <th>Projected Conversions</th>
+                  <th>Forecast Earnings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in month_stats %}
+                  <tr>
+                    <td>{{ r['period'] }}</td>
+                    <td>{{ r['taps'] }}</td>
+                    <td>{{ r['referrals'] }}</td>
+                    <td class="font-success"><strong>₹{{ r['earnings'] }}</strong></td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="4" class="text-center text-secondary py-4">No monthly records logged.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sub Tab: Year -->
+        <div class="analytics-sub-content" id="sub-year">
+          <h4>Annual Breakdown — Traffic & Earnings Forecast</h4>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Outbound Taps</th>
+                  <th>Projected Conversions</th>
+                  <th>Forecast Earnings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in year_stats %}
+                  <tr>
+                    <td>{{ r['period'] }}</td>
+                    <td>{{ r['taps'] }}</td>
+                    <td>{{ r['referrals'] }}</td>
+                    <td class="font-success"><strong>₹{{ r['earnings'] }}</strong></td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="4" class="text-center text-secondary py-4">No yearly records logged.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sub Tab: Category -->
+        <div class="analytics-sub-content" id="sub-category">
+          <h4>Category Department Performance Breakdown</h4>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Category / Department</th>
+                  <th>Outbound Taps</th>
+                  <th>Projected Conversions</th>
+                  <th>Forecast Earnings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in category_stats %}
+                  <tr>
+                    <td><strong>{{ r['period'] }}</strong></td>
+                    <td>{{ r['taps'] }}</td>
+                    <td>{{ r['referrals'] }}</td>
+                    <td class="font-success"><strong>₹{{ r['earnings'] }}</strong></td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="4" class="text-center text-secondary py-4">No category data logged yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sub Tab: Product -->
+        <div class="analytics-sub-content" id="sub-product">
+          <h4>Product-Level Redirection Clicks (Top 15 Most Active)</h4>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Product Name / Title</th>
+                  <th>Outbound Taps</th>
+                  <th>Projected Conversions</th>
+                  <th>Forecast Earnings</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in product_stats %}
+                  <tr>
+                    <td style="max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ r['period'] }}">{{ r['period'] }}</td>
+                    <td>{{ r['taps'] }}</td>
+                    <td>{{ r['referrals'] }}</td>
+                    <td class="font-success"><strong>₹{{ r['earnings'] }}</strong></td>
+                  </tr>
+                {% else %}
+                  <tr><td colspan="4" class="text-center text-secondary py-4">No product redirection clicks logged yet.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 8: Scraper Status / Analytics -->
       <section class="tab-content" id="tab-analytics">
         <h3>Scraper Statistics</h3>
         <p class="tab-desc">Monitor latency statistics, proxy performance, and scraper response codes.</p>
@@ -385,7 +627,7 @@
         </div>
       </section>
 
-      <!-- Tab 7: System Logs -->
+      <!-- Tab 9: System Logs -->
       <section class="tab-content" id="tab-logs">
         <h3>System Logs</h3>
         <p class="tab-desc">Live output stream from Node API scraper and Flask auth nodes.</p>
@@ -442,6 +684,21 @@ document.addEventListener('DOMContentLoaded', () => {
       // Update browser search URL without refreshing (clean UX)
       const newUrl = `${window.location.pathname}?tab=${target}`;
       window.history.replaceState(null, '', newUrl);
+    });
+  });
+
+  // Handle Referrals Breakdown Sub-Tabs switching
+  const subBtns = document.querySelectorAll('.analytics-sub-btn');
+  const subSections = document.querySelectorAll('.analytics-sub-content');
+  
+  subBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      subBtns.forEach(b => b.classList.remove('active'));
+      subSections.forEach(s => s.classList.remove('active'));
+      
+      btn.classList.add('active');
+      const subTarget = btn.getAttribute('data-sub');
+      document.getElementById(`sub-${subTarget}`).classList.add('active');
     });
   });
 });

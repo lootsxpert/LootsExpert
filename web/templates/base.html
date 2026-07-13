@@ -96,6 +96,11 @@
           <a href="/login" class="login-btn">Login</a>
         {% endif %}
       </div>
+      
+      <!-- Hamburger Toggle Button -->
+      <button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Toggle Menu">
+        <i class="fa-solid fa-bars"></i>
+      </button>
     </div>
   </header>
 
@@ -200,6 +205,35 @@
   </div>
 </div>
 
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggleBtn = document.getElementById('mobile-menu-toggle');
+      const navMenu = document.querySelector('.nav-menu');
+      if (toggleBtn && navMenu) {
+        toggleBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          navMenu.classList.toggle('open');
+          
+          const icon = toggleBtn.querySelector('i');
+          if (icon) {
+            if (navMenu.classList.contains('open')) {
+              icon.className = 'fa-solid fa-xmark';
+            } else {
+              icon.className = 'fa-solid fa-bars';
+            }
+          }
+        });
+        
+        document.addEventListener('click', (e) => {
+          if (!navMenu.contains(e.target) && !toggleBtn.contains(e.target)) {
+            navMenu.classList.remove('open');
+            const icon = toggleBtn.querySelector('i');
+            if (icon) icon.className = 'fa-solid fa-bars';
+          }
+        });
+      }
+    });
+  </script>
   <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 
