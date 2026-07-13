@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Price Graph{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+  <div class="dashboard-header">
+    <div class="user-meta-block">
+      <img src="{{ user['profile_pic'] or 'https://api.dicebear.com/7.x/bottts/svg?seed=' ~ user['username'] }}" class="dashboard-avatar" alt="Avatar">
+      <div class="user-details">
+        <h2>Welcome, {{ user['name'] }}</h2>
+        <p class="user-tag">@{{ user['username'] }} • Member since {{ user['created_at'].strftime('%B %Y') if user['created_at'] else '2026' }}</p>
+      </div>
+    </div>
+    
+    <!-- Stats block -->
+    <div class="dashboard-stats-grid">
+      <div class="stat-card">
+        <span class="stat-num">{{ watchlist|length }}</span>
+        <span class="stat-label">Watchlist Items</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">{{ alerts|length }}</span>
+        <span class="stat-label">Active Alerts</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">{{ notifications|length }}</span>
+        <span class="stat-label">Notifications</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-main">
+    <!-- Sidebar Menu Tabs -->
+    <aside class="dashboard-sidebar">
+      <button class="tab-btn active" data-tab="watchlist"><i class="fa-solid fa-list-check"></i> Watchlist</button>
+      <button class="tab-btn" data-tab="alerts"><i class="fa-solid fa-bell"></i> Price Alerts</button>
+      <button class="tab-btn" data-tab="notifications"><i class="fa-solid fa-message"></i> Notifications</button>
+      <button class="tab-btn" data-tab="profile"><i class="fa-solid fa-user-gear"></i> Profile Settings</button>
+    </aside>
+
+    <!-- Content Sections -->
+    <div class="dashboard-content">
+      
+      <!-- Tab 1: Watchlist -->
+      <section class="tab-content active" id="tab-watchlist">
+        <h3>Your Watchlist</h3>
+        <p class="tab-desc">Browse your saved products. Watchlist items check prices automatically.</p>
+        
+        {% if watchlist %}
+          <div class="watchlist-grid">
+            {% for item in watchlist %}
+              <div class="watchlist-card" id="watchlist-card-{{ item['platform'] }}-{{ item['product_id'] }}">
+                <div class="card-img-container">
+                  <img src="{{ item['image'] or 'https://placehold.co/150?text=Product' }}" alt="Product Image">
+                  <span class="platform-chip {{ item['platform']|lower }}">{{ item['platform'].upper() }}</span>
+                </div>
+                <div class="card-body">
+                  <h4>{{ item['title'] }}</h4>
+                  <div class="card-price">
+                    <span class="price-val">₹{{ item['price'] or '0' }}</span>
+                  </div>
+                  <div class="card-actions">
+                    <a href="/product/{{ item['platform'] }}/{{ item['product_id'] }}" class="card-btn-view">View Details</a>
+                    <button class="card-btn-remove" onclick="removeFromWatchlist('{{ item['platform'] }}', '{{ item['product_id'] }}')">Delete</button>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <i class="fa-solid fa-basket-shopping"></i>
+            <p>Your watchlist is empty. Search products and save them to begin tracking!</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <!-- Tab 2: Price Alerts -->
+      <section class="tab-content" id="tab-alerts">
+        <h3>Active Price Alerts</h3>
+        <p class="tab-desc">Configure price drop triggers. Get notified when price falls below target.</p>
+        
+        {% if alerts %}
+          <div class="alerts-list">
+            {% for alert in alerts %}
+              <div class="alert-item" id="alert-item-{{ alert['id'] }}">
+                <div class="alert-info">
+                  <span class="alert-platform {{ alert['platform']|lower }}">{{ alert['platform'] }}</span>
+                  <div class="alert-text">
+                    <h4>{{ alert['title'] }}</h4>
+                    <p>Alert Type: <strong>{{ alert['alert_type'] }}</strong> • Target: <strong>₹{{ alert['target_price'] }}</strong></p>
+                  </div>
+                </div>
+                <button class="alert-btn-delete" onclick="deleteAlert({{ alert['id'] }})"><i class="fa-solid fa-trash"></i> Remove</button>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <i class="fa-regular fa-bell-slash"></i>
+            <p>No active price alerts. Navigate to a product page to configure target alerts.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <!-- Tab 3: Notifications -->
+      <section class="tab-content" id="tab-notifications">
+        <div class="section-header-row">
+          <h3>Notification Log</h3>
+          {% if notifications %}
+            <button class="btn-mark-read" onclick="markAllNotificationsRead()"><i class="fa-solid fa-check-double"></i> Mark all read</button>
+          {% endif %}
+        </div>
+        <p class="tab-desc">Keep track of recent deals, coupon drops, and alerts.</p>
+        
+        {% if notifications %}
+          <div class="notifications-feed">
+            {% for note in notifications %}
+              <div class="notification-item {% if not note['is_read'] %}unread{% endif %}">
+                <div class="note-bullet"></div>
+                <div class="note-content">
+                  <h4>{{ note['title'] }}</h4>
+                  <p>{{ note['message'] }}</p>
+                  <span class="note-time">{{ note['created_at'].strftime('%Y-%m-%d %H:%M') if note['created_at'] else '2026' }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <i class="fa-regular fa-envelope"></i>
+            <p>Your notification tray is clean.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <!-- Tab 4: Profile Settings -->
+      <section class="tab-content" id="tab-profile">
+        <h3>Profile Settings</h3>
+        <p class="tab-desc">Manage account information, contact address, and security credentials.</p>
+        
+        <form action="/api/user/profile" method="POST" class="profile-form auth-form">
+          <div class="form-group">
+            <label for="profile_name"><i class="fa-solid fa-signature"></i> Full Name</label>
+            <input type="text" id="profile_name" name="name" value="{{ user['name'] }}" required autocomplete="name">
+          </div>
+          
+          <div class="form-group">
+            <label for="profile_email"><i class="fa-solid fa-envelope"></i> Email Address</label>
+            <input type="email" id="profile_email" name="email" value="{{ user['email'] }}" required autocomplete="email">
+          </div>
+
+          <div class="form-group">
+            <label for="profile_pic"><i class="fa-solid fa-image"></i> Avatar URL</label>
+            <input type="url" id="profile_pic" name="profile_pic" value="{{ user['profile_pic'] or '' }}" placeholder="Paste a custom avatar URL...">
+          </div>
+
+          <div class="form-group">
+            <label for="profile_password"><i class="fa-solid fa-lock"></i> Change Password</label>
+            <input type="password" id="profile_password" name="password" placeholder="Leave empty to keep current password">
+          </div>
+
+          <button type="submit" class="auth-btn">Save Changes</button>
+        </form>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const tabs = document.querySelectorAll('.tab-btn');
+  const sections = document.querySelectorAll('.tab-content');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      sections.forEach(s => s.classList.remove('active'));
+
+      tab.classList.add('active');
+      const target = tab.getAttribute('data-tab');
+      document.getElementById(`tab-${target}`).classList.add('active');
+    });
+  });
+});
+
+async function removeFromWatchlist(platform, productId) {
+  if (!confirm("Are you sure you want to remove this product from your watchlist?")) return;
+  try {
+    const res = await fetch('/api/watchlist/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, product_id: productId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById(`watchlist-card-${platform}-${productId}`).remove();
+    } else {
+      alert("Error removing item: " + data.error);
+    }
+  } catch(e) {
+    alert("Network error.");
+  }
+}
+
+async function deleteAlert(alertId) {
+  if (!confirm("Are you sure you want to remove this price alert?")) return;
+  try {
+    const res = await fetch('/api/alerts/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alert_id: alertId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById(`alert-item-${alertId}`).remove();
+    } else {
+      alert("Error deleting alert: " + data.error);
+    }
+  } catch(e) {
+    alert("Network error.");
+  }
+}
+
+async function markAllNotificationsRead() {
+  try {
+    const res = await fetch('/api/notifications/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.querySelectorAll('.notification-item').forEach(item => {
+        item.classList.remove('unread');
+      });
+    }
+  } catch(e) {}
+}
+</script>
+{% endblock %}

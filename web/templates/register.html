@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Register — Price Graph{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-header">
+      <h2>Create Account</h2>
+      <p>Sign up to track price history, compare stores, and configure instant price alert triggers.</p>
+    </div>
+
+    {% if error %}
+      <div class="alert alert-danger">
+        <i class="fa-solid fa-triangle-exclamation"></i> {{ error }}
+      </div>
+    {% endif %}
+
+    <form action="/register" method="POST" class="auth-form" id="register-form">
+      <div class="form-group">
+        <label for="name"><i class="fa-solid fa-signature"></i> Full Name</label>
+        <input type="text" id="name" name="name" placeholder="John Doe" required autocomplete="name">
+      </div>
+
+      <div class="form-group">
+        <label for="username"><i class="fa-solid fa-user"></i> Username</label>
+        <input type="text" id="username" name="username" placeholder="johndoe123" required autocomplete="username">
+      </div>
+
+      <div class="form-group">
+        <label for="email"><i class="fa-solid fa-envelope"></i> Email Address</label>
+        <input type="email" id="email" name="email" placeholder="john@example.com" required autocomplete="email">
+      </div>
+
+      <div class="form-group">
+        <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
+        <input type="password" id="password" name="password" placeholder="Min. 8 characters" required minlength="6">
+      </div>
+
+      <!-- Avatar Picker -->
+      <div class="form-group">
+        <label><i class="fa-solid fa-image"></i> Select Profile Avatar</label>
+        <div class="avatar-picker-grid">
+          <img src="https://api.dicebear.com/7.x/bottts/svg?seed=spark" class="avatar-option selected" data-url="https://api.dicebear.com/7.x/bottts/svg?seed=spark">
+          <img src="https://api.dicebear.com/7.x/bottts/svg?seed=robot" class="avatar-option" data-url="https://api.dicebear.com/7.x/bottts/svg?seed=robot">
+          <img src="https://api.dicebear.com/7.x/bottts/svg?seed=gears" class="avatar-option" data-url="https://api.dicebear.com/7.x/bottts/svg?seed=gears">
+          <img src="https://api.dicebear.com/7.x/bottts/svg?seed=cyber" class="avatar-option" data-url="https://api.dicebear.com/7.x/bottts/svg?seed=cyber">
+          <img src="https://api.dicebear.com/7.x/bottts/svg?seed=circuit" class="avatar-option" data-url="https://api.dicebear.com/7.x/bottts/svg?seed=circuit">
+        </div>
+        <input type="hidden" name="profile_pic" id="profile-pic-input" value="https://api.dicebear.com/7.x/bottts/svg?seed=spark">
+        <div class="custom-avatar-url">
+          <input type="url" id="custom-avatar-field" placeholder="Or paste a custom image URL...">
+        </div>
+      </div>
+
+      <!-- Recovery Question Config -->
+      <div class="form-group">
+        <label for="recovery_question"><i class="fa-solid fa-shield-halved"></i> Password Recovery Question</label>
+        <select id="recovery_question" name="recovery_question" required>
+          <option value="" disabled selected>Select a security question</option>
+          <option value="What was the name of your first childhood pet?">What was the name of your first childhood pet?</option>
+          <option value="In what city was your father born?">In what city was your father born?</option>
+          <option value="What was your first car model?">What was your first car model?</option>
+          <option value="What is your favorite teacher's surname?">What is your favorite teacher's surname?</option>
+          <option value="What was the name of your first school?">What was the name of your first school?</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="recovery_answer"><i class="fa-solid fa-key"></i> Recovery Answer</label>
+        <input type="text" id="recovery_answer" name="recovery_answer" placeholder="This answer is required to reset your password" required autocomplete="off">
+        <span class="input-helper-text"><i class="fa-solid fa-triangle-exclamation"></i> Keep this answer safe. Without it, you cannot recover your account!</span>
+      </div>
+
+      <button type="submit" class="auth-btn">Register</button>
+    </form>
+
+    <div class="auth-footer">
+      <p>Already have an account? <a href="/login">Log in here</a></p>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const options = document.querySelectorAll('.avatar-option');
+  const input = document.getElementById('profile-pic-input');
+  const customField = document.getElementById('custom-avatar-field');
+
+  options.forEach(opt => {
+    opt.addEventListener('click', () => {
+      options.forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      input.value = opt.getAttribute('data-url');
+      customField.value = "";
+    });
+  });
+
+  customField.addEventListener('input', () => {
+    if (customField.value.trim() !== "") {
+      options.forEach(o => o.classList.remove('selected'));
+      input.value = customField.value.trim();
+    }
+  });
+});
+</script>
+{% endblock %}

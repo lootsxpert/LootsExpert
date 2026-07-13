@@ -3,6 +3,11 @@
 {% block title %}Price Graph — Find Real Deals, Skip the Fake Ones{% endblock %}
 
 {% block content %}
+  {% if platform and pid %}
+  <script>
+    window.autoLoadProduct = { platform: "{{ platform }}", pid: "{{ pid }}" };
+  </script>
+  {% endif %}
   <div class="app-container">
     <!-- Hero Banner Search Section -->
     <section class="hero-section">
@@ -130,6 +135,9 @@
                     </a>
                     <button id="alert-button" class="btn btn-secondary">
                       <i class="fa-regular fa-bell"></i> Set Alert
+                    </button>
+                    <button id="watchlist-add-button" class="btn btn-secondary">
+                      <i class="fa-regular fa-bookmark"></i> Save to Watchlist
                     </button>
                   </div>
                 </div>

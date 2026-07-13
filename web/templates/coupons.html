@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}E-commerce Coupons & Promo Codes — Price Graph{% endblock %}
+
+{% block content %}
+<div class="app-container">
+  <div class="catalog-header-section">
+    <h1>Today's Top Coupons & Promo Codes</h1>
+    <p>Get the maximum discount at checkout. Updated daily with bank and store codes.</p>
+  </div>
+
+  <div class="coupons-grid">
+    <!-- Coupon 1 -->
+    <div class="coupon-card">
+      <div class="coupon-store-badge amazon">Amazon</div>
+      <div class="coupon-body">
+        <h3>Flat 10% instant discount</h3>
+        <p>On Mobiles & Laptops using SBI Credit Cards. Minimum purchase ₹15,000.</p>
+        <span class="coupon-expiry">Expires: July 20, 2026</span>
+      </div>
+      <div class="coupon-action-box">
+        <code class="coupon-code">SBIMOBILE10</code>
+        <button class="copy-coupon-btn" onclick="copyCode(this, 'SBIMOBILE10')">Copy Code</button>
+      </div>
+    </div>
+
+    <!-- Coupon 2 -->
+    <div class="coupon-card">
+      <div class="coupon-store-badge flipkart">Flipkart</div>
+      <div class="coupon-body">
+        <h3>Extra ₹1,500 Off</h3>
+        <p>On Electronics and Home Appliances using HDFC Bank Debit/Credit Cards.</p>
+        <span class="coupon-expiry">Expires: July 18, 2026</span>
+      </div>
+      <div class="coupon-action-box">
+        <code class="coupon-code">HDFCELEC15</code>
+        <button class="copy-coupon-btn" onclick="copyCode(this, 'HDFCELEC15')">Copy Code</button>
+      </div>
+    </div>
+
+    <!-- Coupon 3 -->
+    <div class="coupon-card">
+      <div class="coupon-store-badge myntra">Myntra</div>
+      <div class="coupon-body">
+        <h3>Extra 15% discount on fashion</h3>
+        <p>Applicable on catalog of premium apparel brands. No minimum spend.</p>
+        <span class="coupon-expiry">Expires: July 31, 2026</span>
+      </div>
+      <div class="coupon-action-box">
+        <code class="coupon-code">MYNTRAFASH15</code>
+        <button class="copy-coupon-btn" onclick="copyCode(this, 'MYNTRAFASH15')">Copy Code</button>
+      </div>
+    </div>
+
+    <!-- Coupon 4 -->
+    <div class="coupon-card">
+      <div class="coupon-store-badge ajio">Ajio</div>
+      <div class="coupon-body">
+        <h3>Flat 30% Off</h3>
+        <p>New season designs and trends. Minimum cart value ₹2,999.</p>
+        <span class="coupon-expiry">Expires: July 25, 2026</span>
+      </div>
+      <div class="coupon-action-box">
+        <code class="coupon-code">AJIOTHIRTY30</code>
+        <button class="copy-coupon-btn" onclick="copyCode(this, 'AJIOTHIRTY30')">Copy Code</button>
+      </div>
+    </div>
+
+    <!-- Coupon 5 -->
+    <div class="coupon-card">
+      <div class="coupon-store-badge croma">Croma</div>
+      <div class="coupon-body">
+        <h3>₹500 Instant Discount</h3>
+        <p>On any electronic accessory or small appliance. Minimum purchase ₹4,999.</p>
+        <span class="coupon-expiry">Expires: July 22, 2026</span>
+      </div>
+      <div class="coupon-action-box">
+        <code class="coupon-code">CROMAACC500</code>
+        <button class="copy-coupon-btn" onclick="copyCode(this, 'CROMAACC500')">Copy Code</button>
+      </div>
+    </div>
+
+    <!-- Coupon 6 -->
+    <div class="coupon-card">
+      <div class="coupon-store-badge tatacliq">Tata Cliq</div>
+      <div class="coupon-body">
+        <h3>Flat 10% Discount</h3>
+        <p>On Luxury apparel, bags, and perfumes. Maximum discount up to ₹1,000.</p>
+        <span class="coupon-expiry">Expires: July 29, 2026</span>
+      </div>
+      <div class="coupon-action-box">
+        <code class="coupon-code">CLIQLUX10</code>
+        <button class="copy-coupon-btn" onclick="copyCode(this, 'CLIQLUX10')">Copy Code</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function copyCode(btn, code) {
+  navigator.clipboard.writeText(code);
+  const originalText = btn.textContent;
+  btn.textContent = "Copied!";
+  btn.style.backgroundColor = "var(--green-accent)";
+  setTimeout(() => {
+    btn.textContent = originalText;
+    btn.style.backgroundColor = "";
+  }, 2000);
+}
+</script>
+{% endblock %}

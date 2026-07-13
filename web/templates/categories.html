@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Browse Categories — Price Graph{% endblock %}
+
+{% block content %}
+<div class="app-container">
+  <div class="catalog-header-section">
+    <h1>E-commerce Product Categories</h1>
+    <p>Compare price histories and trends across major departments and shopping platforms.</p>
+  </div>
+
+  <div class="categories-grid">
+    <!-- Category 1 -->
+    <a href="/?search=Mobiles" class="category-card">
+      <div class="category-icon-wrapper mobiles"><i class="fa-solid fa-mobile-screen"></i></div>
+      <div class="category-info">
+        <h3>Mobiles</h3>
+        <p>iPhones, Samsung Galaxy, OnePlus, and budget smartphones.</p>
+        <span class="category-meta">1,420 Tracked Products</span>
+      </div>
+    </a>
+
+    <!-- Category 2 -->
+    <a href="/?search=Laptops" class="category-card">
+      <div class="category-icon-wrapper laptops"><i class="fa-solid fa-laptop"></i></div>
+      <div class="category-info">
+        <h3>Laptops</h3>
+        <p>Gaming laptops, MacBook, Ultrabooks, and school accessories.</p>
+        <span class="category-meta">850 Tracked Products</span>
+      </div>
+    </a>
+
+    <!-- Category 3 -->
+    <a href="/?search=Electronics" class="category-card">
+      <div class="category-icon-wrapper electronics"><i class="fa-solid fa-plug"></i></div>
+      <div class="category-info">
+        <h3>Electronics</h3>
+        <p>Smart TVs, wireless speakers, smartwatches, and headphones.</p>
+        <span class="category-meta">2,110 Tracked Products</span>
+      </div>
+    </a>
+
+    <!-- Category 4 -->
+    <a href="/?search=Fashion" class="category-card">
+      <div class="category-icon-wrapper fashion"><i class="fa-solid fa-shirt"></i></div>
+      <div class="category-info">
+        <h3>Fashion</h3>
+        <p>Men's and women's clothing, athletic shoes, and watches.</p>
+        <span class="category-meta">3,450 Tracked Products</span>
+      </div>
+    </a>
+
+    <!-- Category 5 -->
+    <a href="/?search=Appliances" class="category-card">
+      <div class="category-icon-wrapper appliances"><i class="fa-solid fa-fan"></i></div>
+      <div class="category-info">
+        <h3>Home Appliances</h3>
+        <p>Refrigerators, washing machines, microwaves, and air conditioners.</p>
+        <span class="category-meta">620 Tracked Products</span>
+      </div>
+    </a>
+
+    <!-- Category 6 -->
+    <a href="/?search=Beauty" class="category-card">
+      <div class="category-icon-wrapper beauty"><i class="fa-solid fa-sparkles"></i></div>
+      <div class="category-info">
+        <h3>Beauty & Care</h3>
+        <p>Skincare products, perfumes, hair dryers, and cosmetics.</p>
+        <span class="category-meta">930 Tracked Products</span>
+      </div>
+    </a>
+
+    <!-- Category 7 -->
+    <a href="/?search=Furniture" class="category-card">
+      <div class="category-icon-wrapper furniture"><i class="fa-solid fa-couch"></i></div>
+      <div class="category-info">
+        <h3>Furniture</h3>
+        <p>Office chairs, study desks, sofas, and dining tables.</p>
+        <span class="category-meta">480 Tracked Products</span>
+      </div>
+    </a>
+
+    <!-- Category 8 -->
+    <a href="/?search=Kitchen" class="category-card">
+      <div class="category-icon-wrapper kitchen"><i class="fa-solid fa-blender"></i></div>
+      <div class="category-info">
+        <h3>Kitchen</h3>
+        <p>Mixer grinders, air fryers, water purifiers, and cookware.</p>
+        <span class="category-meta">770 Tracked Products</span>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

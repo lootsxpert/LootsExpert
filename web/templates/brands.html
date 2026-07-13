@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Browse Brands — Price Graph{% endblock %}
+
+{% block content %}
+<div class="app-container">
+  <div class="catalog-header-section">
+    <h1>Popular Brands Tracker</h1>
+    <p>Monitor price history and discounts for products of major e-commerce brands.</p>
+  </div>
+
+  <div class="brands-grid-catalog">
+    <!-- Brand 1 -->
+    <a href="/?search=Apple" class="brand-card">
+      <div class="brand-logo-circle"><i class="fa-brands fa-apple"></i></div>
+      <div class="brand-body">
+        <h3>Apple</h3>
+        <p>Compare iPhones, iPad, MacBook, AirPods, and Apple Watch deals.</p>
+        <span class="brand-discount-badge">Up to 22% Off</span>
+      </div>
+    </a>
+
+    <!-- Brand 2 -->
+    <a href="/?search=Samsung" class="brand-card">
+      <div class="brand-logo-circle samsung">S</div>
+      <div class="brand-body">
+        <h3>Samsung</h3>
+        <p>Track price drops on Galaxy S & A series, QLED TVs, and SSD cards.</p>
+        <span class="brand-discount-badge">Up to 35% Off</span>
+      </div>
+    </a>
+
+    <!-- Brand 3 -->
+    <a href="/?search=Nike" class="brand-card">
+      <div class="brand-logo-circle nike"><i class="fa-solid fa-person-running"></i></div>
+      <div class="brand-body">
+        <h3>Nike</h3>
+        <p>Find genuine price drops on running shoes, jerseys, and sportswear.</p>
+        <span class="brand-discount-badge">Up to 40% Off</span>
+      </div>
+    </a>
+
+    <!-- Brand 4 -->
+    <a href="/?search=HP" class="brand-card">
+      <div class="brand-logo-circle hp">HP</div>
+      <div class="brand-body">
+        <h3>HP</h3>
+        <p>Monitor pricing on Pavilion, Victus gaming laptops, and printers.</p>
+        <span class="brand-discount-badge">Up to 25% Off</span>
+      </div>
+    </a>
+
+    <!-- Brand 5 -->
+    <a href="/?search=Sony" class="brand-card">
+      <div class="brand-logo-circle sony">SONY</div>
+      <div class="brand-body">
+        <h3>Sony</h3>
+        <p>Compare prices for WH-1000XM4/XM5, PlayStation 5, and Bravia TVs.</p>
+        <span class="brand-discount-badge">Up to 15% Off</span>
+      </div>
+    </a>
+
+    <!-- Brand 6 -->
+    <a href="/?search=Philips" class="brand-card">
+      <div class="brand-logo-circle philips">P</div>
+      <div class="brand-body">
+        <h3>Philips</h3>
+        <p>Track personal groomers, air fryers, and smart LED lights.</p>
+        <span class="brand-discount-badge">Up to 30% Off</span>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

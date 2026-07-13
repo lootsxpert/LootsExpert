@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}{{ error_title or "Error" }} — Price Graph{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card error-page-card">
+    <div class="error-page-code">
+      {% if error_code == "404" %}
+        <i class="fa-regular fa-compass"></i>
+      {% elif error_code == "500" %}
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      {% elif error_code == "MAINTENANCE" %}
+        <i class="fa-solid fa-screwdriver-wrench"></i>
+      {% else %}
+        <i class="fa-solid fa-circle-exclamation"></i>
+      {% endif %}
+      <h2>{{ error_code or "ERROR" }}</h2>
+    </div>
+    
+    <div class="auth-header">
+      <h3>{{ error_title or "An unexpected error occurred" }}</h3>
+      <p>{{ error_desc or "Please try again later or return to home page." }}</p>
+    </div>
+
+    <div class="auth-footer error-page-actions">
+      <a href="/" class="auth-btn"><i class="fa-solid fa-house"></i> Back to Homepage</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

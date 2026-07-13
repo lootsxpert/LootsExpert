@@ -26,6 +26,24 @@
 </head>
 
 <body>
+  <!-- Mobile App Download Banner -->
+  <div id="mobile-app-banner" class="mobile-app-banner hidden">
+    <div class="banner-container">
+      <div class="banner-left">
+        <img src="{{ url_for('static', filename='images/logos.png') }}" class="banner-logo-img" alt="Price Graph Logo">
+        <div class="banner-text">
+          <span class="banner-title">Price Graph App Available</span>
+          <span class="banner-sub">Track prices & compare deals directly on your phone</span>
+        </div>
+      </div>
+      <div class="banner-actions">
+        <a href="https://play.google.com/store/apps/details?id=com.starwish.pricegraph" target="_blank" class="banner-btn android-btn"><i class="fa-brands fa-google-play"></i> Google Play</a>
+        <button onclick="showIosAlert()" class="banner-btn ios-btn"><i class="fa-brands fa-apple"></i> App Store</button>
+        <button onclick="closeMobileBanner()" class="banner-close-btn"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+  </div>
+
   <!-- Ambient background gradients -->
   <div class="glow-bg-blob blob-1"></div>
   <div class="glow-bg-blob blob-2"></div>
@@ -38,10 +56,17 @@
       </a>
       <nav class="nav-menu">
         <a href="/#deals-hub-card" class="nav-link"><i class="fa-solid fa-fire text-red-glow"></i> Deals</a>
-        <a href="/what-we-do" class="nav-link">Spend Lens</a>
-        <a href="/pricing-intelligence" class="nav-link">Alerts <i class="fa-solid fa-chevron-down nav-chevron"></i></a>
-        <a href="https://t.me/The_PriceHistory_Bot" class="nav-link text-beta-tag" target="_blank"><i
-            class="fa-brands fa-telegram"></i> Telegram Bot</a>
+        <a href="/categories" class="nav-link">Categories</a>
+        <a href="/coupons" class="nav-link">Coupons</a>
+        
+        <!-- Telegram Bots Links -->
+        <div class="nav-dropdown-wrapper">
+          <a href="#" class="nav-link text-beta-tag"><i class="fa-brands fa-telegram"></i> Telegram Bots <i class="fa-solid fa-chevron-down nav-chevron"></i></a>
+          <div class="nav-dropdown-content">
+            <a href="https://t.me/botsxp_bot" target="_blank"><i class="fa-solid fa-bell"></i> Price Tracker Bot</a>
+            <a href="https://t.me/The_PriceHistory_Bot" target="_blank"><i class="fa-solid fa-chart-line"></i> Price History Bot</a>
+          </div>
+        </div>
         
         <!-- Policies Dropdown menu -->
         <div class="nav-dropdown-wrapper">
@@ -56,9 +81,19 @@
       <div class="nav-actions">
         <!-- Indian Flag -->
         <span class="flag-icon" title="India">🇮🇳</span>
-        <a href="https://t.me/+rTx5B9g6XYxmNmE1" target="_blank" class="chrome-btn"><i class="fa-brands fa-chrome"></i>
-          Install, it's free</a>
-        <a href="#" class="login-btn">Login</a>
+        
+        {% if session.get('user_id') %}
+          <a href="/dashboard" class="nav-link nav-user-profile">
+            <img src="{{ session.get('profile_pic') or 'https://api.dicebear.com/7.x/bottts/svg?seed=' ~ session.get('username') }}" class="nav-avatar" alt="Avatar">
+            <span>{{ session.get('name') }}</span>
+          </a>
+          <a href="/logout" class="login-btn">Logout</a>
+        {% elif session.get('admin') %}
+          <a href="/admin" class="nav-link"><i class="fa-solid fa-user-shield"></i> Admin Panel</a>
+          <a href="/logout" class="login-btn">Logout</a>
+        {% else %}
+          <a href="/login" class="login-btn">Login</a>
+        {% endif %}
       </div>
     </div>
   </header>

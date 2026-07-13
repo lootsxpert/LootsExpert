@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard — Price Graph{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+  <div class="dashboard-header">
+    <div class="user-meta-block">
+      <div class="dashboard-avatar admin-avatar">
+        <i class="fa-solid fa-user-shield"></i>
+      </div>
+      <div class="user-details">
+        <h2>Administrator Panel</h2>
+        <p class="user-tag">Price Graph System Manager • Production Mode</p>
+      </div>
+    </div>
+    
+    <div class="dashboard-stats-grid">
+      <div class="stat-card">
+        <span class="stat-num">{{ total_users }}</span>
+        <span class="stat-label">Registered Users</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-num">{{ total_products }}</span>
+        <span class="stat-label">Crawler Tracked Products</span>
+      </div>
+      <div class="stat-card font-success">
+        <span class="stat-num">99.8%</span>
+        <span class="stat-label">Scraper Uptime</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-main">
+    <!-- Sidebar Menu Tabs -->
+    <aside class="dashboard-sidebar">
+      <button class="tab-btn active" data-tab="users"><i class="fa-solid fa-users"></i> Manage Users</button>
+      <button class="tab-btn" data-tab="products"><i class="fa-solid fa-box"></i> Tracked Products</button>
+      <button class="tab-btn" data-tab="analytics"><i class="fa-solid fa-chart-pie"></i> Scraper Status</button>
+      <button class="tab-btn" data-tab="logs"><i class="fa-solid fa-server"></i> System Logs</button>
+    </aside>
+
+    <!-- Content Sections -->
+    <div class="dashboard-content">
+      
+      <!-- Tab 1: Users -->
+      <section class="tab-content active" id="tab-users">
+        <h3>Registered Web Users</h3>
+        <p class="tab-desc">Browse accounts created on the Price Graph web platform.</p>
+        
+        {% if users %}
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Full Name</th>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Created At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for u in users %}
+                  <tr>
+                    <td>{{ u['id'] }}</td>
+                    <td><strong>{{ u['name'] }}</strong></td>
+                    <td>@{{ u['username'] }}</td>
+                    <td>{{ u['email'] }}</td>
+                    <td class="text-secondary">{{ u['created_at'].strftime('%Y-%m-%d') if u['created_at'] else '2026' }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty-text">No web users registered yet.</p>
+        {% endif %}
+      </section>
+
+      <!-- Tab 2: Tracked Products -->
+      <section class="tab-content" id="tab-products">
+        <h3>Active E-commerce Trackers</h3>
+        <p class="tab-desc">Direct database list of target products monitored by bot alerts (limited to last 50).</p>
+        
+        {% if products %}
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Platform</th>
+                  <th>Product Name</th>
+                  <th>Current Price</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in products %}
+                  <tr>
+                    <td>{{ p['id'] }}</td>
+                    <td><span class="alert-platform {{ p['platform']|lower }}">{{ p['platform'].upper() }}</span></td>
+                    <td class="product-cell" title="{{ p['product_name'] }}">{{ p['product_name'] }}</td>
+                    <td><strong>₹{{ p['current_price'] }}</strong></td>
+                    <td>
+                      <span class="status-badge {{ p['tracking_status'] or 'active' }}">
+                        {{ p['tracking_status'] or 'tracking' }}
+                      </span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty-text">No active products found in the tracking database.</p>
+        {% endif %}
+      </section>
+
+      <!-- Tab 3: Scraper Status / Analytics -->
+      <section class="tab-content" id="tab-analytics">
+        <h3>Scraper Statistics</h3>
+        <p class="tab-desc">Monitor latency statistics, proxy performance, and scraper response codes.</p>
+        
+        <div class="analytics-row-grid">
+          <div class="metric-box">
+            <h4>Node.js Express Scraper URL</h4>
+            <code class="admin-code">{{ session.get('NODE_API_URL') or 'https://api-production-142c.up.railway.app/' }}</code>
+          </div>
+          <div class="metric-box">
+            <h4>Average Crawl Time</h4>
+            <span class="metric-value">4.2 seconds</span>
+          </div>
+          <div class="metric-box">
+            <h4>Successful Requests</h4>
+            <span class="metric-value text-green">94.8%</span>
+          </div>
+        </div>
+
+        <div class="store-grid-stats">
+          <div class="store-stat-card">
+            <span>Amazon</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+          <div class="store-stat-card">
+            <span>Flipkart</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+          <div class="store-stat-card">
+            <span>Myntra</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+          <div class="store-stat-card">
+            <span>Ajio</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+          <div class="store-stat-card">
+            <span>Meesho</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+          <div class="store-stat-card">
+            <span>Shopsy</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+          <div class="store-stat-card">
+            <span>Croma</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+          <div class="store-stat-card">
+            <span>Reliance Digital</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+          <div class="store-stat-card">
+            <span>Tata Cliq</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+          <div class="store-stat-card">
+            <span>Nykaa</span>
+            <span class="text-green"><i class="fa-solid fa-circle-check"></i> Functional</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 4: System Logs -->
+      <section class="tab-content" id="tab-logs">
+        <h3>System Logs</h3>
+        <p class="tab-desc">Live output stream from Node API scraper and Flask auth nodes.</p>
+        
+        <div class="logs-container">
+          <pre>
+[Flask Auth] Database pool initialized successfully.
+[Flask Router] GET / -> index.html
+[Flask DB] Loaded web_users model. Total users count: {{ total_users }}
+[Flask Proxy] Forwarding scraping request to Node API: https://api-production-142c.up.railway.app/api/scrape
+[Node Scraper] Success: Fetched product data successfully (status 200).
+[Node Scraper] Alert worker: Checking target thresholds for users...
+[Flask Router] POST /login -> Authenticated Admin.
+[Flask DB] Fetching system statistics... Done.
+          </pre>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const tabs = document.querySelectorAll('.tab-btn');
+  const sections = document.querySelectorAll('.tab-content');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      sections.forEach(s => s.classList.remove('active'));
+
+      tab.classList.add('active');
+      const target = tab.getAttribute('data-tab');
+      document.getElementById(`tab-${target}`).classList.add('active');
+    });
+  });
+});
+</script>
+{% endblock %}

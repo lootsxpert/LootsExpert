@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Frequently Asked Questions — Price Graph{% endblock %}
+
+{% block content %}
+<div class="app-container">
+  <div class="catalog-header-section">
+    <h1>Frequently Asked Questions (FAQ)</h1>
+    <p>Everything you need to know about tracking price drops and shopping smarter with Price Graph.</p>
+  </div>
+
+  <div class="faq-list">
+    <div class="faq-item">
+      <h3><i class="fa-regular fa-circle-question"></i> How does Price Graph track e-commerce prices?</h3>
+      <p>We deploy high-fidelity automated crawlers that monitor supported product pages periodically, recording current pricing, MRP list values, ratings, and image changes to build a timeline graph.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3><i class="fa-regular fa-circle-question"></i> Which stores are currently supported?</h3>
+      <p>We support 10 major e-commerce platforms: Amazon India, Flipkart, Myntra, Ajio, Meesho, Shopsy, Croma, Reliance Digital, Tata Cliq, and Nykaa. Any unsupported links are analyzed using our generic metadata parser.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3><i class="fa-regular fa-circle-question"></i> How do I set up price drop alerts?</h3>
+      <p>Registered users can go to a product details card and set a custom Target Price alert. You can also connect to our Telegram Bots (Price Tracker Bot & Price History Bot) to receive price drops in Telegram chat.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3><i class="fa-regular fa-circle-question"></i> Is using Price Graph free?</h3>
+      <p>Yes, all features on the website, mobile application, and Telegram bots are completely free to use.</p>
+    </div>
+
+    <div class="faq-item">
+      <h3><i class="fa-regular fa-circle-question"></i> How do I reset my password if I forget it?</h3>
+      <p>When registering, you configure a security recovery question and answer. To reset your password, you must verify your security answer on the Reset Password page. Without it, account recovery is not possible.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

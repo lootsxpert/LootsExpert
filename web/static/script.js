@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+  let currentProduct = null;
   const searchForm = document.getElementById('search-form');
   const productUrlInput = document.getElementById('product-url');
   const loader = document.getElementById('loader');
@@ -67,6 +68,82 @@ document.addEventListener('DOMContentLoaded', () => {
       await fetchProductDetails(url);
     });
   });
+
+  // Handle watchlist button click
+  const watchlistAddBtn = document.getElementById('watchlist-add-button');
+  if (watchlistAddBtn) {
+    watchlistAddBtn.addEventListener('click', async () => {
+      if (!currentProduct) return;
+      try {
+        const response = await fetch('/api/watchlist/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform: currentProduct.platform || 'General',
+            product_id: currentProduct.pid || encodeURIComponent(currentProduct.url),
+            title: currentProduct.title,
+            url: currentProduct.url,
+            price: parseFloat(String(currentProduct.price).replace(/[^\d.]/g, '')) || 0,
+            image: currentProduct.image
+          })
+        });
+        const resData = await response.json();
+        if (response.status === 401) {
+          alert('🔑 Please login to save products to your watchlist.');
+          window.location.href = '/login';
+        } else if (resData.success) {
+          alert('✅ Product successfully added to your watchlist!');
+          watchlistAddBtn.innerHTML = '<i class="fa-solid fa-bookmark"></i> Saved';
+          watchlistAddBtn.disabled = true;
+        } else {
+          alert('Error: ' + resData.error);
+        }
+      } catch (e) {
+        alert('Network error.');
+      }
+    });
+  }
+
+  // Handle alert button click
+  const alertBtn = document.getElementById('alert-button');
+  if (alertBtn) {
+    alertBtn.addEventListener('click', async () => {
+      if (!currentProduct) return;
+      
+      const targetVal = prompt('🔔 Enter your target price threshold (₹):', parseFloat(String(currentProduct.price).replace(/[^\d.]/g, '')) || 1000);
+      if (!targetVal) return;
+      const targetPrice = parseFloat(targetVal);
+      if (isNaN(targetPrice) || targetPrice <= 0) {
+        alert('Please enter a valid price.');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/alerts/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform: currentProduct.platform || 'General',
+            product_id: currentProduct.pid || encodeURIComponent(currentProduct.url),
+            title: currentProduct.title,
+            target_price: targetPrice,
+            alert_type: 'price_drop'
+          })
+        });
+        const resData = await response.json();
+        if (response.status === 401) {
+          alert('🔑 Please login to configure price drop alerts.');
+          window.location.href = '/login';
+        } else if (resData.success) {
+          alert(`🔔 Price drop alert configured for ₹${targetPrice}!`);
+        } else {
+          alert('Error: ' + resData.error);
+        }
+      } catch (e) {
+        alert('Network error.');
+      }
+    });
+  }
 
   // Fetch product data from our Flask proxy
   async function fetchProductDetails(url) {
@@ -254,6 +331,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Show main view
     resultView.classList.remove('hidden');
+    
+    currentProduct = data;
+    const wlBtn = document.getElementById('watchlist-add-button');
+    if (wlBtn) {
+      wlBtn.innerHTML = '<i class="fa-regular fa-bookmark"></i> Save to Watchlist';
+      wlBtn.disabled = false;
+    }
     
     // Scroll result into view smoothly
     resultView.scrollIntoView({ behavior: 'smooth' });
@@ -892,4 +976,50 @@ document.addEventListener('DOMContentLoaded', () => {
     productUrlInput.value = analyzeUrl;
     fetchProductDetails(analyzeUrl);
   }
+
+  // Direct Product Deep Linking Auto-load logic
+  if (window.autoLoadProduct) {
+    const { platform, pid } = window.autoLoadProduct;
+    let url = '';
+    const store = platform.toLowerCase();
+    if (store === 'amazon') url = `https://www.amazon.in/dp/${pid}`;
+    else if (store === 'flipkart') url = `https://www.flipkart.com/p/p?pid=${pid}`;
+    else if (store === 'shopsy') url = `https://www.shopsy.in/p/p?pid=${pid}`;
+    else if (store === 'myntra') url = `https://www.myntra.com/p/${pid}/buy`;
+    else if (store === 'ajio') url = `https://www.ajio.com/p/${pid}`;
+    else if (store === 'meesho') url = `https://www.meesho.com/p/${pid}`;
+    else if (store === 'croma') url = `https://www.croma.com/p/${pid}`;
+    else if (store === 'tatacliq') url = `https://www.tatacliq.com/p-${pid}`;
+    else if (store === 'reliancedigital') url = `https://www.reliancedigital.in/p/${pid}`;
+    else if (store === 'nykaa') url = `https://www.nykaa.com/p/${pid}`;
+    else if (pid.startsWith('http') || decodeURIComponent(pid).startsWith('http')) {
+      url = decodeURIComponent(pid);
+    }
+    
+    if (url) {
+      if (productUrlInput) productUrlInput.value = url;
+      fetchProductDetails(url);
+    }
+  }
+
+  // Mobile App Redirect Banner Check
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+  const bannerDismissed = sessionStorage.getItem('hide-mobile-banner') === 'true';
+  const bannerElement = document.getElementById('mobile-app-banner');
+  if (bannerElement && isMobile && !bannerDismissed) {
+    bannerElement.classList.remove('hidden');
+  }
 });
+
+// Global functions for mobile banner
+window.showIosAlert = function() {
+  alert("🍎 Price Graph iOS App is currently under development. Stay tuned!");
+};
+
+window.closeMobileBanner = function() {
+  const banner = document.getElementById('mobile-app-banner');
+  if (banner) {
+    banner.classList.add('hidden');
+    sessionStorage.setItem('hide-mobile-banner', 'true');
+  }
+};

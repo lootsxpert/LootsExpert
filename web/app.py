@@ -3,16 +3,100 @@ import json
 import urllib.request
 import urllib.parse
 import urllib.error
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Load env variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
+app.secret_key = os.environ.get('SECRET_KEY', 'pricegraph_flask_session_secret_key_2026')
 
 # Points to the Node.js Express API scraper service
 NODE_API_URL = os.environ.get('NODE_API_URL', 'https://api-production-142c.up.railway.app/')
+
+DATABASE_URL = os.environ.get('DATABASE_URL') or os.environ.get('DATABASE_PRIVATE_URL') or 'postgresql://postgres:yUAkumMqejYdHBijJxzmmRdmxrEKEiog@hayabusa.proxy.rlwy.net:42335/railway'
+
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'PriceGraph@2026')
+
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL)
+
+def init_db():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Create web_users table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS web_users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                profile_pic TEXT,
+                recovery_question TEXT NOT NULL,
+                recovery_answer_hash VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        
+        # Create web_watchlist table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS web_watchlist (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES web_users(id) ON DELETE CASCADE,
+                platform VARCHAR(50) NOT NULL,
+                product_id VARCHAR(100) NOT NULL,
+                title TEXT NOT NULL,
+                url TEXT NOT NULL,
+                price DECIMAL(12, 2),
+                image TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, platform, product_id)
+            );
+        """)
+        
+        # Create web_alerts table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS web_alerts (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES web_users(id) ON DELETE CASCADE,
+                platform VARCHAR(50) NOT NULL,
+                product_id VARCHAR(100) NOT NULL,
+                title TEXT NOT NULL,
+                target_price DECIMAL(12, 2) NOT NULL,
+                alert_type VARCHAR(50) DEFAULT 'price_drop',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        
+        # Create web_notifications table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS web_notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES web_users(id) ON DELETE CASCADE,
+                title VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                is_read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("🐘 [Flask DB] Database tables verified successfully.")
+    except Exception as e:
+        print(f"❌ [Flask DB Error] Failed to initialize database: {e}")
+
+# Call DB init
+init_db()
 
 @app.route("/")
 def index():
@@ -23,6 +107,7 @@ def index():
 def deals_catalog():
     return render_template("deals.html")
 
+# Proxy route for Node.js API
 @app.route("/api/deals")
 def api_deals():
     try:
@@ -107,7 +192,6 @@ def api_scrape():
             'error': 'Invalid URL format. URL must start with http:// or https://'
         }), 400
     try:
-        # Construct path to Node.js API endpoint
         base_url = NODE_API_URL.rstrip('/')
         encoded_product_url = urllib.parse.quote(url)
         target_url = f"{base_url}/api/scrape?url={encoded_product_url}"
@@ -124,7 +208,6 @@ def api_scrape():
             return jsonify(data)
 
     except urllib.error.HTTPError as e:
-        # Handle Node API HTTP errors and pass them along
         try:
             error_data = json.loads(e.read().decode())
             return jsonify(error_data), e.code
@@ -141,7 +224,371 @@ def api_scrape():
             'error': f'Failed to connect to Node.js scraper service: {str(e)}'
         }), 500
 
-# Info Pages Route definitions
+# Auth Routes
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form.get("name")
+        username = request.form.get("username")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        profile_pic = request.form.get("profile_pic", "")
+        recovery_question = request.form.get("recovery_question")
+        recovery_answer = request.form.get("recovery_answer")
+        
+        if not (name and username and email and password and recovery_question and recovery_answer):
+            return render_template("register.html", error="All fields are required.")
+            
+        password_hash = generate_password_hash(password)
+        recovery_answer_hash = generate_password_hash(recovery_answer.strip().lower())
+        
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO web_users (name, username, email, password_hash, profile_pic, recovery_question, recovery_answer_hash)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (name, username, email, password_hash, profile_pic, recovery_question, recovery_answer_hash))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return redirect(url_for("login", msg="Registration successful. Please login."))
+        except psycopg2.IntegrityError:
+            return render_template("register.html", error="Username or Email already exists.")
+        except Exception as e:
+            return render_template("register.html", error=f"Registration failed: {str(e)}")
+            
+    return render_template("register.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    msg = request.args.get("msg", "")
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        
+        if not username or not password:
+            return render_template("login.html", error="Username and password are required.")
+            
+        # Admin Login check
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session.clear()
+            session['admin'] = True
+            session['username'] = username
+            return redirect(url_for("admin"))
+            
+        # User Login check
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            cur.execute("SELECT * FROM web_users WHERE username = %s LIMIT 1", (username,))
+            user = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            if user and check_password_hash(user['password_hash'], password):
+                session.clear()
+                session['user_id'] = user['id']
+                session['username'] = user['username']
+                session['name'] = user['name']
+                session['profile_pic'] = user['profile_pic'] or ''
+                return redirect(url_for("dashboard"))
+            else:
+                return render_template("login.html", error="Invalid username or password.")
+        except Exception as e:
+            return render_template("login.html", error=f"Login error: {str(e)}")
+            
+    return render_template("login.html", msg=msg)
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    step = request.form.get("step", "1")
+    username = request.form.get("username")
+    
+    if request.method == "POST":
+        if step == "1":
+            if not username:
+                return render_template("forgot_password.html", step="1", error="Username is required.")
+            try:
+                conn = get_db_connection()
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT recovery_question FROM web_users WHERE username = %s LIMIT 1", (username,))
+                user = cur.fetchone()
+                cur.close()
+                conn.close()
+                
+                if user:
+                    return render_template("forgot_password.html", step="2", username=username, question=user['recovery_question'])
+                else:
+                    return render_template("forgot_password.html", step="1", error="Username not found.")
+            except Exception as e:
+                return render_template("forgot_password.html", step="1", error=f"Error: {str(e)}")
+                
+        elif step == "2":
+            recovery_answer = request.form.get("recovery_answer")
+            new_password = request.form.get("new_password")
+            
+            if not recovery_answer or not new_password:
+                return render_template("forgot_password.html", step="2", username=username, error="All fields are required.")
+                
+            try:
+                conn = get_db_connection()
+                cur = conn.cursor(cursor_factory=RealDictCursor)
+                cur.execute("SELECT * FROM web_users WHERE username = %s LIMIT 1", (username,))
+                user = cur.fetchone()
+                
+                if user and check_password_hash(user['recovery_answer_hash'], recovery_answer.strip().lower()):
+                    new_hash = generate_password_hash(new_password)
+                    cur.execute("UPDATE web_users SET password_hash = %s WHERE username = %s", (new_hash, username))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                    return redirect(url_for("login", msg="Password reset successful. Please login."))
+                else:
+                    cur.close()
+                    conn.close()
+                    return render_template("forgot_password.html", step="2", username=username, question=user['recovery_question'] if user else "Question", error="Incorrect recovery answer.")
+            except Exception as e:
+                return render_template("forgot_password.html", step="2", username=username, error=f"Error: {str(e)}")
+                
+    return render_template("forgot_password.html", step="1")
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("index"))
+
+# User Dashboard
+@app.route("/dashboard")
+def dashboard():
+    if 'user_id' not in session:
+        return redirect(url_for("login", msg="Please login to access the dashboard."))
+        
+    user_id = session['user_id']
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Get user details
+        cur.execute("SELECT * FROM web_users WHERE id = %s LIMIT 1", (user_id,))
+        user = cur.fetchone()
+        
+        # Get watchlist
+        cur.execute("SELECT * FROM web_watchlist WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
+        watchlist = cur.fetchall()
+        
+        # Get alerts
+        cur.execute("SELECT * FROM web_alerts WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
+        alerts = cur.fetchall()
+        
+        # Get notifications
+        cur.execute("SELECT * FROM web_notifications WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
+        notifications = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        return render_template("dashboard.html", user=user, watchlist=watchlist, alerts=alerts, notifications=notifications)
+    except Exception as e:
+        return f"Database Error: {str(e)}"
+
+# Watchlist API Endpoints
+@app.route("/api/watchlist/add", methods=["POST"])
+def add_to_watchlist():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+    data = request.json
+    user_id = session['user_id']
+    platform = data.get('platform')
+    product_id = data.get('product_id')
+    title = data.get('title')
+    url = data.get('url')
+    price = data.get('price')
+    image = data.get('image')
+    
+    if not (platform and product_id and title and url):
+        return jsonify({'success': False, 'error': 'Missing parameters'}), 400
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO web_watchlist (user_id, platform, product_id, title, url, price, image)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (user_id, platform, product_id) DO NOTHING
+        """, (user_id, platform, product_id, title, url, price, image))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route("/api/watchlist/remove", methods=["POST"])
+def remove_from_watchlist():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+    data = request.json
+    user_id = session['user_id']
+    platform = data.get('platform')
+    product_id = data.get('product_id')
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            DELETE FROM web_watchlist WHERE user_id = %s AND platform = %s AND product_id = %s
+        """, (user_id, platform, product_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Alerts API Endpoints
+@app.route("/api/alerts/add", methods=["POST"])
+def add_alert():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+    data = request.json
+    user_id = session['user_id']
+    platform = data.get('platform')
+    product_id = data.get('product_id')
+    title = data.get('title')
+    target_price = data.get('target_price')
+    alert_type = data.get('alert_type', 'price_drop')
+    
+    if not (platform and product_id and title and target_price):
+        return jsonify({'success': False, 'error': 'Missing parameters'}), 400
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO web_alerts (user_id, platform, product_id, title, target_price, alert_type)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (user_id, platform, product_id, title, target_price, alert_type))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route("/api/alerts/delete", methods=["POST"])
+def delete_alert():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+    data = request.json
+    user_id = session['user_id']
+    alert_id = data.get('alert_id')
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM web_alerts WHERE id = %s AND user_id = %s", (alert_id, user_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route("/api/notifications/read", methods=["POST"])
+def read_notifications():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+    user_id = session['user_id']
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE web_notifications SET is_read = TRUE WHERE user_id = %s", (user_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route("/api/user/profile", methods=["POST"])
+def update_profile():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        
+    user_id = session['user_id']
+    name = request.form.get("name")
+    email = request.form.get("email")
+    password = request.form.get("password")
+    profile_pic = request.form.get("profile_pic", "")
+    
+    if not name or not email:
+        return jsonify({'success': False, 'error': 'Name and Email are required.'}), 400
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        if password:
+            password_hash = generate_password_hash(password)
+            cur.execute("""
+                UPDATE web_users SET name = %s, email = %s, profile_pic = %s, password_hash = %s WHERE id = %s
+            """, (name, email, profile_pic, password_hash, user_id))
+        else:
+            cur.execute("""
+                UPDATE web_users SET name = %s, email = %s, profile_pic = %s WHERE id = %s
+            """, (name, email, profile_pic, user_id))
+            
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        session['name'] = name
+        session['profile_pic'] = profile_pic
+        
+        return redirect(url_for("dashboard"))
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Admin Panel
+@app.route("/admin")
+def admin():
+    if 'admin' not in session:
+        return redirect(url_for("login", msg="Access restricted to administrator."))
+        
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Get users count and list
+        cur.execute("SELECT id, name, username, email, created_at FROM web_users ORDER BY created_at DESC")
+        users = cur.fetchall()
+        
+        # Get products count and list from telegram_products pool (we connect to same pool)
+        cur.execute("SELECT id, platform, product_name, current_price, tracking_status FROM telegram_products ORDER BY created_at DESC LIMIT 50")
+        products = cur.fetchall()
+        
+        # Get counts
+        cur.execute("SELECT COUNT(*) FROM web_users")
+        total_web_users = cur.fetchone()['count']
+        
+        cur.execute("SELECT COUNT(*) FROM telegram_products")
+        total_products = cur.fetchone()['count']
+        
+        cur.close()
+        conn.close()
+        
+        return render_template("admin.html", users=users, products=products, total_users=total_web_users, total_products=total_products)
+    except Exception as e:
+        return f"Database Error: {str(e)}"
+
+# Info/Static Pages Routing
 @app.route("/privacy-policy")
 def privacy_policy():
     return render_template("privacy_policy.html")
@@ -193,6 +640,40 @@ def flipkart_tracker():
 @app.route("/amazon-quiz")
 def amazon_quiz():
     return render_template("amazon_quiz.html")
+
+# PRD catalog pages
+@app.route("/coupons")
+def coupons():
+    return render_template("coupons.html")
+
+@app.route("/categories")
+def categories():
+    return render_template("categories.html")
+
+@app.route("/brands")
+def brands():
+    return render_template("brands.html")
+
+@app.route("/faq")
+def faq():
+    return render_template("faq.html")
+
+@app.route("/product/<platform>/<pid>")
+def product_details(platform, pid):
+    return render_template("index.html", platform=platform, pid=pid)
+
+@app.route("/maintenance")
+def maintenance():
+    return render_template("error.html", error_code="MAINTENANCE", error_title="System Maintenance", error_desc="We are updating our price crawling nodes. Check back in a few minutes!")
+
+# Error pages routing
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("error.html", error_code="404", error_title="Page Not Found", error_desc="The page you are looking for does not exist or has been moved."), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template("error.html", error_code="500", error_title="Internal Error", error_desc="A server error occurred. We are looking into it!"), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

@@ -154,14 +154,14 @@ class MainNavigationState extends State<MainNavigation> {
             ),
           ],
         ),
-        actions: [
+        /*actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: AppTheme.textSecondary),
             onPressed: _showSettingsDialog,
             tooltip: 'Scraper Settings',
           ),
           const SizedBox(width: 8),
-        ],
+        ],*/
       ),
       body: IndexedStack(
         index: _currentIndex,
