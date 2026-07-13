@@ -646,3 +646,24 @@
   object-fit: cover;
   border-radius: 1px;
 }
+
+
+/* --- RESPONSIVE HEADER OVERRIDES --- */
+.mobile-header {
+  display: flex !important;
+}
+
+.desktop-header {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  .mobile-header {
+    display: none !important;
+  }
+  .desktop-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
