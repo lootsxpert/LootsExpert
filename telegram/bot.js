@@ -683,9 +683,6 @@ bot.onText(/\/broadcast/, async (msg) => {
 // Command: /stats (Admin)
 bot.onText(/\/stats/, async (msg) => {
   const chatId = msg.chat.id;
-  
-  const joined = await checkMembership(msg);
-  if (!joined) return;
 
   if (!isAdmin(chatId)) {
     return; // Silent ignore for non-admins
