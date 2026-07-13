@@ -358,8 +358,7 @@
     {% endif %}
   </div>
 </div>
-</div>
-</div>  
+<!-- Keep padding and header wrapper open for desktop header -->
 <div class="hidden md:flex justify-between items-center" style="width: 100%;">
   <!-- Left Side: Branded Logo, Title & Subtitle -->
   <div class="flex gap-4 items-center">
@@ -416,10 +415,9 @@
       <a href="/login" class="rounded-lg cursor-pointer px-6 py-2 flex items-center justify-center font-semibold bg-primary text-white hover:opacity-90 active:opacity-50 !rounded-full" style="text-decoration: none; color: white !important; font-size: 0.85rem;"><div class="text-sm">Login</div></a>
     {% endif %}
   </div>
-</div>
-</div>
-</div>
-</div>
+</div> <!-- Close desktop header -->
+</div> <!-- Close padding wrapper -->
+</div> <!-- Close header sticky container -->
    <main class="w-full md:mx-auto flex-grow relative bg-white md:bg-transparent"><div class="absolute top-0 w-full h-24 bg-gradient-to-b from-indigo-50 to-white z-[-1]"></div>      <div class="bg-indigo-950 p-3 overflow-hidden w-full block md:hidden"><div class="flex flex-row items-center mx-auto gap-4 animate-marquee-link svelte-1x00yvg"><div class="flex gap-3 flex-shrink-0"><div class="w-5 h-5 sm:w-6 sm:h-6 p-1 bg-indigo-800 rounded-full animate-pulse bg-primary bg-opacity-5"></div> <p class="text-base sm:text-xl font-bold text-white">Magic Trick for Online Shopping</p></div> <span class="w-5 h-5 inline-block text-indigo-600 flex-shrink-0"><!-- HTML_TAG_START --><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
 	<path fill="currentColor" d="m10 0 2.7 7.3L20 10l-7.3 2.7L10 20l-2.7-7.3L0 10l7.3-2.7z" />
 </svg>
@@ -776,7 +774,9 @@
 					}
 				}
 			</script>
-		</div>
+		</div> <!-- Close app -->
+		</div> <!-- Close data-sveltekit-reload -->
+		</div> <!-- Close display: contents -->
 	<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"a9f79204eefa41c39ccd3f9a8670bb5d","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 
     <script src="/static/script.js"></script>
