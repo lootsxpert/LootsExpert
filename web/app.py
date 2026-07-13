@@ -3,11 +3,17 @@ import json
 import urllib.request
 import urllib.parse
 import urllib.error
+import ssl
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import generate_password_hash, check_password_hash
+
+# Configure SSL context to bypass verification for Railway internal API queries
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
 
 # Load env variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
@@ -124,7 +130,7 @@ def api_deals():
             headers={'User-Agent': 'PriceGraph-Flask-Proxy/1.0'}
         )
         
-        with urllib.request.urlopen(req, timeout=15) as response:
+        with urllib.request.urlopen(req, timeout=15, context=ssl_context) as response:
             data = json.loads(response.read().decode())
             return jsonify(data)
             
@@ -157,7 +163,7 @@ def api_categories():
             headers={'User-Agent': 'PriceGraph-Flask-Proxy/1.0'}
         )
         
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=10, context=ssl_context) as response:
             data = json.loads(response.read().decode())
             return jsonify(data)
             
@@ -203,7 +209,7 @@ def api_scrape():
             headers={'User-Agent': 'PriceGraph-Flask-Proxy/1.0'}
         )
         
-        with urllib.request.urlopen(req, timeout=25) as response:
+        with urllib.request.urlopen(req, timeout=25, context=ssl_context) as response:
             data = json.loads(response.read().decode())
             return jsonify(data)
 
