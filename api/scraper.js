@@ -28,7 +28,7 @@ function parsePrice(priceStr) {
 /**
  * Scrapes a URL using ScraperAPI, ScrapingBee, custom proxy, or direct request
  */
-async function fetchPageHtml(url) {
+async function fetchPageHtml(url, customTimeout = 30000) {
   const scraperApiKey = process.env.SCRAPERAPI_KEY;
   const scrapingBeeKey = process.env.SCRAPINGBEE_KEY;
   const proxyUrl = process.env.PROXY_URL;
@@ -53,7 +53,7 @@ async function fetchPageHtml(url) {
       'Sec-Fetch-User': '?1',
       'Upgrade-Insecure-Requests': '1'
     },
-    timeout: 30000
+    timeout: customTimeout
   };
 
   // Route through proxy services if API keys are available
@@ -899,7 +899,7 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   const searchUrl = `https://pricehistory.app/search?q=${encodeURIComponent(productUrl)}`;
   console.log(`[PriceHistoryApp Scrape] Searching for URL: ${productUrl}`);
   try {
-    html = await fetchPageHtml(searchUrl);
+    html = await fetchPageHtml(searchUrl, 8000);
     const $ = cheerio.load(html);
     
     $('a').each((i, el) => {
@@ -918,7 +918,7 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
     const searchTitleUrl = `https://pricehistory.app/search?q=${encodeURIComponent(cleanTitle)}`;
     console.log(`[PriceHistoryApp Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchTitleUrl);
+      html = await fetchPageHtml(searchTitleUrl, 8000);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -939,7 +939,7 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   
   console.log(`[PriceHistoryApp Scrape] Fetching product page: ${productPageLink}`);
   try {
-    const pageHtml = await fetchPageHtml(productPageLink);
+    const pageHtml = await fetchPageHtml(productPageLink, 8000);
     const dataPoints = parseChartPoints(pageHtml);
     
     if (dataPoints.length > 0) {
@@ -967,7 +967,7 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
   const searchUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(productUrl)}`;
   console.log(`[BuyHatke Scrape] Searching for URL: ${productUrl}`);
   try {
-    html = await fetchPageHtml(searchUrl);
+    html = await fetchPageHtml(searchUrl, 8000);
     const $ = cheerio.load(html);
     
     $('a').each((i, el) => {
@@ -986,7 +986,7 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
     const searchTitleUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(cleanTitle)}`;
     console.log(`[BuyHatke Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchTitleUrl);
+      html = await fetchPageHtml(searchTitleUrl, 8000);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -1007,7 +1007,7 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
   
   console.log(`[BuyHatke Scrape] Fetching product page: ${productPageLink}`);
   try {
-    const pageHtml = await fetchPageHtml(productPageLink);
+    const pageHtml = await fetchPageHtml(productPageLink, 8000);
     const dataPoints = parseChartPoints(pageHtml);
     
     if (dataPoints.length > 0) {
@@ -1035,7 +1035,7 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
   const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(productUrl)}`;
   console.log(`[PriceBefore Scrape] Searching for URL: ${productUrl}`);
   try {
-    html = await fetchPageHtml(searchUrl);
+    html = await fetchPageHtml(searchUrl, 8000);
     const $ = cheerio.load(html);
     $('a').each((i, el) => {
       const href = $(el).attr('href');
@@ -1053,7 +1053,7 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
     const searchTitleUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(cleanTitle)}`;
     console.log(`[PriceBefore Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchTitleUrl);
+      html = await fetchPageHtml(searchTitleUrl, 8000);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -1074,7 +1074,7 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
   
   console.log(`[PriceBefore Scrape] Fetching product page: ${productPageLink}`);
   try {
-    const pageHtml = await fetchPageHtml(productPageLink);
+    const pageHtml = await fetchPageHtml(productPageLink, 8000);
     const dataPoints = parseChartPoints(pageHtml);
     
     if (dataPoints.length > 0) {
@@ -1106,7 +1106,7 @@ async function scrapeHistoricalTracker(productUrl, productTitle, currentPrice = 
     }
     if (attempt < 2) {
       console.log(`[Historical Scraper] PriceHistoryApp failed, retrying in 1.5s...`);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
@@ -1119,7 +1119,7 @@ async function scrapeHistoricalTracker(productUrl, productTitle, currentPrice = 
     }
     if (attempt < 2) {
       console.log(`[Historical Scraper] BuyHatke failed, retrying in 1.5s...`);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
@@ -1132,7 +1132,7 @@ async function scrapeHistoricalTracker(productUrl, productTitle, currentPrice = 
     }
     if (attempt < 2) {
       console.log(`[Historical Scraper] PriceBefore failed, retrying in 1.5s...`);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 

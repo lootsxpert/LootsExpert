@@ -574,13 +574,20 @@ bot.onText(/\/stats/, async (msg) => {
   if (!isAdmin(chatId)) return;
 
   try {
-    const stats = await db.getHistoryStats();
-    const trackerStats = `📊 *Price History Bot Stats*\n\n` +
-      `• *Total Users:* ${stats.totalUsers}\n` +
-      `• *Banned Users:* ${stats.bannedUsers}\n` +
-      `• *Cached Products:* ${stats.cachedProducts}`;
-    await bot.sendMessage(chatId, trackerStats, { parse_mode: 'Markdown' });
+    const stats = await db.getAdminDashboardStats();
+    if (stats) {
+      const statsText = `📊 *Price History Bot Stats*\n\n` +
+        `👤 *Users Started (Tracker Bot):* ${stats.startedTracker}\n` +
+        `👤 *Users Started (History Bot):* ${stats.startedHistory}\n` +
+        `👥 *Users Who Added Products:* ${stats.addedProducts}\n` +
+        `🛍️ *Total Products Tracking:* ${stats.activeTracking}`;
+        
+      await bot.sendMessage(chatId, statsText, { parse_mode: 'Markdown' });
+    } else {
+      await bot.sendMessage(chatId, '⚠️ Failed to calculate stats.');
+    }
   } catch (err) {
+    console.error('[Stats Command Error]', err.message);
     await bot.sendMessage(chatId, '⚠️ Error loading stats.');
   }
 });

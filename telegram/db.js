@@ -319,6 +319,25 @@ async function updateProductPrice(productId, newPrice) {
 /**
  * Admin Stats query
  */
+async function getAdminDashboardStats() {
+  try {
+    const startedTrackerRes = await pool.query('SELECT COUNT(*) FROM telegram_users');
+    const startedHistoryRes = await pool.query('SELECT COUNT(*) FROM history_users');
+    const addedProductsRes = await pool.query('SELECT COUNT(DISTINCT user_id) FROM telegram_products');
+    const activeTrackingRes = await pool.query("SELECT COUNT(*) FROM telegram_products WHERE tracking_status = 'active'");
+    
+    return {
+      startedTracker: parseInt(startedTrackerRes.rows[0].count) || 0,
+      startedHistory: parseInt(startedHistoryRes.rows[0].count) || 0,
+      addedProducts: parseInt(addedProductsRes.rows[0].count) || 0,
+      activeTracking: parseInt(activeTrackingRes.rows[0].count) || 0
+    };
+  } catch (err) {
+    console.error('[DB Stats Error] getAdminDashboardStats:', err);
+    return null;
+  }
+}
+
 async function getStats() {
   try {
     const usersCount = await pool.query('SELECT COUNT(*) FROM telegram_users');
@@ -407,5 +426,6 @@ module.exports = {
   updateProductPrice,
   getStats,
   getAllUsers,
+  getAdminDashboardStats,
   pool
 };

@@ -689,19 +689,21 @@ bot.onText(/\/stats/, async (msg) => {
   }
 
   try {
-    const stats = await db.getStats();
+    const stats = await db.getAdminDashboardStats();
     if (stats) {
       const statsText = `📊 *Price Tracker Bot Stats*\n\n` +
-        `• *Total Users:* ${stats.totalUsers}\n` +
-        `• *Total Products:* ${stats.totalProducts}\n` +
-        `• *Active Trackings:* ${stats.activeProducts}`;
+        `👤 *Users Started (Tracker Bot):* ${stats.startedTracker}\n` +
+        `👤 *Users Started (History Bot):* ${stats.startedHistory}\n` +
+        `👥 *Users Who Added Products:* ${stats.addedProducts}\n` +
+        `🛍️ *Total Products Tracking:* ${stats.activeTracking}`;
         
       await bot.sendMessage(chatId, statsText, { parse_mode: 'Markdown' });
     } else {
       await bot.sendMessage(chatId, '⚠️ Failed to calculate stats.');
     }
   } catch (err) {
-    await bot.sendMessage(chatId, '⚠️ Stats query errored.');
+    console.error('[Stats Command Error]', err.message);
+    await bot.sendMessage(chatId, '⚠️ Error loading stats.');
   }
 });
 
