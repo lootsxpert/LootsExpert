@@ -278,6 +278,53 @@ def init_db():
 # Call DB init
 init_db()
 
+
+@app.route("/<path:target_url>")
+def catch_all_url(target_url):
+    print(f"[Catch-All Router] Received fallback URL path: {target_url}")
+    
+    # If the URL is written as pricegraph.in/https://www.amazon.in/..., the browser or Flask
+    # merges double slashes to single slashes (https:/www.amazon.in/...). We reconstruct this.
+    reconstructed_url = target_url
+    if reconstructed_url.startswith("http:/") and not reconstructed_url.startswith("http://"):
+        reconstructed_url = "http://" + reconstructed_url[6:]
+    elif reconstructed_url.startswith("https:/") and not reconstructed_url.startswith("https://"):
+        reconstructed_url = "https://" + reconstructed_url[7:]
+    
+    # Verify if it looks like a valid product URL
+    url_lower = reconstructed_url.lower()
+    supported_keywords = ["amazon", "flipkart", "myntra", "ajio", "meesho", "shopsy", "croma", "reliancedigital", "tatacliq", "nykaa"]
+    
+    if any(keyword in url_lower for keyword in supported_keywords):
+        try:
+            # Query db for marquee and categories just like homepage "/"
+            conn = get_db_connection()
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            
+            # Fetch marquee items
+            cur.execute("SELECT text, link, logo_url FROM web_marquee_items ORDER BY id ASC")
+            marquee_items = cur.fetchall()
+            
+            # Fetch supported stores
+            cur.execute("SELECT name, logo_url FROM web_supported_stores ORDER BY name ASC")
+            supported_stores = cur.fetchall()
+            
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print(f"[Catch-All Router Error] Database connection failed: {str(e)}")
+            marquee_items = []
+            supported_stores = []
+            
+        return render_template(
+            "index.html", 
+            marquee_items=marquee_items, 
+            supported_stores=supported_stores, 
+            auto_search_url=reconstructed_url
+        )
+    
+    # If it is not a product link, redirect to home page
+    return redirect("/")
 @app.route("/")
 def index():
     try:

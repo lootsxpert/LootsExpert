@@ -1,4 +1,5 @@
-document.addEventListener('DOMContentLoaded', () => {
+(function() {
+  function initApp() {
   let currentProduct = null;
   const searchForm = document.getElementById('search-form');
   const productUrlInput = document.getElementById('product-url');
@@ -1064,7 +1065,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (bannerElement && isMobile && !bannerDismissed) {
     bannerElement.classList.remove('hidden');
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 // Global functions for mobile banner
 window.showIosAlert = function() {
@@ -1078,3 +1085,4 @@ window.closeMobileBanner = function() {
     sessionStorage.setItem('hide-mobile-banner', 'true');
   }
 };
+})();
