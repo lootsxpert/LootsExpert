@@ -297,7 +297,7 @@ app.get('/api/history', async (req, res) => {
     // 3. If we don't have enough history in DB, fetch from external provider PriceBefore
     if (historyPoints.length < 5) {
       console.log(`[API History] DB history points (${historyPoints.length}) low. Scrape from PriceBefore...`);
-      const externalHistory = await scrapeHistoricalTracker(canonicalUrl, scrapeResult.title);
+      const externalHistory = await scrapeHistoricalTracker(canonicalUrl, scrapeResult.title, scrapeResult.price);
       
       if (externalHistory && externalHistory.dataPoints && externalHistory.dataPoints.length > 0) {
         if (!productInDb) {
@@ -382,7 +382,7 @@ async function triggerBackgroundTrackerScrape(productId, canonicalUrl, productTi
     
     // Execute tracker scrape asynchronously
     console.log(`[Background] Launching parallel tracker scrape for product ID ${productId}...`);
-    scrapeHistoricalTracker(canonicalUrl, productTitle).then(async (resultObj) => {
+    scrapeHistoricalTracker(canonicalUrl, productTitle, currentPrice).then(async (resultObj) => {
       if (resultObj && resultObj.dataPoints && resultObj.dataPoints.length > 0) {
         // Save the external history page URL in our products table
         await updateProductHistoryUrl(productId, resultObj.url);

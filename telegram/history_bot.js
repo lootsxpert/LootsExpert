@@ -450,7 +450,8 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
     const rec = getBuyRecommendation(currentPrice, lowestPrice, highestPrice, averagePrice);
 
     // Format output text
-    const textCaption = `🏷 *${escapeMarkdown(data.title)}*\n\n` +
+    const affiliateUrl = await affiliate.convert(data.url || `https://www.amazon.in/dp/${pid}`, platform);
+    const textCaption = `🏷 *[${escapeMarkdown(data.title)}](${affiliateUrl})*\n\n` +
       `💰 *Current :* ₹${currentPrice.toLocaleString('en-IN')}\n` +
       `📉 *Lowest :* ₹${lowestPrice.toLocaleString('en-IN')}\n` +
       `📈 *Highest :* ₹${highestPrice.toLocaleString('en-IN')}\n` +
@@ -461,7 +462,6 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
       `Platform: ${escapeMarkdown(data.platform || platform.toUpperCase())}`;
 
     // Inline buttons for timeline filters & buy now
-    const affiliateUrl = await affiliate.convert(data.url || `https://www.amazon.in/dp/${pid}`, platform);
     const trackerUsername = process.env.PRICE_TRACKER_BOT_USERNAME || 'PriceTrackerBot';
     const inlineKeyboard = [
       [{ text: '🛒 Buy Now', url: affiliateUrl }],
@@ -474,8 +474,7 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
       [
         { text: '🔔 Track Price Alerts', url: `https://t.me/${trackerUsername}?start=track_${platform}_${pid}` },
         { text: '🔄 Refresh', callback_data: `r:${platform}:${pid}` }
-      ],
-      getMainMenuButtons()[0]
+      ]
     ];
 
     const chartUrl = generateChartUrl(history, range, data.title);
@@ -565,7 +564,7 @@ bot.onText(/\/about/, async (msg) => {
       `• *Developer:* Price Graph Devs\n\n` +
       `Fetches live price history charts dynamically using high-fidelity scraping coordinate systems.`;
 
-    await bot.sendMessage(msg.chat.id, aboutText, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: getMainMenuButtons() } });
+    await bot.sendMessage(msg.chat.id, aboutText, { parse_mode: 'Markdown' });
   });
 });
 
@@ -636,6 +635,9 @@ bot.onText(/\/broadcast/, async (msg) => {
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text || msg.caption;
+  
+  // Save history user immediately on any interaction
+  await db.saveHistoryUser(chatId, msg.from?.first_name || '', msg.from?.username || '').catch(() => {});
 
   // Check if admin is currently in broadcast setup flow
   if (isAdmin(chatId) && activeBroadcasts.has(chatId)) {

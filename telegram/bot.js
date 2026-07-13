@@ -355,8 +355,7 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
             [
               { text: '✅ Yes, Track', callback_data: `track:yes:${store}:${pid}` },
               { text: '❌ Cancel', callback_data: `track:cancel` }
-            ],
-            getMainButtons()
+            ]
           ]
         }
       };
@@ -447,8 +446,7 @@ bot.onText(/\/my_trackings/, async (msg) => {
       });
 
       await bot.sendMessage(chatId, reply, {
-        parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: [getMainButtons()] }
+        parse_mode: 'Markdown'
       });
     } catch (err) {
       console.error('[Command /my_trackings Error]', err.message);
@@ -478,11 +476,22 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
         return;
       }
 
+      let lowestPrice = parseFloat(product.current_price);
+      let highestPrice = parseFloat(product.current_price);
+      if (product.price_history && product.price_history.length > 0) {
+        const prices = product.price_history.map(h => parseFloat(h.price));
+        lowestPrice = Math.min(...prices, lowestPrice);
+        highestPrice = Math.max(...prices, highestPrice);
+      }
+
+      const clickableName = `[${escapeMarkdown(product.product_name)}](${product.aff_url || product.product_url})`;
+
       const caption = `🛍️ *${escapeMarkdown(product.platform.toUpperCase())} Product Details*\n\n` +
-        `📌 *${escapeMarkdown(product.product_name)}*\n\n` +
+        `📌 *${clickableName}*\n\n` +
         `💵 *Current Price:* ₹${parseFloat(product.current_price).toLocaleString('en-IN')}\n` +
-        `🏪 *Platform:* ${escapeMarkdown(product.platform.toUpperCase())}\n` +
-        `🔗 [Product Link](${product.product_url})`;
+        `📈 *Highest Price:* ₹${highestPrice.toLocaleString('en-IN')}\n` +
+        `📉 *Lowest Price:* ₹${lowestPrice.toLocaleString('en-IN')}\n` +
+        `🏪 *Platform:* ${escapeMarkdown(product.platform.toUpperCase())}`;
 
       const opts = {
         parse_mode: 'Markdown',
@@ -495,8 +504,7 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
             ],
             [
               { text: '🔍 View Full Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }
-            ],
-            getMainButtons()
+            ]
           ]
         }
       };
@@ -1056,6 +1064,9 @@ bot.on('callback_query', async (callbackQuery) => {
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text || msg.caption;
+  
+  // Save user immediately on any interaction
+  await db.saveUser(chatId, msg.from?.first_name || '', msg.from?.username || '').catch(() => {});
 
   // Check if admin is currently in broadcast setup flow
   if (isAdmin(chatId) && activeBroadcasts.has(chatId)) {
@@ -1232,9 +1243,29 @@ bot.on('message', async (msg) => {
       await bot.deleteMessage(chatId, statusMsg.message_id);
       
       if (saved) {
+        let lowestPrice = livePrice;
+        let highestPrice = livePrice;
+        try {
+          const historyRes = await db.pool.query(
+            'SELECT price FROM telegram_price_history WHERE product_id = $1',
+            [saved.id]
+          );
+          const historyPoints = historyRes.rows.map(h => parseFloat(h.price));
+          if (historyPoints.length > 0) {
+            lowestPrice = Math.min(...historyPoints, livePrice);
+            highestPrice = Math.max(...historyPoints, livePrice);
+          }
+        } catch (e) {
+          console.error('[History Fetch Error]', e.message);
+        }
+
+        const clickableName = `[${escapeMarkdown(data.title)}](${affUrl || productUrl})`;
+
         const successText = `🛍️ *Tracking your product*\n\n` +
-          `*${escapeMarkdown(data.title)}*\n\n` +
-          `*Current Price:*\n₹${livePrice.toLocaleString('en-IN')}\n\n` +
+          `📌 *${clickableName}*\n\n` +
+          `💵 *Current Price:* ₹${livePrice.toLocaleString('en-IN')}\n` +
+          `📈 *Highest Price:* ₹${highestPrice.toLocaleString('en-IN')}\n` +
+          `📉 *Lowest Price:* ₹${lowestPrice.toLocaleString('en-IN')}\n\n` +
           `/product_${saved.product_id}\n` +
           `/stop_${saved.product_id}`;
           
@@ -1246,8 +1277,7 @@ bot.on('message', async (msg) => {
               [
                 { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${platform}_${pid}` },
                 { text: '📂 My Trackings', callback_data: 'my_trackings' }
-              ],
-              getMainButtons()
+              ]
             ]
           }
         };
