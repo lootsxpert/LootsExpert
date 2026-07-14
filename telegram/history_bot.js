@@ -7,11 +7,10 @@ const urlModule = require('url');
 
 function expandUrl(shortUrl) {
   return new Promise((resolve) => {
-    let currentUrl = shortUrl;
     let redirectsCount = 0;
     
     function follow(urlStr) {
-      if (redirectsCount >= 5) {
+      if (redirectsCount >= 10) {
         resolve(urlStr);
         return;
       }
@@ -28,7 +27,9 @@ function expandUrl(shortUrl) {
       const options = {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9'
         }
       };
       
@@ -41,16 +42,27 @@ function expandUrl(shortUrl) {
           }
           follow(nextUrl);
         } else {
-          resolve(urlStr);
+          let finalUrl = urlStr;
+          try {
+            const urlObj = new urlModule.URL(urlStr);
+            const paramsToCheck = ['dl', 'dest', 'redirect', 'to', 'target', 'url', 'redirect_url'];
+            for (const param of paramsToCheck) {
+              const val = urlObj.searchParams.get(param);
+              if (val && val.startsWith('http')) {
+                finalUrl = decodeURIComponent(val);
+                break;
+              }
+            }
+          } catch (e) {}
+          resolve(finalUrl);
         }
       });
       
       req.on('error', (err) => {
-        console.error(`[Expand URL Connection Error] ${urlStr}:`, err.message);
         resolve(urlStr);
       });
       
-      req.setTimeout(4000, () => {
+      req.setTimeout(6000, () => {
         req.destroy();
         resolve(urlStr);
       });
@@ -58,10 +70,81 @@ function expandUrl(shortUrl) {
       req.end();
     }
     
-    follow(currentUrl);
+    follow(shortUrl);
+  }).then(async (resolved) => {
+    // If direct resolve failed to expand (returned same URL), try ScraperAPI first
+    if (resolved === shortUrl) {
+      const scraperApiKey = process.env.SCRAPERAPI_KEY || process.env.SCRAPER_API_KEY;
+      if (scraperApiKey) {
+        try {
+          const axios = require('axios');
+          console.log(`[Proxy Expand] Trying ScraperAPI for: ${shortUrl}`);
+          const res = await axios.get('http://api.scraperapi.com', {
+            params: {
+              api_key: scraperApiKey,
+              url: shortUrl,
+              follow_redirect: 'false'
+            },
+            timeout: 12000
+          });
+          if (res.headers && res.headers['sa-final-url']) {
+            let finalUrl = res.headers['sa-final-url'];
+            try {
+              const urlObj = new URL(finalUrl);
+              const paramsToCheck = ['dl', 'dest', 'redirect', 'to', 'target', 'url', 'redirect_url'];
+              for (const param of paramsToCheck) {
+                const val = urlObj.searchParams.get(param);
+                if (val && val.startsWith('http')) {
+                  finalUrl = decodeURIComponent(val);
+                  break;
+                }
+              }
+            } catch (e) {}
+            console.log(`[Proxy Expand] ScraperAPI successfully resolved: ${finalUrl}`);
+            return finalUrl;
+          }
+        } catch (e) {
+          console.warn(`[Proxy Expand] ScraperAPI failed: ${e.message}. Trying ScrapingBee fallback...`);
+        }
+      }
+      
+      // Fallback: ScrapingBee
+      const scrapingBeeKey = process.env.SCRAPINGBEE_KEY || process.env.SCRAPING_BEE_KEY;
+      if (scrapingBeeKey) {
+        try {
+          const axios = require('axios');
+          console.log(`[Proxy Expand] Trying ScrapingBee fallback for: ${shortUrl}`);
+          const res = await axios.get('https://app.scrapingbee.com/api/v1/', {
+            params: {
+              api_key: scrapingBeeKey,
+              url: shortUrl
+            },
+            timeout: 15000
+          });
+          if (res.headers && res.headers['spb-resolved-url']) {
+            let finalUrl = res.headers['spb-resolved-url'];
+            try {
+              const urlObj = new URL(finalUrl);
+              const paramsToCheck = ['dl', 'dest', 'redirect', 'to', 'target', 'url', 'redirect_url'];
+              for (const param of paramsToCheck) {
+                const val = urlObj.searchParams.get(param);
+                if (val && val.startsWith('http')) {
+                  finalUrl = decodeURIComponent(val);
+                  break;
+                }
+              }
+            } catch (e) {}
+            console.log(`[Proxy Expand] ScrapingBee successfully resolved: ${finalUrl}`);
+            return finalUrl;
+          }
+        } catch (e) {
+          console.error(`[Proxy Expand] ScrapingBee failed: ${e.message}`);
+        }
+      }
+    }
+    return resolved;
   });
 }
-
 
 const db = require('./history_db');
 const affiliate = require('./affiliate');

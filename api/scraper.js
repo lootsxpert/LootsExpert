@@ -901,7 +901,7 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   const searchUrl = `https://pricehistory.app/search?q=${encodeURIComponent(productUrl)}`;
   console.log(`[PriceHistoryApp Scrape] Searching for URL: ${productUrl}`);
   try {
-    html = await fetchPageHtml(searchUrl, 8000);
+    html = await fetchPageHtml(searchUrl, 20000);
     const $ = cheerio.load(html);
     
     $('a').each((i, el) => {
@@ -920,7 +920,7 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
     const searchTitleUrl = `https://pricehistory.app/search?q=${encodeURIComponent(cleanTitle)}`;
     console.log(`[PriceHistoryApp Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchTitleUrl, 8000);
+      html = await fetchPageHtml(searchTitleUrl, 20000);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -941,7 +941,7 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   
   console.log(`[PriceHistoryApp Scrape] Fetching product page: ${productPageLink}`);
   try {
-    const pageHtml = await fetchPageHtml(productPageLink, 8000);
+    const pageHtml = await fetchPageHtml(productPageLink, 20000);
     // Instant redirect detection
     const instantPoints = parseChartPoints(html);
     if (instantPoints.length > 0) {
@@ -975,7 +975,7 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
   const searchUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(productUrl)}`;
   console.log(`[BuyHatke Scrape] Searching for URL: ${productUrl}`);
   try {
-    html = await fetchPageHtml(searchUrl, 8000);
+    html = await fetchPageHtml(searchUrl, 20000);
     const $ = cheerio.load(html);
     
     $('a').each((i, el) => {
@@ -994,7 +994,7 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
     const searchTitleUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(cleanTitle)}`;
     console.log(`[BuyHatke Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchTitleUrl, 8000);
+      html = await fetchPageHtml(searchTitleUrl, 20000);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -1015,7 +1015,7 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
   
   console.log(`[BuyHatke Scrape] Fetching product page: ${productPageLink}`);
   try {
-    const pageHtml = await fetchPageHtml(productPageLink, 8000);
+    const pageHtml = await fetchPageHtml(productPageLink, 20000);
     // Instant redirect detection
     const instantPoints = parseChartPoints(html);
     if (instantPoints.length > 0) {
@@ -1049,7 +1049,7 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
   const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(productUrl)}`;
   console.log(`[PriceBefore Scrape] Searching for URL: ${productUrl}`);
   try {
-    html = await fetchPageHtml(searchUrl, 8000);
+    html = await fetchPageHtml(searchUrl, 20000);
     const $ = cheerio.load(html);
     $('a').each((i, el) => {
       const href = $(el).attr('href');
@@ -1067,7 +1067,7 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
     const searchTitleUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(cleanTitle)}`;
     console.log(`[PriceBefore Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchTitleUrl, 8000);
+      html = await fetchPageHtml(searchTitleUrl, 20000);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -1088,7 +1088,7 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
   
   console.log(`[PriceBefore Scrape] Fetching product page: ${productPageLink}`);
   try {
-    const pageHtml = await fetchPageHtml(productPageLink, 8000);
+    const pageHtml = await fetchPageHtml(productPageLink, 20000);
     const dataPoints = parseChartPoints(pageHtml);
     
     if (dataPoints.length > 0) {

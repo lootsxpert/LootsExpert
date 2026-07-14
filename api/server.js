@@ -99,6 +99,78 @@ function expandUrl(shortUrl) {
     }
     
     follow(shortUrl);
+  }).then(async (resolved) => {
+    // If direct resolve failed to expand (returned same URL), try ScraperAPI first
+    if (resolved === shortUrl) {
+      const scraperApiKey = process.env.SCRAPERAPI_KEY || process.env.SCRAPER_API_KEY;
+      if (scraperApiKey) {
+        try {
+          const axios = require('axios');
+          console.log(`[Proxy Expand] Trying ScraperAPI for: ${shortUrl}`);
+          const res = await axios.get('http://api.scraperapi.com', {
+            params: {
+              api_key: scraperApiKey,
+              url: shortUrl,
+              follow_redirect: 'false'
+            },
+            timeout: 12000
+          });
+          if (res.headers && res.headers['sa-final-url']) {
+            let finalUrl = res.headers['sa-final-url'];
+            try {
+              const urlObj = new URL(finalUrl);
+              const paramsToCheck = ['dl', 'dest', 'redirect', 'to', 'target', 'url', 'redirect_url'];
+              for (const param of paramsToCheck) {
+                const val = urlObj.searchParams.get(param);
+                if (val && val.startsWith('http')) {
+                  finalUrl = decodeURIComponent(val);
+                  break;
+                }
+              }
+            } catch (e) {}
+            console.log(`[Proxy Expand] ScraperAPI successfully resolved: ${finalUrl}`);
+            return finalUrl;
+          }
+        } catch (e) {
+          console.warn(`[Proxy Expand] ScraperAPI failed: ${e.message}. Trying ScrapingBee fallback...`);
+        }
+      }
+      
+      // Fallback: ScrapingBee
+      const scrapingBeeKey = process.env.SCRAPINGBEE_KEY || process.env.SCRAPING_BEE_KEY;
+      if (scrapingBeeKey) {
+        try {
+          const axios = require('axios');
+          console.log(`[Proxy Expand] Trying ScrapingBee fallback for: ${shortUrl}`);
+          const res = await axios.get('https://app.scrapingbee.com/api/v1/', {
+            params: {
+              api_key: scrapingBeeKey,
+              url: shortUrl
+            },
+            timeout: 15000
+          });
+          if (res.headers && res.headers['spb-resolved-url']) {
+            let finalUrl = res.headers['spb-resolved-url'];
+            try {
+              const urlObj = new URL(finalUrl);
+              const paramsToCheck = ['dl', 'dest', 'redirect', 'to', 'target', 'url', 'redirect_url'];
+              for (const param of paramsToCheck) {
+                const val = urlObj.searchParams.get(param);
+                if (val && val.startsWith('http')) {
+                  finalUrl = decodeURIComponent(val);
+                  break;
+                }
+              }
+            } catch (e) {}
+            console.log(`[Proxy Expand] ScrapingBee successfully resolved: ${finalUrl}`);
+            return finalUrl;
+          }
+        } catch (e) {
+          console.error(`[Proxy Expand] ScrapingBee failed: ${e.message}`);
+        }
+      }
+    }
+    return resolved;
   });
 }
 
