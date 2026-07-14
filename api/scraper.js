@@ -894,7 +894,7 @@ function parseChartPoints(html) {
   return dataPoints;
 }
 
-function scrapeFromPriceHistoryApp(productUrl, productTitle) {
+async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   let html = '';
   let productPageLink = '';
   
