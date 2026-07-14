@@ -209,13 +209,9 @@ function getCanonicalUrl(url) {
 
     // Myntra normalization
     if (parsed.hostname.includes('myntra.com')) {
-      const match = parsed.pathname.match(/\/(\d+)\/buy/i);
+      const match = parsed.pathname.match(/\/(\d+)/);
       if (match) {
-        return `https://www.myntra.com/${match[1]}/buy`;
-      }
-      const matchAlt = parsed.pathname.match(/\/(\d+)/);
-      if (matchAlt) {
-        return `https://www.myntra.com/${matchAlt[1]}/buy`;
+        return `https://www.myntra.com/${match[1]}`;
       }
     }
 
@@ -441,7 +437,7 @@ app.get('/api/history', async (req, res) => {
     if (store === 'amazon') canonicalUrl = `https://www.amazon.in/dp/${pid}`;
     else if (store === 'flipkart') canonicalUrl = `https://www.flipkart.com/p/p?pid=${pid}`;
     else if (store === 'shopsy') canonicalUrl = `https://www.shopsy.in/p/p?pid=${pid}`;
-    else if (store === 'myntra') canonicalUrl = `https://www.myntra.com/p/${pid}/buy`;
+    else if (store === 'myntra') canonicalUrl = `https://www.myntra.com/${pid}`;
     else if (store === 'ajio') canonicalUrl = `https://www.ajio.com/p/${cleanAjioPid(pid)}`;
     else if (store === 'meesho') canonicalUrl = `https://www.meesho.com/p/${pid}`;
     else if (store === 'croma') canonicalUrl = `https://www.croma.com/p/${pid}`;

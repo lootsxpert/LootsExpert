@@ -503,7 +503,8 @@ async function fetchProductHistory(platform, pid, url = '') {
   const data = response.data;
   if (data && data.success) {
     if (enableCache) {
-      const cacheTTL = parseInt(process.env.CACHE_TIME) || 900;
+      // Cache price history results for 15 days
+      const cacheTTL = parseInt(process.env.CACHE_TIME) || 1296000;
       await db.saveHistoryCache(platform, pid, data, cacheTTL);
     }
     return data;
