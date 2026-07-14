@@ -80,6 +80,9 @@ async function initDatabase() {
       ALTER TABLE products ADD COLUMN IF NOT EXISTS discount VARCHAR(50);
       ALTER TABLE products ADD COLUMN IF NOT EXISTS deal_score INTEGER DEFAULT 0;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS deal_tag VARCHAR(50);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS highest_price DECIMAL(12, 2);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS lowest_price DECIMAL(12, 2);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS average_price DECIMAL(12, 2);
     `);
     
     // Create price history table
@@ -245,8 +248,11 @@ async function updateProductDealStats(productId, currentPrice, originalPrice, di
           category = $4,
           deal_score = $5,
           deal_tag = $6,
+          highest_price = $7,
+          lowest_price = $8,
+          average_price = $9,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $7;
+      WHERE id = $10;
     `;
     await pool.query(query, [
       currentPrice, 
@@ -255,6 +261,9 @@ async function updateProductDealStats(productId, currentPrice, originalPrice, di
       category, 
       score, 
       dealTag, 
+      highest,
+      lowest,
+      Math.round(average * 100) / 100,
       productId
     ]);
     

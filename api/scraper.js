@@ -14,6 +14,45 @@ function getRandomUserAgent() {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 }
 
+// In-memory status fallback for scraper credentials
+const scraperStatus = {
+  scraperApi: { exhausted: false, lastChecked: 0 },
+  scrapingBee: { exhausted: false, lastChecked: 0 }
+};
+
+async function isScraperExhausted(name) {
+  if (scraperStatus[name]?.exhausted) {
+    if (Date.now() - scraperStatus[name].lastChecked > 3600000) {
+      scraperStatus[name].exhausted = false;
+    } else {
+      return true;
+    }
+  }
+  
+  try {
+    const { redisClient } = require('./db');
+    if (redisClient && redisClient.isOpen) {
+      const val = await redisClient.get(`exhausted:${name}`);
+      return val === 'true';
+    }
+  } catch (e) {}
+  return false;
+}
+
+async function markScraperExhausted(name) {
+  if (scraperStatus[name]) {
+    scraperStatus[name].exhausted = true;
+    scraperStatus[name].lastChecked = Date.now();
+  }
+  console.warn(`[Scraper] ${name} marked as EXHAUSTED.`);
+  try {
+    const { redisClient } = require('./db');
+    if (redisClient && redisClient.isOpen) {
+      await redisClient.set(`exhausted:${name}`, 'true', { EX: 3600 });
+    }
+  } catch (e) {}
+}
+
 /**
  * Clean e-commerce URL by stripping query parameters and hashes.
  */
@@ -168,7 +207,7 @@ async function fetchPageHtmlWithRetries(url, timeout = 35000, attempts = 3) {
 /**
  * Scrapes a URL using ScraperAPI, ScrapingBee, custom proxy, or direct request
  */
-async function fetchPageHtml(url, customTimeout = 30000) {
+async function fetchPageHtml(url, customTimeout = 35000) {
   const scraperApiKey = process.env.SCRAPERAPI_KEY;
   const scrapingBeeKey = process.env.SCRAPINGBEE_KEY;
   const proxyUrl = process.env.PROXY_URL;
@@ -192,85 +231,136 @@ async function fetchPageHtml(url, customTimeout = 30000) {
     return htmlData;
   }
 
-  let lastError = null;
+  // Define strategies to attempt
+  const strategies = [];
 
-  // Phase 1: Try Primary Scraper (ScraperAPI, Custom Proxy, or Direct)
-  try {
-    let requestUrl = url;
-    let config = {
-      headers: {
-        'User-Agent': getRandomUserAgent(),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Device-Memory': '8',
-        'Downlink': '10',
-        'ECT': '4g',
-        'RTT': '50',
-        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        'Sec-Ch-Ua-Mobile': '?0',
-        'Sec-Ch-Ua-Platform': '"Windows"',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1'
-      },
-      timeout: customTimeout
-    };
-
-    if (scraperApiKey) {
-      console.log(`[Scraper] Routing request through ScraperAPI for: ${url}`);
-      let params = `api_key=${scraperApiKey}&url=${encodeURIComponent(url)}`;
-      if (process.env.SCRAPERAPI_RENDER === 'true' && !isTracker && !isAmazon) {
-        params += '&render=true';
-      }
-      if (process.env.SCRAPERAPI_PREMIUM === 'true') {
-        params += '&premium=true';
-      }
-      if (process.env.SCRAPERAPI_COUNTRY && isAmazon) {
-        params += `&country_code=${process.env.SCRAPERAPI_COUNTRY}`;
-      }
-      requestUrl = `http://api.scraperapi.com?${params}`;
-    } else if (proxyUrl) {
-      console.log(`[Scraper] Using custom proxy: ${proxyUrl}`);
-      const { HttpsProxyAgent } = require('https-proxy-agent');
-      config.httpsAgent = new HttpsProxyAgent(proxyUrl);
+  // Strategy 1: ScraperAPI
+  if (scraperApiKey) {
+    const isExhausted = await isScraperExhausted('scraperApi');
+    if (!isExhausted) {
+      strategies.push({
+        name: 'ScraperAPI',
+        execute: async () => {
+          let params = `api_key=${scraperApiKey}&url=${encodeURIComponent(url)}`;
+          
+          // Render JS for non-tracker, non-Amazon sites if render is enabled
+          if (process.env.SCRAPERAPI_RENDER === 'true' && !isTracker && !isAmazon) {
+            params += '&render=true';
+          }
+          // Enable premium proxies if configured
+          if (process.env.SCRAPERAPI_PREMIUM === 'true') {
+            params += '&premium=true';
+          }
+          // Set country code to India for e-commerce sites (not trackers)
+          if (process.env.SCRAPERAPI_COUNTRY && !isTracker) {
+            params += `&country_code=${process.env.SCRAPERAPI_COUNTRY}`;
+          }
+          
+          const requestUrl = `http://api.scraperapi.com?${params}`;
+          console.log(`[Scraper] Routing request through ScraperAPI for: ${url}`);
+          return await performRequest(requestUrl, { timeout: customTimeout });
+        },
+        handleError: async (err) => {
+          const status = err.response?.status;
+          const bodyText = err.response?.data && typeof err.response.data === 'string' ? err.response.data : '';
+          if (status === 403 && (bodyText.includes('monthly cycle') || bodyText.includes('exhausted') || bodyText.includes('Credits') || bodyText.includes('limit'))) {
+            await markScraperExhausted('scraperApi');
+          }
+        }
+      });
     } else {
-      console.log(`[Scraper] Performing direct request for: ${url}`);
+      console.log(`[Scraper] Skipping ScraperAPI for ${url} (marked exhausted).`);
     }
-
-    return await performRequest(requestUrl, config);
-  } catch (err) {
-    console.warn(`⚠️ [Scraper Primary Failed] URL: ${url}. Error: ${err.message}. Trying fallback if key exists...`);
-    lastError = err;
   }
 
-  // Phase 2: Fallback to ScrapingBee if ScrapingBee Key is provided and primary crawler failed
+  // Strategy 2: ScrapingBee
   if (scrapingBeeKey) {
-    try {
-      console.log(`[Scraper Fallback] Routing request through ScrapingBee for: ${url}`);
-      const renderJs = (process.env.SCRAPINGBEE_RENDER === 'true' && !isTracker && !isAmazon) ? 'true' : 'false';
-      let params = `api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&render_js=${renderJs}`;
-      if (process.env.SCRAPINGBEE_PREMIUM === 'true') {
-        params += '&premium_proxy=true';
-      }
-      if (process.env.SCRAPINGBEE_COUNTRY && isAmazon) {
-        params += `&country_code=${process.env.SCRAPINGBEE_COUNTRY}`;
-      }
-      const requestUrl = `https://app.scrapingbee.com/api/v1/?${params}`;
+    const isExhausted = await isScraperExhausted('scrapingBee');
+    if (!isExhausted) {
+      strategies.push({
+        name: 'ScrapingBee',
+        execute: async () => {
+          const renderJs = (process.env.SCRAPINGBEE_RENDER === 'true' && !isTracker && !isAmazon) ? 'true' : 'false';
+          let params = `api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&render_js=${renderJs}`;
+          
+          if (process.env.SCRAPINGBEE_PREMIUM === 'true') {
+            params += '&premium_proxy=true';
+          }
+          if (process.env.SCRAPINGBEE_COUNTRY && !isTracker) {
+            params += `&country_code=${process.env.SCRAPINGBEE_COUNTRY}`;
+          }
+          
+          const requestUrl = `https://app.scrapingbee.com/api/v1/?${params}`;
+          console.log(`[Scraper] Routing request through ScrapingBee for: ${url}`);
+          return await performRequest(requestUrl, { timeout: customTimeout });
+        },
+        handleError: async (err) => {
+          const status = err.response?.status;
+          const bodyText = err.response?.data && typeof err.response.data === 'string' ? err.response.data : '';
+          if (status === 401 || (status === 403 && (bodyText.includes('credit') || bodyText.includes('billing') || bodyText.includes('limit') || bodyText.includes('Invalid api key')))) {
+            await markScraperExhausted('scrapingBee');
+          }
+        }
+      });
+    } else {
+      console.log(`[Scraper] Skipping ScrapingBee for ${url} (marked exhausted).`);
+    }
+  }
+
+  // Strategy 3: Custom Proxy
+  if (proxyUrl) {
+    strategies.push({
+      name: 'CustomProxy',
+      execute: async () => {
+        console.log(`[Scraper] Using custom proxy: ${proxyUrl} for: ${url}`);
+        const { HttpsProxyAgent } = require('https-proxy-agent');
+        const config = {
+          headers: {
+            'User-Agent': getRandomUserAgent(),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9'
+          },
+          httpsAgent: new HttpsProxyAgent(proxyUrl),
+          timeout: customTimeout
+        };
+        return await performRequest(url, config);
+      },
+      handleError: async () => {}
+    });
+  }
+
+  // Strategy 4: Direct Request
+  strategies.push({
+    name: 'DirectRequest',
+    execute: async () => {
+      console.log(`[Scraper] Performing direct request for: ${url}`);
       const config = {
-        headers: { 'User-Agent': getRandomUserAgent() },
+        headers: {
+          'User-Agent': getRandomUserAgent(),
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Upgrade-Insecure-Requests': '1'
+        },
         timeout: customTimeout
       };
-      return await performRequest(requestUrl, config);
+      return await performRequest(url, config);
+    },
+    handleError: async () => {}
+  });
+
+  let lastError = null;
+  for (const strategy of strategies) {
+    try {
+      return await strategy.execute();
     } catch (err) {
-      console.error(`❌ [Scraper Fallback Failed] URL: ${url}. Error: ${err.message}`);
+      console.warn(`⚠️ [Scraper Strategy Failed] ${strategy.name} failed: ${err.message}`);
+      await strategy.handleError(err);
       lastError = err;
     }
   }
 
-  throw lastError || new Error(`Failed to retrieve page HTML for: ${url}`);
+  throw lastError || new Error(`All scraper strategies failed for: ${url}`);
 }
 
 /**
