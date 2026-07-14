@@ -421,7 +421,7 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
           return;
         }
         
-        const response = await axios.get(`${scraperApiUrl}/api/scrape`, {
+        const response = await axios.get(`${scraperApiUrl}/api/history`, {
           params: { url: url },
           timeout: 20000
         });
@@ -999,7 +999,7 @@ bot.on('callback_query', async (callbackQuery) => {
         
         // Reconstruct URL and scrape live details
         const url = reconstructUrl(store, pid);
-        const response = await axios.get(`${scraperApiUrl}/api/scrape`, {
+        const response = await axios.get(`${scraperApiUrl}/api/history`, {
           params: { url: url },
           timeout: 20000
         });
@@ -1397,7 +1397,7 @@ bot.on('message', async (msg) => {
       // Scrape details from API scraper service with a 30s timeout and a 6s loading retry fallback
       let response;
       try {
-        response = await axios.get(`${scraperApiUrl}/api/scrape`, {
+        response = await axios.get(`${scraperApiUrl}/api/history`, {
           params: { url: productUrl },
           timeout: 30000
         });
@@ -1406,7 +1406,7 @@ bot.on('message', async (msg) => {
         await new Promise(resolve => setTimeout(resolve, 6000));
         
         try {
-          response = await axios.get(`${scraperApiUrl}/api/scrape`, {
+          response = await axios.get(`${scraperApiUrl}/api/history`, {
             params: { url: productUrl },
             timeout: 30000
           });
@@ -1528,7 +1528,7 @@ function startScheduler() {
       for (const product of activeProducts) {
         try {
           // Scrape product live
-          const response = await axios.get(`${scraperApiUrl}/api/scrape`, {
+          const response = await axios.get(`${scraperApiUrl}/api/history`, {
             params: { url: product.product_url },
             timeout: 25000
           });

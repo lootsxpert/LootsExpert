@@ -33,65 +33,100 @@ async function fetchPageHtml(url, customTimeout = 30000) {
   const scrapingBeeKey = process.env.SCRAPINGBEE_KEY;
   const proxyUrl = process.env.PROXY_URL;
 
-  let requestUrl = url;
-  let config = {
-    headers: {
-      'User-Agent': getRandomUserAgent(),
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Device-Memory': '8',
-      'Downlink': '10',
-      'ECT': '4g',
-      'RTT': '50',
-      'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-      'Sec-Ch-Ua-Mobile': '?0',
-      'Sec-Ch-Ua-Platform': '"Windows"',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'none',
-      'Sec-Fetch-User': '?1',
-      'Upgrade-Insecure-Requests': '1'
-    },
-    timeout: customTimeout
-  };
-
-  // Route through proxy services if API keys are available
-  if (scraperApiKey) {
-    console.log(`[Scraper] Routing request through ScraperAPI for: ${url}`);
-    let params = `api_key=${scraperApiKey}&url=${encodeURIComponent(url)}`;
-    if (process.env.SCRAPERAPI_RENDER === 'true') {
-      params += '&render=true';
+  async function performRequest(reqUrl, reqConfig) {
+    const response = await axios.get(reqUrl, reqConfig);
+    const htmlData = response.data;
+    if (htmlData && typeof htmlData === 'string' && (
+      htmlData.includes('cf-challenge') ||
+      htmlData.includes('cloudflare-challenge') ||
+      htmlData.includes('enable-javascript') ||
+      htmlData.includes('Attention Required! | Cloudflare') ||
+      (htmlData.length < 1500 && htmlData.includes('captcha'))
+    )) {
+      throw new Error('Cloudflare/Captcha challenge detected in response HTML.');
     }
-    if (process.env.SCRAPERAPI_PREMIUM === 'true') {
-      params += '&premium=true';
-    }
-    if (process.env.SCRAPERAPI_COUNTRY) {
-      params += `&country_code=${process.env.SCRAPERAPI_COUNTRY}`;
-    }
-    requestUrl = `http://api.scraperapi.com?${params}`;
-  } else if (scrapingBeeKey) {
-    console.log(`[Scraper] Routing request through ScrapingBee for: ${url}`);
-    const renderJs = process.env.SCRAPINGBEE_RENDER === 'true' ? 'true' : 'false';
-    let params = `api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&render_js=${renderJs}`;
-    if (process.env.SCRAPINGBEE_PREMIUM === 'true') {
-      params += '&premium_proxy=true';
-    }
-    if (process.env.SCRAPINGBEE_COUNTRY) {
-      params += `&country_code=${process.env.SCRAPINGBEE_COUNTRY}`;
-    }
-    requestUrl = `https://app.scrapingbee.com/api/v1/?${params}`;
-  } else if (proxyUrl) {
-    console.log(`[Scraper] Using custom proxy: ${proxyUrl}`);
-    // Support proxy setting in Axios
-    const { HttpsProxyAgent } = require('https-proxy-agent');
-    config.httpsAgent = new HttpsProxyAgent(proxyUrl);
-  } else {
-    console.log(`[Scraper] Performing direct request for: ${url}`);
+    return htmlData;
   }
 
-  const response = await axios.get(requestUrl, config);
-  return response.data;
+  let lastError = null;
+
+  // Phase 1: Try Primary Scraper (ScraperAPI, Custom Proxy, or Direct)
+  try {
+    let requestUrl = url;
+    let config = {
+      headers: {
+        'User-Agent': getRandomUserAgent(),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Device-Memory': '8',
+        'Downlink': '10',
+        'ECT': '4g',
+        'RTT': '50',
+        'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Upgrade-Insecure-Requests': '1'
+      },
+      timeout: customTimeout
+    };
+
+    if (scraperApiKey) {
+      console.log(`[Scraper] Routing request through ScraperAPI for: ${url}`);
+      let params = `api_key=${scraperApiKey}&url=${encodeURIComponent(url)}`;
+      if (process.env.SCRAPERAPI_RENDER === 'true') {
+        params += '&render=true';
+      }
+      if (process.env.SCRAPERAPI_PREMIUM === 'true') {
+        params += '&premium=true';
+      }
+      if (process.env.SCRAPERAPI_COUNTRY) {
+        params += `&country_code=${process.env.SCRAPERAPI_COUNTRY}`;
+      }
+      requestUrl = `http://api.scraperapi.com?${params}`;
+    } else if (proxyUrl) {
+      console.log(`[Scraper] Using custom proxy: ${proxyUrl}`);
+      const { HttpsProxyAgent } = require('https-proxy-agent');
+      config.httpsAgent = new HttpsProxyAgent(proxyUrl);
+    } else {
+      console.log(`[Scraper] Performing direct request for: ${url}`);
+    }
+
+    return await performRequest(requestUrl, config);
+  } catch (err) {
+    console.warn(`⚠️ [Scraper Primary Failed] URL: ${url}. Error: ${err.message}. Trying fallback if key exists...`);
+    lastError = err;
+  }
+
+  // Phase 2: Fallback to ScrapingBee if ScrapingBee Key is provided and primary crawler failed
+  if (scrapingBeeKey) {
+    try {
+      console.log(`[Scraper Fallback] Routing request through ScrapingBee for: ${url}`);
+      const renderJs = process.env.SCRAPINGBEE_RENDER === 'true' ? 'true' : 'false';
+      let params = `api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&render_js=${renderJs}`;
+      if (process.env.SCRAPINGBEE_PREMIUM === 'true') {
+        params += '&premium_proxy=true';
+      }
+      if (process.env.SCRAPINGBEE_COUNTRY) {
+        params += `&country_code=${process.env.SCRAPINGBEE_COUNTRY}`;
+      }
+      const requestUrl = `https://app.scrapingbee.com/api/v1/?${params}`;
+      const config = {
+        headers: { 'User-Agent': getRandomUserAgent() },
+        timeout: customTimeout
+      };
+      return await performRequest(requestUrl, config);
+    } catch (err) {
+      console.error(`❌ [Scraper Fallback Failed] URL: ${url}. Error: ${err.message}`);
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error(`Failed to retrieve page HTML for: ${url}`);
 }
 
 /**

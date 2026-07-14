@@ -201,11 +201,32 @@ async function addProduct(userId, platform, pid, name, url, affUrl, imageUrl, pr
     
     const product = res.rows[0];
     
-    // Add initial price to history
-    await client.query(
-      `INSERT INTO telegram_price_history (product_id, price, date) VALUES ($1, $2, CURRENT_TIMESTAMP)`,
-      [product.id, price]
+    // Check if central database already compiled price history points for this URL
+    const centralProdRes = await client.query(
+      'SELECT id FROM products WHERE url = $1 LIMIT 1',
+      [url]
     );
+    let copiedCount = 0;
+    if (centralProdRes.rows.length > 0) {
+      const centralProdId = centralProdRes.rows[0].id;
+      // Copy all points from central price_history to user's telegram_price_history
+      const copyRes = await client.query(
+        `INSERT INTO telegram_price_history (product_id, price, date)
+         SELECT $1, price, timestamp FROM price_history
+         WHERE product_id = $2
+         ON CONFLICT DO NOTHING`,
+        [product.id, centralProdId]
+      );
+      copiedCount = copyRes.rowCount;
+    }
+    
+    // If no points were copied, add the initial point
+    if (copiedCount === 0) {
+      await client.query(
+        `INSERT INTO telegram_price_history (product_id, price, date) VALUES ($1, $2, CURRENT_TIMESTAMP)`,
+        [product.id, price]
+      );
+    }
     
     await client.query('COMMIT');
     return product;
