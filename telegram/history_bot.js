@@ -514,11 +514,51 @@ async function fetchProductHistory(platform, pid, url = '') {
 // Render Result Card for User
 async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessageId = null, refreshData = false) {
   try {
-    let resultMsg;
+    let resultMsg = null;
+    let extraMsgs = [];
+    let timer1 = null;
+    let timer2 = null;
+
     if (editMessageId) {
       await bot.editMessageText('⏳ Generating Graph & Recommendation...', { chat_id: chatId, message_id: editMessageId }).catch(() => {});
     } else {
       resultMsg = await bot.sendMessage(chatId, '🔍 Finding Product...\n📈 Fetching Price History...');
+    }
+
+    // Set up status timers
+    if (!editMessageId) {
+      timer1 = setTimeout(async () => {
+        try {
+          const statusText = `⏳ *Scraping is taking a bit longer than expected...*\n\nWe are still compiling the price graph. Please wait a moment while we compile the details...`;
+          const m = await bot.sendMessage(chatId, statusText, { parse_mode: 'Markdown' });
+          extraMsgs.push(m);
+        } catch (e) {}
+      }, 10000); // 10 seconds
+
+      timer2 = setTimeout(async () => {
+        try {
+          const stillText = `⏳ *Still onto this...*\n\nIt is taking longer than usual, but we are still crawling the data. Please hang tight!`;
+          const m = await bot.sendMessage(chatId, stillText, { parse_mode: 'Markdown' });
+          extraMsgs.push(m);
+        } catch (e) {}
+      }, 60000); // 60 seconds (1 minute)
+    }
+
+    // Deletion/Cleanup helper
+    async function cleanupProgress() {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      if (editMessageId) {
+        await bot.deleteMessage(chatId, editMessageId).catch(() => {});
+      }
+      if (resultMsg) {
+        await bot.deleteMessage(chatId, resultMsg.message_id).catch(() => {});
+      }
+      for (const m of extraMsgs) {
+        if (m) {
+          await bot.deleteMessage(chatId, m.message_id).catch(() => {});
+        }
+      }
     }
 
     if (refreshData) {
@@ -529,17 +569,8 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
     try {
       data = await fetchProductHistory(platform, pid);
     } catch (err) {
-      console.log('[History Bot Fetch] First attempt failed. Showing status and retrying...');
-      const statusText = `⏳ *Scraping is taking a bit longer than expected...*\n\nWe are still compiling the price graph. Please wait a moment while we compile the details...`;
-      if (editMessageId) {
-        await bot.editMessageText(statusText, { chat_id: chatId, message_id: editMessageId, parse_mode: 'Markdown' }).catch(() => {});
-      } else {
-        await bot.deleteMessage(chatId, resultMsg.message_id).catch(() => {});
-        resultMsg = await bot.sendMessage(chatId, statusText, { parse_mode: 'Markdown' });
-      }
-      
+      console.log('[History Bot Fetch] First attempt failed. Retrying...');
       await new Promise(resolve => setTimeout(resolve, 6000));
-      
       try {
         data = await fetchProductHistory(platform, pid);
       } catch (retryErr) {
@@ -551,12 +582,8 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
     if (history.length === 0) {
       const msgText = `⚠ *No historical price data is available for this product yet.*\n\n` +
         `Current Price: ₹${parseFloat(data.price).toLocaleString('en-IN')}`;
-      if (editMessageId) {
-        await bot.editMessageText(msgText, { chat_id: chatId, message_id: editMessageId, parse_mode: 'Markdown' });
-      } else {
-        await bot.deleteMessage(chatId, resultMsg.message_id).catch(() => {});
-        await bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
-      }
+      await cleanupProgress();
+      await bot.sendMessage(chatId, msgText, { parse_mode: 'Markdown' });
       return;
     }
 
@@ -609,11 +636,7 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
     }
 
     // Send photo or edit existing photo message
-    if (editMessageId || (resultMsg && editMessageId)) {
-      await bot.deleteMessage(chatId, editMessageId || resultMsg.message_id).catch(() => {});
-    } else if (resultMsg) {
-      await bot.deleteMessage(chatId, resultMsg.message_id).catch(() => {});
-    }
+    await cleanupProgress();
 
     try {
       await bot.sendPhoto(chatId, finalChartUrl, {
@@ -633,11 +656,8 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
   } catch (err) {
     console.error('[History Card Render Error]', err.message);
     const errMsg = `❌ *Scraping Failed*\n\nUnable to fetch price history at the moment.\n\nPlease try again later.`;
-    if (editMessageId) {
-      await bot.editMessageText(errMsg, { chat_id: chatId, message_id: editMessageId, parse_mode: 'Markdown' });
-    } else {
-      await bot.sendMessage(chatId, errMsg, { parse_mode: 'Markdown' });
-    }
+    await cleanupProgress();
+    await bot.sendMessage(chatId, errMsg, { parse_mode: 'Markdown' });
   }
 }
 

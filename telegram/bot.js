@@ -1299,7 +1299,7 @@ bot.on('message', async (msg) => {
   if (isShort) {
     const statusMsg = await bot.sendMessage(chatId, '🔍 Resolving link...');
     resolvedUrl = await expandUrl(productUrl);
-    await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+    await cleanupProgress();
   }
   const detected = detectPlatformAndPid(resolvedUrl);
   
@@ -1353,11 +1353,46 @@ bot.on('message', async (msg) => {
     }
 
     // Sequence of replies: Please Wait...!! -> Getting Product Info... -> Adding Your Product...
-    const statusMsg = await bot.sendMessage(chatId, 'Please Wait...!!');
+    let resultMsg = null;
+    let extraMsgs = [];
+    let timer1 = null;
+    let timer2 = null;
+
+    resultMsg = await bot.sendMessage(chatId, 'Please Wait...!!');
     
+    // Set up status timers
+    timer1 = setTimeout(async () => {
+      try {
+        const statusText = `⏳ *Scraping is taking a bit longer than expected...*\n\nWe are still retrieving the product details, please wait...`;
+        const m = await bot.sendMessage(chatId, statusText, { parse_mode: 'Markdown' });
+        extraMsgs.push(m);
+      } catch (e) {}
+    }, 10000); // 10 seconds
+
+    timer2 = setTimeout(async () => {
+      try {
+        const stillText = `⏳ *Still onto this...*\n\nIt is taking longer than usual, but we are still crawling the data. Please hang tight!`;
+        const m = await bot.sendMessage(chatId, stillText, { parse_mode: 'Markdown' });
+        extraMsgs.push(m);
+      } catch (e) {}
+    }, 60000); // 60 seconds (1 minute)
+
+    const cleanupProgress = async () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      if (resultMsg) {
+        await bot.deleteMessage(chatId, resultMsg.message_id).catch(() => {});
+      }
+      for (const m of extraMsgs) {
+        if (m) {
+          await bot.deleteMessage(chatId, m.message_id).catch(() => {});
+        }
+      }
+    };
+
     try {
       await new Promise(resolve => setTimeout(resolve, 800));
-      await bot.editMessageText('Getting Product Info...', { chat_id: chatId, message_id: statusMsg.message_id });
+      await bot.editMessageText('Getting Product Info...', { chat_id: chatId, message_id: resultMsg.message_id }).catch(() => {});
       
       // Scrape details from API scraper service with a 30s timeout and a 6s loading retry fallback
       let response;
@@ -1367,12 +1402,7 @@ bot.on('message', async (msg) => {
           timeout: 30000
         });
       } catch (err) {
-        console.log('[Automatic Tracking Fetch] First attempt failed. Showing status and retrying...');
-        await bot.editMessageText('⏳ Scraping is taking a bit longer than expected...\n\nWe are still retrieving the product details, please wait...', {
-          chat_id: chatId,
-          message_id: statusMsg.message_id
-        }).catch(() => {});
-        
+        console.log('[Automatic Tracking Fetch] First attempt failed. Retrying...');
         await new Promise(resolve => setTimeout(resolve, 6000));
         
         try {
@@ -1387,7 +1417,7 @@ bot.on('message', async (msg) => {
       
       const data = response.data;
       if (!data || !data.success) {
-        await bot.deleteMessage(chatId, statusMsg.message_id);
+        await cleanupProgress();
         await bot.sendMessage(chatId, 'Failed to get your product.\n\nPlease report it to the admin.', {
           reply_markup: { inline_keyboard: [getMainButtons()] }
         });
@@ -1398,14 +1428,14 @@ bot.on('message', async (msg) => {
       
       // Out of Stock check
       if (!livePrice || isNaN(livePrice) || livePrice <= 0) {
-        await bot.deleteMessage(chatId, statusMsg.message_id);
+        await cleanupProgress();
         await bot.sendMessage(chatId, 'Looks like this product is Out Of Stock.\n\nPlease try again later.', {
           reply_markup: { inline_keyboard: [getMainButtons()] }
         });
         return;
       }
 
-      await bot.editMessageText('Adding Your Product...', { chat_id: chatId, message_id: statusMsg.message_id });
+      await bot.editMessageText('Adding Your Product...', { chat_id: chatId, message_id: resultMsg.message_id });
       
       // Convert to affiliate URL (check global DB first to avoid redundant API hits)
       let affUrl = await db.getExistingAffUrl(platform, pid);
@@ -1425,7 +1455,7 @@ bot.on('message', async (msg) => {
         livePrice
       );
       
-      await bot.deleteMessage(chatId, statusMsg.message_id);
+      await cleanupProgress();
       
       if (saved) {
         let lowestPrice = livePrice;
@@ -1476,7 +1506,7 @@ bot.on('message', async (msg) => {
       
     } catch (err) {
       console.error('[Automatic Tracking Error]', err.message);
-      await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+      await cleanupProgress();
       await bot.sendMessage(chatId, 'Failed to get your product.\n\nPlease report it to the admin.', {
         reply_markup: { inline_keyboard: [getMainButtons()] }
       });
