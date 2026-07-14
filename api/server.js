@@ -365,6 +365,13 @@ app.get('/api/scrape', async (req, res) => {
     console.log(`[API Server] Expanded to: ${canonicalUrl}`);
   }
 
+  // Resolve any short/reconstructed URLs from database first
+  const productInDb = await getProductByUrl(canonicalUrl);
+  if (productInDb) {
+    console.log(`[API Scrape] Found product in DB. Using resolved URL: ${productInDb.url}`);
+    canonicalUrl = productInDb.url;
+  }
+
   try {
     // 1. Scrape the live product page
     let scrapeResult = await scrapeProduct(canonicalUrl);
@@ -574,6 +581,13 @@ app.get('/api/history', async (req, res) => {
   try {
     console.log(`[API History] Fetching history for URL: ${canonicalUrl}`);
     
+    // Check database first to resolve any short/reconstructed URLs
+    let productInDb = await getProductByUrl(canonicalUrl);
+    if (productInDb) {
+      console.log(`[API History] Found product in DB. Using resolved URL: ${productInDb.url}`);
+      canonicalUrl = productInDb.url;
+    }
+    
     // 1. Try to live scrape details of the product
     let scrapeResult = await scrapeProduct(canonicalUrl).catch(() => ({ success: false }));
     
@@ -605,7 +619,7 @@ app.get('/api/history', async (req, res) => {
     }
 
     // 2. Try to get cached history from our database
-    let productInDb = await getProductByUrl(canonicalUrl);
+    productInDb = productInDb || await getProductByUrl(canonicalUrl);
     let historyPoints = [];
     
     if (productInDb) {

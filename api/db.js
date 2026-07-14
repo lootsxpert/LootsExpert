@@ -273,13 +273,121 @@ async function updateProductDealStats(productId, currentPrice, originalPrice, di
   }
 }
 
+function detectPlatformAndPid(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    
+    if (host.includes('amazon.in') || host.includes('amazon.com')) {
+      const asinMatch = parsed.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+      if (asinMatch) {
+        return { platform: 'amazon', pid: asinMatch[1] };
+      }
+    }
+    if (host.includes('flipkart.com')) {
+      const pid = parsed.searchParams.get('pid');
+      if (pid) {
+        return { platform: 'flipkart', pid };
+      }
+      const pathParts = parsed.pathname.split('/');
+      const pIndex = pathParts.indexOf('p');
+      if (pIndex !== -1 && pathParts[pIndex + 1]) {
+        return { platform: 'flipkart', pid: pathParts[pIndex + 1] };
+      }
+    }
+    if (host.includes('shopsy.in') || host.includes('shopsy.com')) {
+      const pid = parsed.searchParams.get('pid');
+      if (pid) {
+        return { platform: 'shopsy', pid };
+      }
+      const pathParts = parsed.pathname.split('/');
+      const pIndex = pathParts.indexOf('p');
+      if (pIndex !== -1 && pathParts[pIndex + 1]) {
+        return { platform: 'shopsy', pid: pathParts[pIndex + 1] };
+      }
+    }
+    if (host.includes('myntra.com')) {
+      const match = parsed.pathname.match(/\/(\d+)\/buy/i);
+      if (match) {
+        return { platform: 'myntra', pid: match[1] };
+      }
+      const matchAlt = parsed.pathname.match(/\/(\d+)/);
+      if (matchAlt) {
+        return { platform: 'myntra', pid: matchAlt[1] };
+      }
+    }
+    if (host.includes('ajio.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9_]+)/i);
+      if (match) {
+        const parts = match[1].split('_');
+        return { platform: 'ajio', pid: parts[0] };
+      }
+    }
+    if (host.includes('meesho.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/i);
+      if (match) {
+        return { platform: 'meesho', pid: match[1] };
+      }
+    }
+    if (host.includes('croma.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/) || parsed.pathname.match(/-([a-zA-Z0-9]+)$/);
+      const pid = match ? match[1] : parsed.pathname.split('/').pop() || 'croma_pid';
+      return { platform: 'croma', pid };
+    }
+    if (host.includes('tatacliq.com')) {
+      const match = parsed.pathname.match(/\/p-([a-zA-Z0-9]+)/) || parsed.pathname.match(/-([a-zA-Z0-9]+)$/);
+      const pid = match ? match[1] : parsed.pathname.split('/').pop() || 'tatacliq_pid';
+      return { platform: 'tatacliq', pid };
+    }
+    if (host.includes('reliancedigital.in')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/);
+      const pid = match ? match[1] : parsed.pathname.split('/').pop() || 'reliancedigital_pid';
+      return { platform: 'reliancedigital', pid };
+    }
+    if (host.includes('nykaa.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/) || parsed.searchParams.get('productId');
+      const pid = match ? (typeof match === 'string' ? match : match[1]) : parsed.pathname.split('/').pop() || 'nykaa_pid';
+      return { platform: 'nykaa', pid };
+    }
+  } catch (e) {}
+  return null;
+}
+
+/**
+ * Find a product by its platform and PID
+ */
+async function getProductByPid(platform, pid) {
+  if (!platform || !pid) return null;
+  try {
+    const query = `
+      SELECT * FROM products 
+      WHERE platform ILIKE $1 
+        AND (url LIKE $2 OR url LIKE $3)
+      LIMIT 1
+    `;
+    const res = await pool.query(query, [platform, `%pid=${pid}%`, `%/${pid}%`]);
+    return res.rows[0] || null;
+  } catch (err) {
+    console.error('[DB Error] getProductByPid:', err);
+    return null;
+  }
+}
+
 /**
  * Find a product by its URL
  */
 async function getProductByUrl(url) {
   try {
     const res = await pool.query('SELECT * FROM products WHERE url = $1', [url]);
-    return res.rows[0] || null;
+    if (res.rows[0]) return res.rows[0];
+    
+    // Fallback: try to match by platform & pid if the URL contains one
+    const detected = detectPlatformAndPid(url);
+    if (detected) {
+      const pidProduct = await getProductByPid(detected.platform, detected.pid);
+      if (pidProduct) return pidProduct;
+    }
+    return null;
   } catch (err) {
     console.error('[DB Error] getProductByUrl:', err);
     return null;
