@@ -76,7 +76,7 @@ if (token) {
   if (token.startsWith('\\"') && token.endsWith('\\"')) token = token.slice(2, -2);
   if (token.startsWith('\\"')) token = token.slice(2);
 }
-let scraperApiUrl = process.env.SCRAPER_API_URL || 'http://localhost:3000';
+let scraperApiUrl = process.env.SCRAPER_API_URL || process.env.NODE_API_URL || 'https://api-production-142c.up.railway.app';
 if (scraperApiUrl.endsWith('/')) {
   scraperApiUrl = scraperApiUrl.slice(0, -1);
 }
@@ -129,6 +129,17 @@ const activeBroadcasts = new Map();
 
 
 // Helper: Verify subscription and execute task
+
+// Helper: Check if user is banned
+async function isUserBanned(chatId) {
+  try {
+    const user = await db.getHistoryUser(chatId);
+    return user?.is_banned === true;
+  } catch (err) {
+    return false;
+  }
+}
+
 async function verifyUserAndExecute(msg, taskType, taskData, executeCallback) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
@@ -138,9 +149,9 @@ async function verifyUserAndExecute(msg, taskType, taskData, executeCallback) {
   
   try {
     // Check if user is banned
-    const dbUser = await db.getHistoryUser(userId);
-    if (dbUser && dbUser.is_banned) {
-      await bot.sendMessage(userId, '❌ You are banned from using this bot.');
+    const banned = await isUserBanned(chatId);
+    if (banned) {
+      await bot.sendMessage(chatId, '❌ You have been banned from using this bot by the administrator.');
       return;
     }
 
@@ -298,6 +309,10 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
   let filtered = [...historyPoints].sort((a, b) => new Date(a.date) - new Date(b.date));
   const now = new Date();
   
+  // Clean up and default limit to last 3 months to prevent messy/crowded graph
+  const defaultLimitDate = new Date();
+  defaultLimitDate.setMonth(defaultLimitDate.getMonth() - 3);
+  
   if (range === '1m') {
     const limitDate = new Date(now.setDate(now.getDate() - 30));
     filtered = filtered.filter(p => new Date(p.date) >= limitDate);
@@ -307,6 +322,9 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
   } else if (range === '6m') {
     const limitDate = new Date(now.setDate(now.getDate() - 180));
     filtered = filtered.filter(p => new Date(p.date) >= limitDate);
+  } else {
+    // Default to last 3 months for all/other ranges to keep graph clean
+    filtered = filtered.filter(p => new Date(p.date) >= defaultLimitDate);
   }
 
   // Fallback if filter left no points
@@ -314,9 +332,10 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
     filtered = historyPoints;
   }
 
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const labels = filtered.map(p => {
     const d = new Date(p.date);
-    return `${d.getDate()}/${d.getMonth() + 1}`;
+    return `${d.getDate()} ${monthNames[d.getMonth()]}`;
   });
   const prices = filtered.map(p => p.price);
 
@@ -343,7 +362,7 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
         display: true,
         text: productName.substring(0, 32) + '... History Trend',
         fontSize: 14,
-        fontColor: '#1e293b',
+        fontColor: '#000000',
         fontFamily: 'Inter'
       },
       legend: {
@@ -354,16 +373,16 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
           gridLines: { display: false, drawBorder: false },
           ticks: {
             fontFamily: 'Inter',
-            fontColor: '#64748b',
+            fontColor: '#000000',
             fontSize: 10,
             maxTicksLimit: 8
           }
         }],
         yAxes: [{
-          gridLines: { color: '#f1f5f9', drawBorder: false },
+          gridLines: { color: '#e2e8f0', drawBorder: false },
           ticks: {
             fontFamily: 'Inter',
-            fontColor: '#64748b',
+            fontColor: '#000000',
             fontSize: 10,
             callback: (val) => '₹' + parseInt(val).toLocaleString('en-IN')
           }
@@ -498,6 +517,13 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
     ];
 
     const chartUrl = generateChartUrl(history, range, data.title);
+    
+    // Merge product image and graph using the express proxy endpoint via QuickChart Watermark API
+    let finalChartUrl = chartUrl;
+    if (data.image) {
+      const proxiedProductImg = `${scraperApiUrl}/api/proxy-image?url=${encodeURIComponent(data.image)}`;
+      finalChartUrl = `https://quickchart.io/watermark?mainImageUrl=${encodeURIComponent(chartUrl)}&markImageUrl=${encodeURIComponent(proxiedProductImg)}&markRatio=0.22&position=topRight&opacity=1.0`;
+    }
 
     // Send photo or edit existing photo message
     if (editMessageId || (resultMsg && editMessageId)) {
@@ -506,11 +532,20 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
       await bot.deleteMessage(chatId, resultMsg.message_id).catch(() => {});
     }
 
-    await bot.sendPhoto(chatId, chartUrl, {
-      caption: textCaption,
-      parse_mode: 'Markdown',
-      reply_markup: { inline_keyboard: inlineKeyboard }
-    });
+    try {
+      await bot.sendPhoto(chatId, finalChartUrl, {
+        caption: textCaption,
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: inlineKeyboard }
+      });
+    } catch (sendErr) {
+      console.error('[Consolidated Send Error, falling back to plain chart]', sendErr.message);
+      await bot.sendPhoto(chatId, chartUrl, {
+        caption: textCaption,
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: inlineKeyboard }
+      }).catch(() => {});
+    }
 
   } catch (err) {
     console.error('[History Card Render Error]', err.message);
@@ -527,6 +562,8 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
 bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
   const chatId = msg.chat.id;
   const deepLink = match[1];
+
+  if (await isUserBanned(chatId)) return;
 
   await db.saveHistoryUser(chatId, msg.from.first_name || '', msg.from.username || '');
 
@@ -622,11 +659,11 @@ bot.onText(/\/cache_clear/, async (msg) => {
 });
 
 // Command: /ban <userId> (Admin)
-bot.onText(/\/ban (\d+)/, async (msg, match) => {
+bot.onText(/^\/ban(?:[_ ]?([0-9]+))?$/, async (msg, match) => {
   const chatId = msg.chat.id;
   if (!isAdmin(chatId)) return;
 
-  const targetId = parseInt(match[1]);
+  const targetId = match[1];
   const user = await db.banUser(targetId);
   if (user) {
     await bot.sendMessage(chatId, `✅ User ${targetId} has been banned.`);
@@ -636,11 +673,11 @@ bot.onText(/\/ban (\d+)/, async (msg, match) => {
 });
 
 // Command: /unban <userId> (Admin)
-bot.onText(/\/unban (\d+)/, async (msg, match) => {
+bot.onText(/^\/unban(?:[_ ]?([0-9]+))?$/, async (msg, match) => {
   const chatId = msg.chat.id;
   if (!isAdmin(chatId)) return;
 
-  const targetId = parseInt(match[1]);
+  const targetId = match[1];
   const user = await db.unbanUser(targetId);
   if (user) {
     await bot.sendMessage(chatId, `✅ User ${targetId} has been unbanned.`);
@@ -658,11 +695,41 @@ bot.onText(/\/broadcast/, async (msg) => {
   await bot.sendMessage(chatId, `🎙 *Broadcast Mode Enabled*\n\nSend the message (text, photo, or video with caption) that you want to broadcast to all users next.\n\n_You do not need to reply to this message. Just send it._`, { parse_mode: 'Markdown' });
 });
 
+
+// Anti-spam rate limiting map
+const userRateLimits = new Map();
+
 // Message Listener for product URLs
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text || msg.caption;
   
+  // Check if banned
+  if (await isUserBanned(chatId)) {
+    if (!isAdmin(chatId)) {
+      await bot.sendMessage(chatId, '❌ You have been banned from using this bot by the administrator.');
+      return;
+    }
+  }
+
+  // Anti-spam check
+  const userId = msg.from?.id;
+  if (userId && !isAdmin(chatId)) {
+    const now = Date.now();
+    if (!userRateLimits.has(userId)) {
+      userRateLimits.set(userId, []);
+    }
+    const timestamps = userRateLimits.get(userId);
+    const recent = timestamps.filter(t => now - t < 10000);
+    recent.push(now);
+    userRateLimits.set(userId, recent);
+    
+    if (recent.length > 5) {
+      await bot.sendMessage(chatId, '⚠️ *Anti-Spam System:* You are sending too many messages. Please wait 10 seconds before trying again.', { parse_mode: 'Markdown' });
+      return;
+    }
+  }
+
   // Save history user immediately on any interaction
   await db.saveHistoryUser(chatId, msg.from?.first_name || '', msg.from?.username || '').catch(() => {});
 

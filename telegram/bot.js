@@ -7,11 +7,10 @@ const urlModule = require('url');
 
 function expandUrl(shortUrl) {
   return new Promise((resolve) => {
-    let currentUrl = shortUrl;
     let redirectsCount = 0;
     
     function follow(urlStr) {
-      if (redirectsCount >= 5) {
+      if (redirectsCount >= 10) {
         resolve(urlStr);
         return;
       }
@@ -28,7 +27,9 @@ function expandUrl(shortUrl) {
       const options = {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9'
         }
       };
       
@@ -41,7 +42,20 @@ function expandUrl(shortUrl) {
           }
           follow(nextUrl);
         } else {
-          resolve(urlStr);
+          // Resolve standard URL but extract nested parameters if present
+          let finalUrl = urlStr;
+          try {
+            const urlObj = new urlModule.URL(urlStr);
+            const paramsToCheck = ['dl', 'dest', 'redirect', 'to', 'target', 'url', 'redirect_url'];
+            for (const param of paramsToCheck) {
+              const val = urlObj.searchParams.get(param);
+              if (val && val.startsWith('http')) {
+                finalUrl = decodeURIComponent(val);
+                break;
+              }
+            }
+          } catch (e) {}
+          resolve(finalUrl);
         }
       });
       
@@ -50,7 +64,7 @@ function expandUrl(shortUrl) {
         resolve(urlStr);
       });
       
-      req.setTimeout(4000, () => {
+      req.setTimeout(6000, () => {
         req.destroy();
         resolve(urlStr);
       });
@@ -118,6 +132,17 @@ const activeBroadcasts = new Map();
 
 
 // Helper: Verify subscription and execute task
+
+// Helper: Check if user is banned
+async function isUserBanned(chatId) {
+  try {
+    const res = await db.pool.query('SELECT is_banned FROM telegram_users WHERE telegram_id = $1', [chatId]);
+    return res.rows[0]?.is_banned === true;
+  } catch (err) {
+    return false;
+  }
+}
+
 async function verifyUserAndExecute(msg, taskType, taskData, executeCallback) {
   const chatId = msg.chat.id;
   const userId = msg.from.id;
@@ -126,6 +151,13 @@ async function verifyUserAndExecute(msg, taskType, taskData, executeCallback) {
   const channelLink = channelName.startsWith('@') ? `https://t.me/${channelName.substring(1)}` : `https://t.me/${channelName}`;
   
   try {
+    // Check if user is banned
+    const banned = await isUserBanned(chatId);
+    if (banned) {
+      await bot.sendMessage(chatId, '❌ You have been banned from using this bot by the administrator.');
+      return;
+    }
+
     const member = await bot.getChatMember(channel, userId);
     const isMember = ['member', 'administrator', 'creator'].includes(member.status);
     
@@ -374,20 +406,21 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
   }
 
   const name = msg.from.first_name || 'there';
-  const welcomeText = `👋 Hello *${escapeMarkdown(name)}*!\n\n` +
-    `I'm *PriceTrackerBot*, your personal assistant for tracking product prices.\n\n` +
+  const trackerBotUsername = process.env.PRICE_TRACKER_BOT_USERNAME || 'The_PriceTracker_bot';
+  const historyBotUsername = process.env.PRICE_HISTORY_BOT_USERNAME || 'The_PriceHistory_Bot';
+  const welcomeText = `👋 Hello <b>${name}</b>!\n\n` +
+    `I'm <b>@${trackerBotUsername}</b>, your personal assistant for tracking product prices.\n\n` +
     `I will notify you whenever the price goes up or down.\n\n` +
     `Simply send me a product link.\n\n` +
-    `*Supported Websites:*\n` +
+    `<b>Supported Websites:</b>\n` +
     `• Amazon\n• Flipkart\n• Shopsy\n• Ajio\n• Myntra\n• Meesho\n\n` +
     `Use /my_trackings to see tracked products.\n` +
     `Use /help for help.\n\n` +
-    `*Also Try:*\n` +
-    `@Amazon\\_Pricehistory\\_bot\n` +
-    `@${escapeMarkdown(historyBotUsername)}`;
+    `<b>Also Try:</b>\n` +
+    `@${historyBotUsername}`;
 
   const opts = {
-    parse_mode: 'Markdown',
+    parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: [
         getMainButtons()
@@ -400,20 +433,23 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
 
 // Command: /help
 bot.onText(/\/help/, async (msg) => {
-  const helpText = `🤖 *Price Tracker Bot Help*\n\n` +
-    `*Commands:*\n` +
+  const chatId = msg.chat.id;
+  if (await isUserBanned(chatId)) return;
+
+  const helpText = `🤖 <b>Price Tracker Bot Help</b>\n\n` +
+    `<b>Commands:</b>\n` +
     `/my_trackings - View tracked products\n` +
-    `/product <product_id> - View product details\n` +
-    `/stop <product_id> - Stop tracking\n` +
+    `/product &lt;product_id&gt; - View product details\n` +
+    `/stop &lt;product_id&gt; - Stop tracking\n` +
     `/pricegraph - View list to generate graph\n` +
-    `/pricegraph <product_id> - Generate price graph\n\n` +
-    `*How it works:*\n` +
+    `/pricegraph &lt;product_id&gt; - Generate price graph\n\n` +
+    `<b>How it works:</b>\n` +
     `1. Send a product link (Amazon, Flipkart, Myntra, Ajio, Meesho, Shopsy, Croma, TataCliq, Reliance Digital, Nykaa, etc.)\n` +
     `2. Bot tracks the product\n` +
     `3. Receive notification whenever the price changes.`;
 
-  await bot.sendMessage(msg.chat.id, helpText, {
-    parse_mode: 'Markdown',
+  await bot.sendMessage(chatId, helpText, {
+    parse_mode: 'HTML',
     reply_markup: { inline_keyboard: [getMainButtons()] }
   });
 });
@@ -567,11 +603,21 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
       try {
         const product = await db.getProductByPid(chatId, productPid);
         if (product && product.price_history && product.price_history.length > 0) {
-          const labels = product.price_history.map(h => {
+          // Filter to last 3 months
+          const limitDate = new Date();
+          limitDate.setMonth(limitDate.getMonth() - 3);
+          let filteredHistory = [...product.price_history].sort((a, b) => new Date(a.date) - new Date(b.date));
+          filteredHistory = filteredHistory.filter(h => new Date(h.date) >= limitDate);
+          if (filteredHistory.length === 0) {
+            filteredHistory = product.price_history;
+          }
+          
+          const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          const labels = filteredHistory.map(h => {
             const d = new Date(h.date);
-            return `${d.getDate()}/${d.getMonth() + 1}`;
+            return `${d.getDate()} ${monthNames[d.getMonth()]}`;
           });
-          const prices = product.price_history.map(h => parseFloat(h.price));
+          const prices = filteredHistory.map(h => parseFloat(h.price));
           
           const chartConfig = {
             type: 'line',
@@ -596,7 +642,7 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
                 display: true,
                 text: product.product_name.substring(0, 32) + '... Trend',
                 fontSize: 14,
-                fontColor: '#1e293b',
+                fontColor: '#000000',
                 fontFamily: 'Inter'
               },
               legend: {
@@ -607,16 +653,16 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
                   gridLines: { display: false, drawBorder: false },
                   ticks: {
                     fontFamily: 'Inter',
-                    fontColor: '#64748b',
+                    fontColor: '#000000',
                     fontSize: 10,
                     maxTicksLimit: 8
                   }
                 }],
                 yAxes: [{
-                  gridLines: { color: '#f1f5f9', drawBorder: false },
+                  gridLines: { color: '#e2e8f0', drawBorder: false },
                   ticks: {
                     fontFamily: 'Inter',
-                    fontColor: '#64748b',
+                    fontColor: '#000000',
                     fontSize: 10,
                     callback: (val) => '₹' + parseInt(val).toLocaleString('en-IN')
                   }
@@ -627,8 +673,9 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
           
           const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
           await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+          const graphClickable = `[${escapeMarkdown(product.product_name)}](${product.aff_url || product.product_url})`;
           await bot.sendPhoto(chatId, graphUrl, {
-            caption: `📊 Price History graph for *${product.product_name}*`,
+            caption: `📊 Price History graph for *${graphClickable}*`,
             parse_mode: 'Markdown'
           });
         } else {
@@ -672,6 +719,45 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
 
 
 // Command: /broadcast (Admin)
+// Command: /ban <userId> (Admin)
+bot.onText(/^\/ban(?:[_ ]?([0-9]+))?$/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isAdmin(chatId)) return;
+  
+  const targetUserId = match[1];
+  if (!targetUserId) {
+    await bot.sendMessage(chatId, '❌ Please specify a user ID to ban. Example: `/ban 12345678`', { parse_mode: 'Markdown' });
+    return;
+  }
+  
+  const result = await db.banUser(targetUserId);
+  if (result) {
+    await bot.sendMessage(chatId, `✅ User ${targetUserId} has been banned.`);
+  } else {
+    await bot.sendMessage(chatId, `❌ Failed to ban user ${targetUserId}.`);
+  }
+});
+
+// Command: /unban <userId> (Admin)
+bot.onText(/^\/unban(?:[_ ]?([0-9]+))?$/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  if (!isAdmin(chatId)) return;
+  
+  const targetUserId = match[1];
+  if (!targetUserId) {
+    await bot.sendMessage(chatId, '❌ Please specify a user ID to unban. Example: `/unban 12345678`', { parse_mode: 'Markdown' });
+    return;
+  }
+  
+  const result = await db.unbanUser(targetUserId);
+  if (result) {
+    await bot.sendMessage(chatId, `✅ User ${targetUserId} has been unbanned.`);
+  } else {
+    await bot.sendMessage(chatId, `❌ Failed to unban user ${targetUserId}.`);
+  }
+});
+
+
 bot.onText(/\/broadcast/, async (msg) => {
   const chatId = msg.chat.id;
   if (!isAdmin(chatId)) return;
@@ -874,8 +960,9 @@ bot.on('callback_query', async (callbackQuery) => {
         );
         
         if (saved) {
+          const clickableName = `[${escapeMarkdown(data.title)}](${affUrl || url})`;
           const successMsg = `✅ *Product added successfully!*\n\n` +
-            `🏷 *${escapeMarkdown(data.title)}*\n\n` +
+            `📌 *${clickableName}*\n\n` +
             `💰 *Current Price:* ₹${parseFloat(data.price).toLocaleString('en-IN')}\n\n` +
             `🔔 Price tracking has been enabled.\nYou'll receive a notification whenever the price changes.`;
             
@@ -924,12 +1011,21 @@ bot.on('callback_query', async (callbackQuery) => {
     try {
       const product = await db.getProductByPid(chatId, productPid);
       if (product && product.price_history && product.price_history.length > 0) {
-        // Construct QuickChart config
-        const labels = product.price_history.map(h => {
+        // Filter to last 3 months
+        const limitDate = new Date();
+        limitDate.setMonth(limitDate.getMonth() - 3);
+        let filteredHistory = [...product.price_history].sort((a, b) => new Date(a.date) - new Date(b.date));
+        filteredHistory = filteredHistory.filter(h => new Date(h.date) >= limitDate);
+        if (filteredHistory.length === 0) {
+          filteredHistory = product.price_history;
+        }
+
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const labels = filteredHistory.map(h => {
           const d = new Date(h.date);
-          return `${d.getDate()}/${d.getMonth() + 1}`;
+          return `${d.getDate()} ${monthNames[d.getMonth()]}`;
         });
-        const prices = product.price_history.map(h => parseFloat(h.price));
+        const prices = filteredHistory.map(h => parseFloat(h.price));
         
         const chartConfig = {
           type: 'line',
@@ -954,7 +1050,7 @@ bot.on('callback_query', async (callbackQuery) => {
               display: true,
               text: product.product_name.substring(0, 32) + '... Trend',
               fontSize: 14,
-              fontColor: '#1e293b',
+              fontColor: '#000000',
               fontFamily: 'Inter'
             },
             legend: {
@@ -965,16 +1061,16 @@ bot.on('callback_query', async (callbackQuery) => {
                 gridLines: { display: false, drawBorder: false },
                 ticks: {
                   fontFamily: 'Inter',
-                  fontColor: '#64748b',
+                  fontColor: '#000000',
                   fontSize: 10,
                   maxTicksLimit: 8
                 }
               }],
               yAxes: [{
-                gridLines: { color: '#f1f5f9', drawBorder: false },
+                gridLines: { color: '#e2e8f0', drawBorder: false },
                 ticks: {
                   fontFamily: 'Inter',
-                  fontColor: '#64748b',
+                  fontColor: '#000000',
                   fontSize: 10,
                   callback: (val) => '₹' + parseInt(val).toLocaleString('en-IN')
                 }
@@ -984,8 +1080,9 @@ bot.on('callback_query', async (callbackQuery) => {
         };
         
         const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+        const graphClickable = `[${escapeMarkdown(product.product_name)}](${product.aff_url || product.product_url})`;
         await bot.sendPhoto(chatId, graphUrl, {
-          caption: `📊 Price History graph for *${product.product_name}*`,
+          caption: `📊 Price History graph for *${graphClickable}*`,
           parse_mode: 'Markdown'
         });
       } else {
@@ -1350,19 +1447,24 @@ function startScheduler() {
                 const diff = newPrice - oldPrice;
                 const pct = ((Math.abs(diff) / oldPrice) * 100).toFixed(1);
                 
+                const clickableName = `[${escapeMarkdown(product.product_name)}](${product.aff_url || product.product_url})`;
                 let notifyMsg = '';
                 if (diff < 0) {
                   notifyMsg = `📢 *Price Changed!*\n\n` +
-                    `*${escapeMarkdown(product.product_name)}*\n\n` +
+                    `*${clickableName}*\n\n` +
                     `*Old Price:* ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `*Current Price:* ₹${newPrice.toLocaleString('en-IN')}\n` +
-                    `*Difference:* -₹${Math.abs(diff).toLocaleString('en-IN')} (-${pct}%)\n`;
+                    `*Difference:* -₹${Math.abs(diff).toLocaleString('en-IN')} (-${pct}%)\n\n` +
+                    `/product${product.product_id} Click For More Details\n` +
+                    `/stop${product.product_id} For Stop tracking This product`;
                 } else {
                   notifyMsg = `📈 *Price Increased!*\n\n` +
-                    `*${escapeMarkdown(product.product_name)}*\n\n` +
+                    `*${clickableName}*\n\n` +
                     `*Old Price:* ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `*New Price:* ₹${newPrice.toLocaleString('en-IN')}\n` +
-                    `*Difference:* +₹${diff.toLocaleString('en-IN')} (+${pct}%)\n`;
+                    `*Difference:* +₹${diff.toLocaleString('en-IN')} (+${pct}%)\n\n` +
+                    `/product${product.product_id} Click For More Details\n` +
+                    `/stop${product.product_id} For Stop tracking This product`;
                 }
                 
                 const opts = {
@@ -1373,13 +1475,18 @@ function startScheduler() {
                       [
                         { text: '📊 Price Graph', callback_data: `graph:${product.product_id}` },
                         { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }
-                      ],
-                      getMainButtons()
+                      ]
                     ]
                   }
                 };
                 
-                await bot.sendMessage(userChatId, notifyMsg, opts);
+                if (product.image_url) {
+                  await bot.sendPhoto(userChatId, product.image_url, { caption: notifyMsg, ...opts }).catch(async () => {
+                    await bot.sendMessage(userChatId, notifyMsg, opts).catch(() => {});
+                  });
+                } else {
+                  await bot.sendMessage(userChatId, notifyMsg, opts).catch(() => {});
+                }
               }
             }
           }

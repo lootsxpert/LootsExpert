@@ -98,6 +98,15 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_price_history_timestamp ON price_history(timestamp);
     `);
 
+    // Migration: ensure is_banned column exists in telegram_users (linked by tracker)
+    await client.query(`
+      ALTER TABLE telegram_users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE;
+    `).catch(() => {});
+
+    // Automatically clean up old data points older than 3 months
+    await client.query("DELETE FROM price_history WHERE timestamp < NOW() - INTERVAL '3 months'").catch(() => {});
+    await client.query("DELETE FROM telegram_price_history WHERE date < NOW() - INTERVAL '3 months'").catch(() => {});
+
     client.release();
     console.log('📊 Database tables initialized successfully.');
   } catch (err) {
@@ -400,7 +409,42 @@ async function updateProductHistoryUrl(productId, historyUrl) {
   }
 }
 
+
+/**
+ * Ban user in tracker bot (telegram_users table)
+ */
+async function banUser(userId) {
+  try {
+    const res = await pool.query(
+      'UPDATE telegram_users SET is_banned = TRUE WHERE telegram_id = $1 RETURNING *',
+      [userId]
+    );
+    return res.rows[0] || null;
+  } catch (err) {
+    console.error('[DB Error] banUser:', err);
+    return null;
+  }
+}
+
+/**
+ * Unban user in tracker bot (telegram_users table)
+ */
+async function unbanUser(userId) {
+  try {
+    const res = await pool.query(
+      'UPDATE telegram_users SET is_banned = FALSE WHERE telegram_id = $1 RETURNING *',
+      [userId]
+    );
+    return res.rows[0] || null;
+  } catch (err) {
+    console.error('[DB Error] unbanUser:', err);
+    return null;
+  }
+}
+
 module.exports = {
+  banUser,
+  unbanUser,
   initDatabase,
   getProductByUrl,
   saveProduct,

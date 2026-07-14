@@ -862,37 +862,39 @@ async function scrapeProduct(url) {
  */
 function parseChartPoints(html) {
   const dataPoints = [];
-  
-  // 1. Try Unix timestamp format: [1712398500000, 4999]
-  const timestampRegex = /\[\s*(\d{12,13})\s*,\s*(\d+(?:\.\d+)?)\s*\]/g;
-  let match;
-  while ((match = timestampRegex.exec(html)) !== null) {
-    dataPoints.push({
-      timestamp: new Date(parseInt(match[1])),
-      price: parseFloat(match[2])
+  try {
+    const $ = cheerio.load(html);
+    $('script').each((i, el) => {
+      const scriptContent = $(el).html();
+      if (!scriptContent) return;
+      if (!scriptContent.includes('chart') && !scriptContent.includes('series') && !scriptContent.includes('data') && !scriptContent.includes('history')) {
+        return;
+      }
+      
+      const timestampRegex = /\[\s*(\d{12,13})\s*,\s*(\d+(?:\.\d+)?)\s*\]/g;
+      let match;
+      while ((match = timestampRegex.exec(scriptContent)) !== null) {
+        dataPoints.push({
+          timestamp: new Date(parseInt(match[1])),
+          price: parseFloat(match[2])
+        });
+      }
+      
+      const dateStrRegex = /\[\s*['"](\d{4}-\d{2}-\d{2})['"]\s*,\s*(\d+(?:\.\d+)?)\s*\]/g;
+      while ((match = dateStrRegex.exec(scriptContent)) !== null) {
+        dataPoints.push({
+          timestamp: new Date(match[1]),
+          price: parseFloat(match[2])
+        });
+      }
     });
+  } catch (err) {
+    console.error('[parseChartPoints Error]', err.message);
   }
-  
-  if (dataPoints.length > 0) {
-    return dataPoints;
-  }
-  
-  // 2. Try ISO date string format: ["2024-04-10", 1499] or ['2024-04-10', 1499]
-  const dateStrRegex = /\[\s*['"](\d{4}-\d{2}-\d{2})['"]\s*,\s*(\d+(?:\.\d+)?)\s*\]/g;
-  while ((match = dateStrRegex.exec(html)) !== null) {
-    dataPoints.push({
-      timestamp: new Date(match[1]),
-      price: parseFloat(match[2])
-    });
-  }
-  
   return dataPoints;
 }
 
-/**
- * Attempts to scrape historical price details from PriceHistoryApp
- */
-async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
+function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   let html = '';
   let productPageLink = '';
   
@@ -940,6 +942,12 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   console.log(`[PriceHistoryApp Scrape] Fetching product page: ${productPageLink}`);
   try {
     const pageHtml = await fetchPageHtml(productPageLink, 8000);
+    // Instant redirect detection
+    const instantPoints = parseChartPoints(html);
+    if (instantPoints.length > 0) {
+      instantPoints.sort((a, b) => a.timestamp - b.timestamp);
+      return { url: searchUrl, source: 'PriceHistoryApp', dataPoints: instantPoints };
+    }
     const dataPoints = parseChartPoints(pageHtml);
     
     if (dataPoints.length > 0) {
@@ -1008,6 +1016,12 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
   console.log(`[BuyHatke Scrape] Fetching product page: ${productPageLink}`);
   try {
     const pageHtml = await fetchPageHtml(productPageLink, 8000);
+    // Instant redirect detection
+    const instantPoints = parseChartPoints(html);
+    if (instantPoints.length > 0) {
+      instantPoints.sort((a, b) => a.timestamp - b.timestamp);
+      return { url: searchUrl, source: 'BuyHatke', dataPoints: instantPoints };
+    }
     const dataPoints = parseChartPoints(pageHtml);
     
     if (dataPoints.length > 0) {
@@ -1105,7 +1119,7 @@ async function scrapeHistoricalTracker(productUrl, productTitle, currentPrice = 
       return result;
     }
     if (attempt < 2) {
-      console.log(`[Historical Scraper] PriceHistoryApp failed, retrying in 1.5s...`);
+      console.log(`[Historical Scraper] PriceHistoryApp failed, retrying in 0.5s...`);
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
@@ -1118,22 +1132,25 @@ async function scrapeHistoricalTracker(productUrl, productTitle, currentPrice = 
       return result;
     }
     if (attempt < 2) {
-      console.log(`[Historical Scraper] BuyHatke failed, retrying in 1.5s...`);
+      console.log(`[Historical Scraper] BuyHatke failed, retrying in 0.5s...`);
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
 
-  // 3. Fallback to PriceBefore
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    console.log(`[Historical Scraper] PriceBefore Fallback - Attempt ${attempt}`);
-    const result = await scrapeFromPriceBefore(productUrl, productTitle);
-    if (result && result.dataPoints && result.dataPoints.length > 0) {
-      return result;
+  // 3. Parallel fallback for other sites (PriceBefore)
+  console.log(`[Historical Scraper] Sequential PriceHistoryApp and BuyHatke failed. Trying PriceBefore in parallel...`);
+  try {
+    const promises = [
+      scrapeFromPriceBefore(productUrl, productTitle)
+    ];
+    const results = await Promise.all(promises);
+    for (const res of results) {
+      if (res && res.dataPoints && res.dataPoints.length > 0) {
+        return res;
+      }
     }
-    if (attempt < 2) {
-      console.log(`[Historical Scraper] PriceBefore failed, retrying in 1.5s...`);
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+  } catch (err) {
+    console.error('[Historical Scraper] Parallel scrape error:', err.message);
   }
 
   // 4. Fallback to AI Prediction (Own prediction fallback based on current price)
