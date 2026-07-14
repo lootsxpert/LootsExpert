@@ -15,6 +15,27 @@ function getRandomUserAgent() {
 }
 
 /**
+ * Clean e-commerce URL by stripping query parameters and hashes.
+ */
+function getCanonicalUrl(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url);
+    parsed.search = '';
+    parsed.hash = '';
+    if (parsed.hostname.includes('amazon.')) {
+      const match = parsed.pathname.match(/\/dp\/([A-Z0-9]{10})/i) || parsed.pathname.match(/\/gp\/product\/([A-Z0-9]{10})/i);
+      if (match && match[1]) {
+        return `https://${parsed.hostname}/dp/${match[1]}`;
+      }
+    }
+    return parsed.toString();
+  } catch (e) {
+    return url;
+  }
+}
+
+/**
  * Clean up scraped price string and convert to Number
  */
 function parsePrice(priceStr) {
@@ -162,7 +183,7 @@ async function fetchPageHtml(url, customTimeout = 30000) {
       if (process.env.SCRAPERAPI_PREMIUM === 'true') {
         params += '&premium=true';
       }
-      if (process.env.SCRAPERAPI_COUNTRY) {
+      if (process.env.SCRAPERAPI_COUNTRY && isAmazon) {
         params += `&country_code=${process.env.SCRAPERAPI_COUNTRY}`;
       }
       requestUrl = `http://api.scraperapi.com?${params}`;
@@ -189,7 +210,7 @@ async function fetchPageHtml(url, customTimeout = 30000) {
       if (process.env.SCRAPINGBEE_PREMIUM === 'true') {
         params += '&premium_proxy=true';
       }
-      if (process.env.SCRAPINGBEE_COUNTRY) {
+      if (process.env.SCRAPINGBEE_COUNTRY && isAmazon) {
         params += `&country_code=${process.env.SCRAPINGBEE_COUNTRY}`;
       }
       const requestUrl = `https://app.scrapingbee.com/api/v1/?${params}`;
@@ -456,7 +477,8 @@ function parseMyntra($, url) {
             }
           }
           if (pdp.media && pdp.media.albums && pdp.media.albums[0] && pdp.media.albums[0].images && pdp.media.albums[0].images[0]) {
-            image = pdp.media.albums[0].images[0].src;
+            const imgObj = pdp.media.albums[0].images[0];
+            image = imgObj.src || imgObj.imageURL || imgObj.url || '';
           }
           if (pdp.ratings) {
             rating = parseFloat(pdp.ratings.averageRating);
@@ -468,6 +490,21 @@ function parseMyntra($, url) {
       }
     } catch (e) {
       console.error('[Scraper Error] Myntra JSON parse failed:', e.message);
+    }
+  }
+
+  // Fallback image selectors
+  if (!image) {
+    image = $('meta[property="og:image"]').attr('content') || 
+            $('.image-grid-image').first().css('background-image') ||
+            $('img[class*="image"]').first().attr('src') ||
+            '';
+    // Clean background-image url("...") format
+    if (image && image.includes('url(')) {
+      const match = image.match(/url\(['"]?([^'"]+)['"]?\)/);
+      if (match && match[1]) {
+        image = match[1];
+      }
     }
   }
 
@@ -902,7 +939,7 @@ async function scrapeProduct(url) {
       if (i > 0) {
         await new Promise(resolve => setTimeout(resolve, 1000 * i));
       }
-      const html = await fetchPageHtml(url);
+      const html = await fetchPageHtml(url, 60000);
       const $ = cheerio.load(html);
       let data;
 
@@ -1033,6 +1070,23 @@ function parseChartPoints(html) {
           price: parseFloat(match[2])
         });
       }
+
+      // Check for {"dates":[...],"prices":[...]} JSON structure (PriceBefore style)
+      const dataJsonRegex = /var\s+data\s*=\s*({[^;]+});/i;
+      const jsonMatch = dataJsonRegex.exec(scriptContent);
+      if (jsonMatch && jsonMatch[1]) {
+        try {
+          const parsedData = JSON.parse(jsonMatch[1]);
+          if (parsedData.dates && parsedData.prices && parsedData.dates.length === parsedData.prices.length) {
+            for (let j = 0; j < parsedData.dates.length; j++) {
+              dataPoints.push({
+                timestamp: new Date(parsedData.dates[j]),
+                price: parseFloat(parsedData.prices[j])
+              });
+            }
+          }
+        } catch (e) {}
+      }
     });
   } catch (err) {
     console.error('[parseChartPoints Error]', err.message);
@@ -1044,10 +1098,21 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   let html = '';
   let productPageLink = '';
   
-  const searchUrl = `https://pricehistory.app/search?q=${encodeURIComponent(productUrl)}`;
-  console.log(`[PriceHistoryApp Scrape] Searching for URL: ${productUrl}`);
+  const cleanUrl = getCanonicalUrl(productUrl);
+  const searchUrl = `https://pricehistory.app/search?q=${encodeURIComponent(cleanUrl)}`;
+  console.log(`[PriceHistoryApp Scrape] Searching for URL: ${cleanUrl}`);
   try {
     html = await fetchPageHtmlWithRetries(searchUrl, 35000, 3);
+    
+    // Instant redirect detection
+    const instantDetails = extractFromTrackerPage(html, productUrl, 'PriceHistoryApp');
+    if (instantDetails.success && instantDetails.dataPoints && instantDetails.dataPoints.length > 0) {
+      console.log(`[PriceHistoryApp Scrape] Direct redirect to product page detected!`);
+      instantDetails.url = searchUrl;
+      instantDetails.source = 'PriceHistoryApp';
+      return instantDetails;
+    }
+
     const $ = cheerio.load(html);
     
     $('a').each((i, el) => {
@@ -1115,10 +1180,21 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
   let html = '';
   let productPageLink = '';
   
-  const searchUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(productUrl)}`;
-  console.log(`[BuyHatke Scrape] Searching for URL: ${productUrl}`);
+  const cleanUrl = getCanonicalUrl(productUrl);
+  const searchUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(cleanUrl)}`;
+  console.log(`[BuyHatke Scrape] Searching for URL: ${cleanUrl}`);
   try {
     html = await fetchPageHtmlWithRetries(searchUrl, 35000, 3);
+    
+    // Instant redirect detection
+    const instantDetails = extractFromTrackerPage(html, productUrl, 'BuyHatke');
+    if (instantDetails.success && instantDetails.dataPoints && instantDetails.dataPoints.length > 0) {
+      console.log(`[BuyHatke Scrape] Direct redirect to product page detected!`);
+      instantDetails.url = searchUrl;
+      instantDetails.source = 'BuyHatke';
+      return instantDetails;
+    }
+
     const $ = cheerio.load(html);
     
     $('a').each((i, el) => {
@@ -1186,10 +1262,21 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
   let html = '';
   let productPageLink = '';
   
-  const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(productUrl)}`;
-  console.log(`[PriceBefore Scrape] Searching for URL: ${productUrl}`);
+  const cleanUrl = getCanonicalUrl(productUrl);
+  const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(cleanUrl)}`;
+  console.log(`[PriceBefore Scrape] Searching for URL: ${cleanUrl}`);
   try {
     html = await fetchPageHtmlWithRetries(searchUrl, 35000, 3);
+    
+    // Instant redirect detection
+    const instantDetails = extractFromTrackerPage(html, productUrl, 'PriceBefore');
+    if (instantDetails.success && instantDetails.dataPoints && instantDetails.dataPoints.length > 0) {
+      console.log(`[PriceBefore Scrape] Direct redirect to product page detected!`);
+      instantDetails.url = searchUrl;
+      instantDetails.source = 'PriceBefore';
+      return instantDetails;
+    }
+
     const $ = cheerio.load(html);
     $('a').each((i, el) => {
       const href = $(el).attr('href');
