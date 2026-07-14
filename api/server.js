@@ -28,6 +28,80 @@ app.use((req, res, next) => {
   next();
 });
 
+const http = require('http');
+const https = require('https');
+const urlModule = require('url');
+
+// Expand short URLs dynamically
+function expandUrl(shortUrl) {
+  return new Promise((resolve) => {
+    let redirectsCount = 0;
+    
+    function follow(urlStr) {
+      if (redirectsCount >= 10) {
+        resolve(urlStr);
+        return;
+      }
+      
+      let parsed;
+      try {
+        parsed = new urlModule.URL(urlStr);
+      } catch (err) {
+        resolve(urlStr);
+        return;
+      }
+      
+      const client = parsed.protocol === 'https:' ? https : http;
+      const options = {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9'
+        }
+      };
+      
+      const req = client.request(urlStr, options, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          redirectsCount++;
+          let nextUrl = res.headers.location;
+          if (!nextUrl.startsWith('http')) {
+            nextUrl = new urlModule.URL(nextUrl, urlStr).href;
+          }
+          follow(nextUrl);
+        } else {
+          let finalUrl = urlStr;
+          try {
+            const urlObj = new urlModule.URL(urlStr);
+            const paramsToCheck = ['dl', 'dest', 'redirect', 'to', 'target', 'url', 'redirect_url'];
+            for (const param of paramsToCheck) {
+              const val = urlObj.searchParams.get(param);
+              if (val && val.startsWith('http')) {
+                finalUrl = decodeURIComponent(val);
+                break;
+              }
+            }
+          } catch (e) {}
+          resolve(finalUrl);
+        }
+      });
+      
+      req.on('error', (err) => {
+        resolve(urlStr);
+      });
+      
+      req.setTimeout(6000, () => {
+        req.destroy();
+        resolve(urlStr);
+      });
+      
+      req.end();
+    }
+    
+    follow(shortUrl);
+  });
+}
+
 // Normalize URLs to avoid duplicate entries for the same product
 function getCanonicalUrl(url) {
   try {
@@ -209,7 +283,19 @@ app.get('/api/scrape', async (req, res) => {
     });
   }
 
-  const canonicalUrl = getCanonicalUrl(url);
+  let canonicalUrl = getCanonicalUrl(url);
+  // Expand short URLs dynamically
+  const isShort = !canonicalUrl.includes('amazon.in') && !canonicalUrl.includes('flipkart.com') && 
+                  !canonicalUrl.includes('shopsy.in') && !canonicalUrl.includes('myntra.com') && 
+                  !canonicalUrl.includes('ajio.com') && !canonicalUrl.includes('meesho.com') &&
+                  !canonicalUrl.includes('croma.com') && !canonicalUrl.includes('tatacliq.com') &&
+                  !canonicalUrl.includes('reliancedigital.in') && !canonicalUrl.includes('nykaa.com');
+  if (isShort) {
+    console.log(`[API Server] Expanding short URL inside scrape: ${canonicalUrl}`);
+    const expanded = await expandUrl(canonicalUrl);
+    canonicalUrl = getCanonicalUrl(expanded);
+    console.log(`[API Server] Expanded to: ${canonicalUrl}`);
+  }
 
   try {
     // 1. Scrape the live product page
@@ -297,6 +383,19 @@ app.get('/api/history', async (req, res) => {
     }
   } else {
     return res.status(400).json({ success: false, error: 'Either url or both platform and pid must be provided.' });
+  }
+
+  // Expand short URLs dynamically inside history lookup
+  const isHistoryShort = !canonicalUrl.includes('amazon.in') && !canonicalUrl.includes('flipkart.com') && 
+                         !canonicalUrl.includes('shopsy.in') && !canonicalUrl.includes('myntra.com') && 
+                         !canonicalUrl.includes('ajio.com') && !canonicalUrl.includes('meesho.com') &&
+                         !canonicalUrl.includes('croma.com') && !canonicalUrl.includes('tatacliq.com') &&
+                         !canonicalUrl.includes('reliancedigital.in') && !canonicalUrl.includes('nykaa.com');
+  if (isHistoryShort) {
+    console.log(`[API Server] Expanding short URL inside history lookup: ${canonicalUrl}`);
+    const expandedHistory = await expandUrl(canonicalUrl);
+    canonicalUrl = getCanonicalUrl(expandedHistory);
+    console.log(`[API Server] History lookup expanded to: ${canonicalUrl}`);
   }
 
   // Helper helper to strip extra AJIO pid info if needed
