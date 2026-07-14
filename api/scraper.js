@@ -18,18 +18,63 @@ function getRandomUserAgent() {
  * Clean e-commerce URL by stripping query parameters and hashes.
  */
 function getCanonicalUrl(url) {
-  if (!url) return '';
   try {
     const parsed = new URL(url);
-    parsed.search = '';
-    parsed.hash = '';
-    if (parsed.hostname.includes('amazon.')) {
-      const match = parsed.pathname.match(/\/dp\/([A-Z0-9]{10})/i) || parsed.pathname.match(/\/gp\/product\/([A-Z0-9]{10})/i);
-      if (match && match[1]) {
-        return `https://${parsed.hostname}/dp/${match[1]}`;
+    
+    // Amazon normalization
+    if (parsed.hostname.includes('amazon.in') || parsed.hostname.includes('amazon.com')) {
+      const asinMatch = parsed.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+      if (asinMatch) {
+        return `https://www.amazon.in/dp/${asinMatch[1]}`;
       }
     }
-    return parsed.toString();
+    
+    // Flipkart normalization
+    if (parsed.hostname.includes('flipkart.com')) {
+      const pid = parsed.searchParams.get('pid');
+      let canonical = `https://www.flipkart.com${parsed.pathname}`;
+      if (pid) {
+        canonical += `?pid=${pid}`;
+      }
+      return canonical;
+    }
+
+    // Shopsy normalization
+    if (parsed.hostname.includes('shopsy.in') || parsed.hostname.includes('shopsy.com')) {
+      const pid = parsed.searchParams.get('pid');
+      let canonical = `https://www.shopsy.in${parsed.pathname}`;
+      if (pid) {
+        canonical += `?pid=${pid}`;
+      }
+      return canonical;
+    }
+
+    // Myntra normalization
+    if (parsed.hostname.includes('myntra.com')) {
+      const match = parsed.pathname.match(/\/(\d+)/);
+      if (match) {
+        return `https://www.myntra.com/${match[1]}`;
+      }
+    }
+
+    // Ajio normalization
+    if (parsed.hostname.includes('ajio.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9_]+)/i);
+      if (match) {
+        const cleanPid = match[1].split('_')[0];
+        return `https://www.ajio.com/s/p/${cleanPid}`;
+      }
+    }
+
+    // Meesho normalization
+    if (parsed.hostname.includes('meesho.com')) {
+      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/i);
+      if (match) {
+        return `https://www.meesho.com/p/${match[1]}`;
+      }
+    }
+    
+    return url;
   } catch (e) {
     return url;
   }
