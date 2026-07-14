@@ -352,7 +352,7 @@ function reconstructUrl(platform, pid) {
   if (p === 'flipkart') return `https://www.flipkart.com/p/p?pid=${pid}`;
   if (p === 'shopsy') return `https://www.shopsy.in/p/p?pid=${pid}`;
   if (p === 'myntra') return `https://www.myntra.com/${pid}`;
-  if (p === 'ajio') return `https://www.ajio.com/p/${pid}`;
+  if (p === 'ajio') return `https://www.ajio.com/s/p/${pid}`;
   if (p === 'meesho') return `https://www.meesho.com/p/${pid}`;
   if (p === 'croma') return `https://www.croma.com/p/${pid}`;
   if (p === 'tatacliq') return `https://www.tatacliq.com/p-${pid}`;

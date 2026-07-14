@@ -360,7 +360,7 @@ function parseMyntra($, url) {
 
   // Fallback selectors
   if (!title) {
-    title = $('.pdp-title').text().trim() + ' ' + $('.pdp-name').text().trim();
+    title = ($('.pdp-title').text().trim() + ' ' + $('.pdp-name').text().trim()).trim();
     const priceText = $('.pdp-price').first().text().trim();
     price = parsePrice(priceText);
     const mrpText = $('.pdp-mrp').first().text().trim();
@@ -420,7 +420,7 @@ function parseAjio($, url) {
         }
 
         if (productDetails) {
-          title = productDetails.name;
+          title = (productDetails.name || '').trim();
           if (productDetails.price) {
             price = parseFloat(productDetails.price.value);
             if (productDetails.wasPriceData) {
