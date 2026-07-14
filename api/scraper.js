@@ -26,12 +26,89 @@ function parsePrice(priceStr) {
 }
 
 /**
+ * Helper to extract product details from price trackers
+ */
+function extractFromTrackerPage(html, url, platform) {
+  const $ = cheerio.load(html);
+  const title = $('h1').text().trim() || $('meta[property="og:title"]').attr('content') || '';
+  
+  let image = $('meta[property="og:image"]').attr('content') || '';
+  if (!image || image.includes('logo') || image.includes('icon')) {
+    // Find first image containing store domain or product keywords
+    $('img').each((i, el) => {
+      const src = $(el).attr('src');
+      if (src && (src.includes('flixcart') || src.includes('amazon') || src.includes('myntra') || src.includes('ajio') || src.includes('meesho') || src.includes('shopsy') || src.includes('croma'))) {
+        image = src;
+        return false;
+      }
+    });
+  }
+
+  const dataPoints = parseChartPoints(html);
+  let price = null;
+  let originalPrice = null;
+
+  if (dataPoints && dataPoints.length > 0) {
+    // Sort by date ascending to get latest
+    dataPoints.sort((a, b) => a.timestamp - b.timestamp);
+    price = dataPoints[dataPoints.length - 1].price;
+    originalPrice = Math.max(...dataPoints.map(d => d.price));
+  }
+
+  // Fallback if price not found in chart points
+  if (!price) {
+    const ogDesc = $('meta[property="og:description"]').attr('content') || '';
+    const priceRegex = /(?:current\s+price\s+is\s+|lowest\s+price\s+:\s*|price\s*:\s*(?:Rs\.?|₹)\s*)([\d,]+)/i;
+    const match = ogDesc.match(priceRegex);
+    if (match && match[1]) {
+      price = parsePrice(match[1]);
+    }
+  }
+
+  return {
+    success: !!(title && price),
+    platform,
+    title,
+    price,
+    originalPrice: originalPrice || price,
+    discount: (originalPrice && price && originalPrice > price) ? `${Math.round(((originalPrice - price) / originalPrice) * 100)}% off` : '0%',
+    currency: '₹',
+    image,
+    url,
+    dataPoints
+  };
+}
+
+/**
+ * Helper to fetch page HTML with retries
+ */
+async function fetchPageHtmlWithRetries(url, timeout = 35000, attempts = 3) {
+  let lastError = null;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      if (i > 0) {
+        console.log(`[Scraper Retry] Retrying fetch for: ${url} (Attempt ${i+1}/${attempts})...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * i));
+      }
+      return await fetchPageHtml(url, timeout);
+    } catch (e) {
+      console.warn(`[Scraper Warning] Fetch failed for ${url} (Attempt ${i+1}/${attempts}): ${e.message}`);
+      lastError = e;
+    }
+  }
+  throw lastError || new Error(`Failed to fetch page HTML after ${attempts} attempts`);
+}
+
+/**
  * Scrapes a URL using ScraperAPI, ScrapingBee, custom proxy, or direct request
  */
 async function fetchPageHtml(url, customTimeout = 30000) {
   const scraperApiKey = process.env.SCRAPERAPI_KEY;
   const scrapingBeeKey = process.env.SCRAPINGBEE_KEY;
   const proxyUrl = process.env.PROXY_URL;
+
+  const isTracker = url.includes('buyhatke.com') || url.includes('pricehistory.app') || url.includes('pricebefore.com');
+  const isAmazon = url.includes('amazon.in') || url.includes('amazon.com');
 
   async function performRequest(reqUrl, reqConfig) {
     const response = await axios.get(reqUrl, reqConfig);
@@ -41,9 +118,10 @@ async function fetchPageHtml(url, customTimeout = 30000) {
       htmlData.includes('cloudflare-challenge') ||
       htmlData.includes('enable-javascript') ||
       htmlData.includes('Attention Required! | Cloudflare') ||
+      htmlData.includes('Something went wrong! Please try again later. E002') ||
       (htmlData.length < 1500 && htmlData.includes('captcha'))
     )) {
-      throw new Error('Cloudflare/Captcha challenge detected in response HTML.');
+      throw new Error('Cloudflare/Captcha challenge or Flipkart block detected in response HTML.');
     }
     return htmlData;
   }
@@ -78,7 +156,7 @@ async function fetchPageHtml(url, customTimeout = 30000) {
     if (scraperApiKey) {
       console.log(`[Scraper] Routing request through ScraperAPI for: ${url}`);
       let params = `api_key=${scraperApiKey}&url=${encodeURIComponent(url)}`;
-      if (process.env.SCRAPERAPI_RENDER === 'true') {
+      if (process.env.SCRAPERAPI_RENDER === 'true' && !isTracker && !isAmazon) {
         params += '&render=true';
       }
       if (process.env.SCRAPERAPI_PREMIUM === 'true') {
@@ -106,7 +184,7 @@ async function fetchPageHtml(url, customTimeout = 30000) {
   if (scrapingBeeKey) {
     try {
       console.log(`[Scraper Fallback] Routing request through ScrapingBee for: ${url}`);
-      const renderJs = process.env.SCRAPINGBEE_RENDER === 'true' ? 'true' : 'false';
+      const renderJs = (process.env.SCRAPINGBEE_RENDER === 'true' && !isTracker && !isAmazon) ? 'true' : 'false';
       let params = `api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&render_js=${renderJs}`;
       if (process.env.SCRAPINGBEE_PREMIUM === 'true') {
         params += '&premium_proxy=true';
@@ -787,107 +865,140 @@ function parseNykaa($, url) {
  * Main Scrape Function
  */
 async function scrapeProduct(url) {
-  let attempts = 3;
-  let lastError = null;
-  let parsedData = null;
+  if (!url) {
+    return { success: false, error: 'URL is required' };
+  }
 
+  // Extract platform name from URL
+  let targetPlatform = 'E-Commerce Store';
+  try {
+    const parsed = new URL(url);
+    const hostParts = parsed.hostname.split('.');
+    if (hostParts.length >= 2) {
+      targetPlatform = hostParts[hostParts.length - 2].toUpperCase();
+    }
+  } catch (e) {}
+
+  // 1. Try BuyHatke first
+  console.log(`[Scraper] Sequence 1/3: Scraping BuyHatke for product details...`);
+  try {
+    const bhResult = await scrapeFromBuyHatke(url);
+    if (bhResult && bhResult.success && bhResult.title && bhResult.price) {
+      console.log(`[Scraper] Success via BuyHatke fallback!`);
+      bhResult.platform = targetPlatform;
+      return bhResult;
+    }
+  } catch (e) {
+    console.warn(`[Scraper] BuyHatke fallback failed: ${e.message}`);
+  }
+
+  // 2. Try direct shopping website scraping
+  console.log(`[Scraper] Sequence 2/3: Scraping shopping website directly...`);
+  let directData = null;
+  let directError = null;
+  let attempts = 3;
   for (let i = 0; i < attempts; i++) {
     try {
-      if (!url) {
-        throw new Error('URL is required');
-      }
-
       if (i > 0) {
-        // Sleep between retries
         await new Promise(resolve => setTimeout(resolve, 1000 * i));
       }
-
       const html = await fetchPageHtml(url);
       const $ = cheerio.load(html);
       let data;
 
       if (url.includes('flipkart.com')) {
         data = parseFlipkart($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Flipkart product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Flipkart product details.');
       } else if (url.includes('shopsy.in') || url.includes('shopsy.com')) {
         data = parseFlipkart($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Shopsy product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Shopsy product details.');
         data.platform = 'Shopsy';
       } else if (url.includes('amazon.in') || url.includes('amazon.com')) {
         data = parseAmazon($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Amazon product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Amazon product details.');
       } else if (url.includes('myntra.com')) {
         data = parseMyntra($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Myntra product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Myntra product details.');
       } else if (url.includes('ajio.com')) {
         data = parseAjio($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Ajio product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Ajio product details.');
       } else if (url.includes('meesho.com')) {
         data = parseMeesho($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Meesho product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Meesho product details.');
       } else if (url.includes('croma.com')) {
         data = parseCroma($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Croma product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Croma product details.');
       } else if (url.includes('reliancedigital.in')) {
         data = parseRelianceDigital($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Reliance Digital product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Reliance Digital product details.');
       } else if (url.includes('tatacliq.com')) {
         data = parseTataCliq($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Tata Cliq product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Tata Cliq product details.');
       } else if (url.includes('nykaa.com')) {
         data = parseNykaa($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse Nykaa product details.');
-        }
+        if (!data.title) throw new Error('Failed to parse Nykaa product details.');
       } else {
         data = parseGenericMeta($, url);
-        if (!data.title) {
-          throw new Error('Failed to parse product details from target site.');
-        }
+        if (!data.title) throw new Error('Failed to parse product details from target site.');
       }
 
-      parsedData = data;
-
-      // If we got the product details but there is no image (or image is empty), let's retry!
-      if (!data.image || data.image.trim() === '') {
-        throw new Error('No image extracted.');
+      if (!data.price || data.price <= 0) {
+        throw new Error('No valid price extracted.');
       }
 
-      return data; // Success!
+      if (!data.image || data.image.trim() === '' || data.image.startsWith('data:')) {
+        throw new Error('No valid image extracted (missing or placeholder).');
+      }
 
+      directData = data;
+      break;
     } catch (err) {
-      console.log(`⚠️ [Scraper Attempt ${i+1}/${attempts} Failed] URL: ${url}. Error: ${err.message}`);
-      lastError = err;
+      console.log(`⚠️ [Scraper Direct Attempt ${i+1}/${attempts} Failed] URL: ${url}. Error: ${err.message}`);
+      directError = err;
     }
   }
 
-  // Fallback: If we managed to parse the product but just couldn't extract the image, return the product anyway rather than throwing!
-  if (parsedData && parsedData.title) {
-    console.log(`[Scraper Fallback] Returning parsed product data with missing image.`);
-    return parsedData;
+  if (directData && directData.title) {
+    console.log(`[Scraper] Success via direct store scrape!`);
+    return directData;
+  }
+
+  // 3. Try other e-commerce price trackers
+  console.log(`[Scraper] Sequence 3/3: Direct store scraping failed. Trying other e-commerce price trackers...`);
+  
+  // PriceHistoryApp
+  try {
+    const phResult = await scrapeFromPriceHistoryApp(url);
+    if (phResult && phResult.success && phResult.title && phResult.price) {
+      console.log(`[Scraper] Success via PriceHistoryApp fallback!`);
+      phResult.platform = targetPlatform;
+      return phResult;
+    }
+  } catch (e) {
+    console.warn(`[Scraper] PriceHistoryApp fallback failed: ${e.message}`);
+  }
+
+  // PriceBefore
+  try {
+    const pbResult = await scrapeFromPriceBefore(url);
+    if (pbResult && pbResult.success && pbResult.title && pbResult.price) {
+      console.log(`[Scraper] Success via PriceBefore fallback!`);
+      pbResult.platform = targetPlatform;
+      return pbResult;
+    }
+  } catch (e) {
+    console.warn(`[Scraper] PriceBefore fallback failed: ${e.message}`);
+  }
+
+  // Fallback direct parse got details but missed the image
+  if (directData && directData.title) {
+    console.log(`[Scraper Fallback] Returning parsed direct product data with missing image.`);
+    return directData;
   }
 
   return {
     success: false,
-    error: lastError ? lastError.message : 'Failed to scrape product after 3 attempts'
+    error: directError ? directError.message : 'Failed to scrape product details after all fallbacks.'
   };
 }
 
@@ -936,7 +1047,7 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   const searchUrl = `https://pricehistory.app/search?q=${encodeURIComponent(productUrl)}`;
   console.log(`[PriceHistoryApp Scrape] Searching for URL: ${productUrl}`);
   try {
-    html = await fetchPageHtml(searchUrl, 20000);
+    html = await fetchPageHtmlWithRetries(searchUrl, 35000, 3);
     const $ = cheerio.load(html);
     
     $('a').each((i, el) => {
@@ -955,7 +1066,7 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
     const searchTitleUrl = `https://pricehistory.app/search?q=${encodeURIComponent(cleanTitle)}`;
     console.log(`[PriceHistoryApp Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchTitleUrl, 20000);
+      html = await fetchPageHtmlWithRetries(searchTitleUrl, 35000, 3);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -976,23 +1087,20 @@ async function scrapeFromPriceHistoryApp(productUrl, productTitle) {
   
   console.log(`[PriceHistoryApp Scrape] Fetching product page: ${productPageLink}`);
   try {
-    const pageHtml = await fetchPageHtml(productPageLink, 20000);
+    const pageHtml = await fetchPageHtmlWithRetries(productPageLink, 35000, 3);
     // Instant redirect detection
-    const instantPoints = parseChartPoints(html);
-    if (instantPoints.length > 0) {
-      instantPoints.sort((a, b) => a.timestamp - b.timestamp);
-      return { url: searchUrl, source: 'PriceHistoryApp', dataPoints: instantPoints };
+    const instantDetails = extractFromTrackerPage(html, productUrl, 'PriceHistoryApp');
+    if (instantDetails.success && instantDetails.dataPoints && instantDetails.dataPoints.length > 0) {
+      instantDetails.url = searchUrl;
+      instantDetails.source = 'PriceHistoryApp';
+      return instantDetails;
     }
-    const dataPoints = parseChartPoints(pageHtml);
-    
-    if (dataPoints.length > 0) {
-      console.log(`[PriceHistoryApp Scrape] Successfully parsed ${dataPoints.length} points!`);
-      dataPoints.sort((a, b) => a.timestamp - b.timestamp);
-      return {
-        url: productPageLink,
-        source: 'PriceHistoryApp',
-        dataPoints: dataPoints
-      };
+    const details = extractFromTrackerPage(pageHtml, productUrl, 'PriceHistoryApp');
+    if (details.success && details.dataPoints && details.dataPoints.length > 0) {
+      console.log(`[PriceHistoryApp Scrape] Successfully parsed product and ${details.dataPoints.length} points!`);
+      details.url = productPageLink;
+      details.source = 'PriceHistoryApp';
+      return details;
     }
   } catch (e) {
     console.error(`[PriceHistoryApp Scrape Page Fetch Error] ${e.message}`);
@@ -1010,7 +1118,7 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
   const searchUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(productUrl)}`;
   console.log(`[BuyHatke Scrape] Searching for URL: ${productUrl}`);
   try {
-    html = await fetchPageHtml(searchUrl, 20000);
+    html = await fetchPageHtmlWithRetries(searchUrl, 35000, 3);
     const $ = cheerio.load(html);
     
     $('a').each((i, el) => {
@@ -1029,7 +1137,7 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
     const searchTitleUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(cleanTitle)}`;
     console.log(`[BuyHatke Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchTitleUrl, 20000);
+      html = await fetchPageHtmlWithRetries(searchTitleUrl, 35000, 3);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -1050,23 +1158,20 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
   
   console.log(`[BuyHatke Scrape] Fetching product page: ${productPageLink}`);
   try {
-    const pageHtml = await fetchPageHtml(productPageLink, 20000);
+    const pageHtml = await fetchPageHtmlWithRetries(productPageLink, 35000, 3);
     // Instant redirect detection
-    const instantPoints = parseChartPoints(html);
-    if (instantPoints.length > 0) {
-      instantPoints.sort((a, b) => a.timestamp - b.timestamp);
-      return { url: searchUrl, source: 'BuyHatke', dataPoints: instantPoints };
+    const instantDetails = extractFromTrackerPage(html, productUrl, 'BuyHatke');
+    if (instantDetails.success && instantDetails.dataPoints && instantDetails.dataPoints.length > 0) {
+      instantDetails.url = searchUrl;
+      instantDetails.source = 'BuyHatke';
+      return instantDetails;
     }
-    const dataPoints = parseChartPoints(pageHtml);
-    
-    if (dataPoints.length > 0) {
-      console.log(`[BuyHatke Scrape] Successfully parsed ${dataPoints.length} points!`);
-      dataPoints.sort((a, b) => a.timestamp - b.timestamp);
-      return {
-        url: productPageLink,
-        source: 'BuyHatke',
-        dataPoints: dataPoints
-      };
+    const details = extractFromTrackerPage(pageHtml, productUrl, 'BuyHatke');
+    if (details.success && details.dataPoints && details.dataPoints.length > 0) {
+      console.log(`[BuyHatke Scrape] Successfully parsed product and ${details.dataPoints.length} points!`);
+      details.url = productPageLink;
+      details.source = 'BuyHatke';
+      return details;
     }
   } catch (e) {
     console.error(`[BuyHatke Scrape Page Fetch Error] ${e.message}`);
@@ -1084,7 +1189,7 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
   const searchUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(productUrl)}`;
   console.log(`[PriceBefore Scrape] Searching for URL: ${productUrl}`);
   try {
-    html = await fetchPageHtml(searchUrl, 20000);
+    html = await fetchPageHtmlWithRetries(searchUrl, 35000, 3);
     const $ = cheerio.load(html);
     $('a').each((i, el) => {
       const href = $(el).attr('href');
@@ -1102,7 +1207,7 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
     const searchTitleUrl = `https://pricebefore.com/search/?q=${encodeURIComponent(cleanTitle)}`;
     console.log(`[PriceBefore Scrape] Trying title fallback: "${cleanTitle}"`);
     try {
-      html = await fetchPageHtml(searchTitleUrl, 20000);
+      html = await fetchPageHtmlWithRetries(searchTitleUrl, 35000, 3);
       const $ = cheerio.load(html);
       $('a').each((i, el) => {
         const href = $(el).attr('href');
@@ -1123,17 +1228,13 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
   
   console.log(`[PriceBefore Scrape] Fetching product page: ${productPageLink}`);
   try {
-    const pageHtml = await fetchPageHtml(productPageLink, 20000);
-    const dataPoints = parseChartPoints(pageHtml);
-    
-    if (dataPoints.length > 0) {
-      console.log(`[PriceBefore Scrape] Successfully parsed ${dataPoints.length} points!`);
-      dataPoints.sort((a, b) => a.timestamp - b.timestamp);
-      return {
-        url: productPageLink,
-        source: 'PriceBefore',
-        dataPoints: dataPoints
-      };
+    const pageHtml = await fetchPageHtmlWithRetries(productPageLink, 35000, 3);
+    const details = extractFromTrackerPage(pageHtml, productUrl, 'PriceBefore');
+    if (details.success && details.dataPoints && details.dataPoints.length > 0) {
+      console.log(`[PriceBefore Scrape] Successfully parsed product and ${details.dataPoints.length} points!`);
+      details.url = productPageLink;
+      details.source = 'PriceBefore';
+      return details;
     }
   } catch (e) {
     console.error(`[PriceBefore Scrape Page Fetch Error] ${e.message}`);
