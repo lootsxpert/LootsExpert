@@ -17,7 +17,8 @@ function getRandomUserAgent() {
 // In-memory status fallback for scraper credentials
 const scraperStatus = {
   scraperApi: { exhausted: false, lastChecked: 0 },
-  scrapingBee: { exhausted: false, lastChecked: 0 }
+  scrapingBee: { exhausted: false, lastChecked: 0 },
+  scrapeDo: { exhausted: false, lastChecked: 0 }
 };
 
 async function isScraperExhausted(name) {
@@ -199,6 +200,7 @@ async function fetchPageHtmlWithRetries(url, timeout = 35000, attempts = 3) {
 async function fetchPageHtml(url, customTimeout = 35000) {
   const scraperApiKey = process.env.SCRAPERAPI_KEY;
   const scrapingBeeKey = process.env.SCRAPINGBEE_KEY;
+  const scrapeDoKey = process.env.SCRAPEDO_KEY;
   const proxyUrl = process.env.PROXY_URL;
 
   const isTracker = url.includes('buyhatke.com') || url.includes('pricehistory.app') || url.includes('pricebefore.com');
@@ -306,7 +308,36 @@ async function fetchPageHtml(url, customTimeout = 35000) {
     }
   }
 
-  // Strategy 3: Custom Proxy
+  // Strategy 3: Scrape.do
+  if (scrapeDoKey) {
+    const isExhausted = await isScraperExhausted('scrapeDo');
+    if (!isExhausted) {
+      strategies.push({
+        name: 'Scrape.do',
+        execute: async () => {
+          const renderJs = !skipRender ? 'true' : 'false';
+          let params = `token=${scrapeDoKey}&url=${encodeURIComponent(url)}&render=${renderJs}`;
+          if (process.env.SCRAPEDO_GEO) {
+            params += `&geoCode=${process.env.SCRAPEDO_GEO}`;
+          }
+          const requestUrl = `https://api.scrape.do/?${params}`;
+          console.log(`[Scraper] Routing request through Scrape.do for: ${url}`);
+          return await performRequest(requestUrl, { timeout: customTimeout });
+        },
+        handleError: async (err) => {
+          const status = err.response?.status;
+          const bodyText = err.response?.data && typeof err.response.data === 'string' ? err.response.data : '';
+          if (status === 401 || (status === 403 && (bodyText.includes('limit') || bodyText.includes('billing') || bodyText.includes('credit')))) {
+            await markScraperExhausted('scrapeDo');
+          }
+        }
+      });
+    } else {
+      console.log(`[Scraper] Skipping Scrape.do for ${url} (marked exhausted).`);
+    }
+  }
+
+  // Strategy 4: Custom Proxy
   if (proxyUrl) {
     strategies.push({
       name: 'CustomProxy',
@@ -1400,6 +1431,10 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
       platformKey = 'myntra';
     } else if (hostname.includes('ajio.com')) {
       platformKey = 'ajio';
+    } else if (hostname.includes('meesho.com')) {
+      platformKey = 'meesho';
+    } else if (hostname.includes('shopsy.in') || hostname.includes('shopsy.com')) {
+      platformKey = 'shopsy';
     }
     
     if (platformKey) {
