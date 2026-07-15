@@ -1248,6 +1248,7 @@ def outbound_redirect():
         
     # Log the redirect click telemetry
     tag = None
+    ek_key = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -1261,6 +1262,11 @@ def outbound_redirect():
         row = cur.fetchone()
         tag = row[0] if row else None
         
+        # Query EarnKaro API Key
+        cur.execute("SELECT tag_value FROM web_affiliate_configs WHERE platform ILIKE 'EarnKaro'")
+        ek_row = cur.fetchone()
+        ek_key = ek_row[0] if ek_row else None
+        
         conn.commit()
         cur.close()
         conn.close()
@@ -1269,12 +1275,26 @@ def outbound_redirect():
         
     # Build final url applying tag parameter
     final_url = target_url
+    lower_platform = platform.lower()
+    
+    if 'amazon' not in lower_platform and ek_key:
+        try:
+            ek_url = f"https://api.earnkaro.com/v1/convert?api_key={urllib.parse.quote(ek_key)}&url={urllib.parse.quote(target_url)}"
+            req = urllib.request.Request(ek_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                if r.status == 200:
+                    res_data = json.loads(r.read().decode('utf-8'))
+                    aff_url = res_data.get("aff_url") or res_data.get("converted_url") or res_data.get("url")
+                    if aff_url:
+                        return redirect(aff_url)
+        except Exception as ek_err:
+            print(f"[EarnKaro URL Conversion Error] {ek_err}")
+            
     if tag:
         try:
             parsed_url = urllib.parse.urlparse(target_url)
             query_params = urllib.parse.parse_qs(parsed_url.query)
             
-            lower_platform = platform.lower()
             if 'amazon' in lower_platform:
                 query_params['tag'] = [tag]
             elif 'flipkart' in lower_platform:

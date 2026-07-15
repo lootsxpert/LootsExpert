@@ -378,11 +378,30 @@ async function getProductByPid(platform, pid) {
  */
 async function getProductByUrl(url) {
   try {
+    // 1. If the input URL is a short URL format (like /p/p), let's find if a long URL matching this PID exists in DB first!
+    const detected = detectPlatformAndPid(url);
+    if (detected) {
+      try {
+        const parsedUrl = new URL(url);
+        if (parsedUrl.pathname === '/p/p' || parsedUrl.pathname === '/p') {
+          const pidProduct = await getProductByPid(detected.platform, detected.pid);
+          if (pidProduct) {
+            // Confirm the DB product has a long URL
+            const parsedDbUrl = new URL(pidProduct.url);
+            if (parsedDbUrl.pathname !== '/p/p' && parsedDbUrl.pathname !== '/p') {
+              console.log(`[DB Resolve] Resolved requested short URL ${url} to cached long URL: ${pidProduct.url}`);
+              return pidProduct;
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Otherwise do exact match first
     const res = await pool.query('SELECT * FROM products WHERE url = $1', [url]);
     if (res.rows[0]) return res.rows[0];
     
-    // Fallback: try to match by platform & pid if the URL contains one
-    const detected = detectPlatformAndPid(url);
+    // 3. Fallback to PID search if exact match failed
     if (detected) {
       const pidProduct = await getProductByPid(detected.platform, detected.pid);
       if (pidProduct) return pidProduct;
@@ -400,6 +419,34 @@ async function getProductByUrl(url) {
 async function saveProduct(data) {
   try {
     const { url, platform, title, image, rating } = data;
+    
+    // Check if we are saving a long URL, but a short URL row already exists for this PID
+    const detected = detectPlatformAndPid(url);
+    if (detected) {
+      try {
+        const parsedUrl = new URL(url);
+        if (parsedUrl.pathname !== '/p/p' && parsedUrl.pathname !== '/p') {
+          // Look for any row with a short URL for this PID
+          const shortQuery = `
+            SELECT * FROM products 
+            WHERE platform ILIKE $1 
+              AND (url LIKE $2 OR url LIKE $3)
+            LIMIT 1
+          `;
+          const shortRes = await pool.query(shortQuery, [detected.platform, `%/p/p?pid=${detected.pid}%`, `%/p?pid=${detected.pid}%`]);
+          if (shortRes.rows[0]) {
+            const shortProduct = shortRes.rows[0];
+            console.log(`[DB Migration] Upgrading short URL product ID ${shortProduct.id} to long URL: ${url}`);
+            const updateRes = await pool.query(
+              'UPDATE products SET url = $1, platform = $2, title = $3, image = $4, rating = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
+              [url, platform, title, image, rating, shortProduct.id]
+            );
+            return updateRes.rows[0];
+          }
+        }
+      } catch (e) {}
+    }
+
     const query = `
       INSERT INTO products (url, platform, title, image, rating, updated_at)
       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
@@ -490,17 +537,27 @@ async function importPriceHistoryBatch(productId, historyPoints) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const values = [];
+      const queryParts = [];
+      let valIndex = 1;
+      let addedCount = 0;
+      
       for (const point of historyPoints) {
         const pointDate = new Date(point.timestamp);
         if (!existingTimes.has(pointDate.toDateString())) {
-          await client.query(
-            'INSERT INTO price_history (product_id, price, timestamp) VALUES ($1, $2, $3)',
-            [productId, point.price, pointDate]
-          );
+          queryParts.push(`($${valIndex}, $${valIndex + 1}, $${valIndex + 2})`);
+          values.push(productId, point.price, pointDate);
+          valIndex += 3;
+          addedCount++;
         }
       }
+      
+      if (queryParts.length > 0) {
+        const queryText = `INSERT INTO price_history (product_id, price, timestamp) VALUES ${queryParts.join(', ')}`;
+        await client.query(queryText, values);
+      }
       await client.query('COMMIT');
-      console.log(`[Import] Successfully imported ${historyPoints.length} price points for product ${productId}.`);
+      console.log(`[Import] Successfully imported ${addedCount} (out of ${historyPoints.length}) price points for product ${productId}.`);
     } catch (e) {
       await client.query('ROLLBACK');
       throw e;

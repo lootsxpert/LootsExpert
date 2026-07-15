@@ -105,14 +105,6 @@ function getCanonicalUrl(url) {
       }
     }
 
-    // Meesho normalization
-    if (parsed.hostname.includes('meesho.com')) {
-      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/i);
-      if (match) {
-        return `https://www.meesho.com/p/${match[1]}`;
-      }
-    }
-    
     return url;
   } catch (e) {
     return url;
@@ -138,15 +130,8 @@ function extractFromTrackerPage(html, url, platform) {
   const title = $('h1').text().trim() || $('meta[property="og:title"]').attr('content') || '';
   
   let image = $('meta[property="og:image"]').attr('content') || '';
-  if (!image || image.includes('logo') || image.includes('icon')) {
-    // Find first image containing store domain or product keywords
-    $('img').each((i, el) => {
-      const src = $(el).attr('src');
-      if (src && (src.includes('flixcart') || src.includes('amazon') || src.includes('myntra') || src.includes('ajio') || src.includes('meesho') || src.includes('shopsy') || src.includes('croma'))) {
-        image = src;
-        return false;
-      }
-    });
+  if (image && (image.includes('logo') || image.includes('icon'))) {
+    image = '';
   }
 
   const dataPoints = parseChartPoints(html);
@@ -214,6 +199,17 @@ async function fetchPageHtml(url, customTimeout = 35000) {
 
   const isTracker = url.includes('buyhatke.com') || url.includes('pricehistory.app') || url.includes('pricebefore.com');
   const isAmazon = url.includes('amazon.in') || url.includes('amazon.com');
+  const skipRender = isTracker || isAmazon ||
+                     url.includes('flipkart.com') ||
+                     url.includes('myntra.com') ||
+                     url.includes('ajio.com') ||
+                     url.includes('meesho.com') ||
+                     url.includes('shopsy.in') ||
+                     url.includes('shopsy.com') ||
+                     url.includes('nykaa.com') ||
+                     url.includes('tatacliq.com') ||
+                     url.includes('croma.com') ||
+                     url.includes('reliancedigital.in');
 
   async function performRequest(reqUrl, reqConfig) {
     const response = await axios.get(reqUrl, reqConfig);
@@ -243,16 +239,16 @@ async function fetchPageHtml(url, customTimeout = 35000) {
         execute: async () => {
           let params = `api_key=${scraperApiKey}&url=${encodeURIComponent(url)}`;
           
-          // Render JS for non-tracker, non-Amazon sites if render is enabled
-          if (process.env.SCRAPERAPI_RENDER === 'true' && !isTracker && !isAmazon) {
+          // Render JS only if enabled and not skipped
+          if (process.env.SCRAPERAPI_RENDER === 'true' && !skipRender) {
             params += '&render=true';
           }
           // Enable premium proxies if configured
           if (process.env.SCRAPERAPI_PREMIUM === 'true') {
             params += '&premium=true';
           }
-          // Set country code to India for e-commerce sites (not trackers)
-          if (process.env.SCRAPERAPI_COUNTRY && !isTracker) {
+          // Set country code if configured
+          if (process.env.SCRAPERAPI_COUNTRY) {
             params += `&country_code=${process.env.SCRAPERAPI_COUNTRY}`;
           }
           
@@ -280,13 +276,13 @@ async function fetchPageHtml(url, customTimeout = 35000) {
       strategies.push({
         name: 'ScrapingBee',
         execute: async () => {
-          const renderJs = (process.env.SCRAPINGBEE_RENDER === 'true' && !isTracker && !isAmazon) ? 'true' : 'false';
+          const renderJs = (process.env.SCRAPINGBEE_RENDER === 'true' && !skipRender) ? 'true' : 'false';
           let params = `api_key=${scrapingBeeKey}&url=${encodeURIComponent(url)}&render_js=${renderJs}`;
           
           if (process.env.SCRAPINGBEE_PREMIUM === 'true') {
             params += '&premium_proxy=true';
           }
-          if (process.env.SCRAPINGBEE_COUNTRY && !isTracker) {
+          if (process.env.SCRAPINGBEE_COUNTRY) {
             params += `&country_code=${process.env.SCRAPINGBEE_COUNTRY}`;
           }
           
@@ -389,18 +385,9 @@ function parseFlipkart($, url) {
   // Image Selectors
   let image = '';
   // Try to find image source in primary image tags
-  const imgElement = $('img._396cs4, img.CXW8mj, ._0DkuPH img, img[src*="image/"]').first();
+  const imgElement = $('img._396cs4, img.CXW8mj, ._0DkuPH img').first();
   if (imgElement.length) {
     image = imgElement.attr('src');
-  } else {
-    // Fallback search
-    $('img').each((i, el) => {
-      const src = $(el).attr('src');
-      if (src && src.includes('imagedeps') || (src && src.includes('image') && !src.includes('logo') && !src.includes('icon'))) {
-        image = src;
-        return false;
-      }
-    });
   }
 
   // Rating Selectors
@@ -585,7 +572,7 @@ function parseMyntra($, url) {
   let scriptContent = '';
   $('script').each((i, el) => {
     const html = $(el).html();
-    if (html && html.includes('window.__myx')) {
+    if (html && html.includes('window.__myx =')) {
       scriptContent = html;
       return false;
     }
@@ -1069,13 +1056,14 @@ async function scrapeProduct(url) {
   let directData = null;
   let directError = null;
   let attempts = 3;
+  let directHtml = '';
   for (let i = 0; i < attempts; i++) {
     try {
       if (i > 0) {
         await new Promise(resolve => setTimeout(resolve, 1000 * i));
       }
-      const html = await fetchPageHtml(url, 60000);
-      const $ = cheerio.load(html);
+      directHtml = await fetchPageHtml(url, 60000);
+      const $ = cheerio.load(directHtml);
       let data;
 
       if (url.includes('flipkart.com')) {
@@ -1127,6 +1115,22 @@ async function scrapeProduct(url) {
     } catch (err) {
       console.log(`⚠️ [Scraper Direct Attempt ${i+1}/${attempts} Failed] URL: ${url}. Error: ${err.message}`);
       directError = err;
+      
+      // If we successfully fetched HTML (length > 2000) but parsing failed, do NOT retry
+      if (directHtml && directHtml.length > 2000 && !directHtml.includes('cf-challenge') && !directHtml.includes('cloudflare')) {
+        console.log(`[Scraper] Page html fetched successfully but parsing failed. Bypassing retries...`);
+        break;
+      }
+    }
+  }
+
+  // If direct parser failed but we have HTML, try Gemini AI extraction fallback
+  if ((!directData || !directData.title || !directData.price) && directHtml && process.env.GEMINI_API_KEY) {
+    console.log(`[Scraper] Direct parsing failed. Invoking Gemini AI fallback parser...`);
+    const aiData = await scrapeProductWithGeminiFallback(directHtml, url);
+    if (aiData && aiData.title) {
+      console.log(`[Scraper] Success via Gemini AI fallback parser!`);
+      directData = aiData;
     }
   }
 
@@ -1181,6 +1185,20 @@ async function scrapeProduct(url) {
 function parseChartPoints(html) {
   const dataPoints = [];
   try {
+    // 1. Check for BuyHatke custom *~* serialization format anywhere in the HTML first
+    const buyHatkeFormatRegex = /(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})~(\d+(?:\.\d+)?)/g;
+    let bhMatch;
+    while ((bhMatch = buyHatkeFormatRegex.exec(html)) !== null) {
+      dataPoints.push({
+        timestamp: new Date(`${bhMatch[1]}T${bhMatch[2]}`),
+        price: parseFloat(bhMatch[3])
+      });
+    }
+
+    if (dataPoints.length > 0) {
+      return dataPoints;
+    }
+
     const $ = cheerio.load(html);
     $('script').each((i, el) => {
       const scriptContent = $(el).html();
@@ -1316,6 +1334,54 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
   let productPageLink = '';
   
   const cleanUrl = getCanonicalUrl(productUrl);
+  
+  // 1. Try direct magic link first to bypass search & redirects
+  let magicUrl = '';
+  try {
+    const parsed = new URL(cleanUrl);
+    const hostname = parsed.hostname.toLowerCase();
+    let platformKey = '';
+    if (hostname.includes('amazon.in') || hostname.includes('amazon.com')) {
+      platformKey = 'amazon';
+    } else if (hostname.includes('flipkart.com')) {
+      platformKey = 'flipkart';
+    } else if (hostname.includes('myntra.com')) {
+      platformKey = 'myntra';
+    } else if (hostname.includes('ajio.com')) {
+      platformKey = 'ajio';
+    } else if (hostname.includes('meesho.com')) {
+      platformKey = 'meesho';
+    } else if (hostname.includes('shopsy.in') || hostname.includes('shopsy.com')) {
+      platformKey = 'shopsy';
+    } else if (hostname.includes('croma.com')) {
+      platformKey = 'croma';
+    }
+    
+    if (platformKey) {
+      magicUrl = `https://buyhatke.com/${platformKey}/${cleanUrl}`;
+    }
+  } catch (e) {
+    console.error(`[BuyHatke Scrape] Error parsing URL for magic link: ${e.message}`);
+  }
+
+  if (magicUrl) {
+    console.log(`[BuyHatke Scrape] Probing direct magic link: ${magicUrl}`);
+    try {
+      html = await fetchPageHtmlWithRetries(magicUrl, 35000, 3);
+      const details = extractFromTrackerPage(html, productUrl, 'BuyHatke');
+      if (details.success && details.dataPoints && details.dataPoints.length > 0) {
+        console.log(`[BuyHatke Scrape] Successfully parsed product details directly via magic link!`);
+        details.url = magicUrl;
+        details.source = 'BuyHatke';
+        return details;
+      }
+      console.log(`[BuyHatke Scrape] Magic link page has no data points or failed parsing. Falling back to search...`);
+    } catch (e) {
+      console.warn(`[BuyHatke Scrape] Magic link direct fetch failed: ${e.message}. Falling back to search...`);
+    }
+  }
+
+  // 2. Fallback to search-based routing
   const searchUrl = `https://compare.buyhatke.com/search?q=${encodeURIComponent(cleanUrl)}`;
   console.log(`[BuyHatke Scrape] Searching for URL: ${cleanUrl}`);
   try {
@@ -1465,24 +1531,11 @@ async function scrapeFromPriceBefore(productUrl, productTitle) {
 }
 
 /**
- * Orchestrator: Try PriceHistoryApp first, then BuyHatke (each with 1 retry),
- * and fallback to PriceBefore.
+ * Orchestrator: Try BuyHatke first (due to direct magic link bypass),
+ * then fallback to PriceHistoryApp, and then PriceBefore.
  */
 async function scrapeHistoricalTracker(productUrl, productTitle, currentPrice = null) {
-  // 1. Try PriceHistoryApp (Max 2 attempts: primary + 1 retry)
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    console.log(`[Historical Scraper] PriceHistoryApp - Attempt ${attempt}`);
-    const result = await scrapeFromPriceHistoryApp(productUrl, productTitle);
-    if (result && result.dataPoints && result.dataPoints.length > 0) {
-      return result;
-    }
-    if (attempt < 2) {
-      console.log(`[Historical Scraper] PriceHistoryApp failed, retrying in 0.5s...`);
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-  }
-
-  // 2. Try BuyHatke (Max 2 attempts: primary + 1 retry)
+  // 1. Try BuyHatke (Max 2 attempts: primary + 1 retry)
   for (let attempt = 1; attempt <= 2; attempt++) {
     console.log(`[Historical Scraper] BuyHatke - Attempt ${attempt}`);
     const result = await scrapeFromBuyHatke(productUrl, productTitle);
@@ -1491,6 +1544,19 @@ async function scrapeHistoricalTracker(productUrl, productTitle, currentPrice = 
     }
     if (attempt < 2) {
       console.log(`[Historical Scraper] BuyHatke failed, retrying in 0.5s...`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+  // 2. Try PriceHistoryApp (Max 2 attempts: primary + 1 retry)
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    console.log(`[Historical Scraper] PriceHistoryApp - Attempt ${attempt}`);
+    const result = await scrapeFromPriceHistoryApp(productUrl, productTitle);
+    if (result && result.dataPoints && result.dataPoints.length > 0) {
+      return result;
+    }
+    if (attempt < 2) {
+      console.log(`[Historical Scraper] PriceHistoryApp failed, retrying in 0.5s...`);
       await new Promise(resolve => setTimeout(resolve, 500));
     }
   }
@@ -1511,10 +1577,19 @@ async function scrapeHistoricalTracker(productUrl, productTitle, currentPrice = 
     console.error('[Historical Scraper] Parallel scrape error:', err.message);
   }
 
-  // 4. Fallback to AI Prediction (Own prediction fallback based on current price)
+  // 4. Fallback to Gemini AI Prediction or local simulated history
+  if (process.env.GEMINI_API_KEY && currentPrice) {
+    console.log(`[Historical Scraper] Invoking Gemini AI to predict price history...`);
+    const geminiHistory = await predictPriceHistoryWithGemini(productUrl, productTitle, currentPrice, currentPrice * 1.25);
+    if (geminiHistory && geminiHistory.dataPoints && geminiHistory.dataPoints.length > 0) {
+      return geminiHistory;
+    }
+  }
+
+  // Fallback to local simulated AI prediction if Gemini fails or is missing
   const priceNum = parseFloat(currentPrice);
   if (priceNum && !isNaN(priceNum)) {
-    console.log(`[Historical Scraper] All scrapers failed. Generating own prediction history for price: ₹${priceNum}`);
+    console.log(`[Historical Scraper] Falling back to local simulated history for price: ₹${priceNum}`);
     const dataPoints = [];
     const now = new Date();
     const daysAgo = [60, 45, 30, 20, 15, 7, 0];
@@ -1550,7 +1625,264 @@ async function scrapeHistoricalTracker(productUrl, productTitle, currentPrice = 
   return null;
 }
 
+/**
+ * Helper to call Google Gemini API REST endpoint using axios
+ */
+async function callGeminiAPI(prompt, systemInstruction = null) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is not defined.');
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const requestBody = {
+    contents: [
+      {
+        parts: [
+          {
+            text: prompt
+          }
+        ]
+      }
+    ],
+    generationConfig: {
+      responseMimeType: "application/json"
+    }
+  };
+
+  if (systemInstruction) {
+    requestBody.systemInstruction = {
+      parts: [
+        {
+          text: systemInstruction
+        }
+      ]
+    };
+  }
+
+  const response = await axios.post(url, requestBody, {
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    timeout: 5000
+  });
+
+  const textResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!textResponse) {
+    throw new Error('Empty response from Gemini API.');
+  }
+
+  return JSON.parse(textResponse);
+}
+
+/**
+ * Use Gemini AI to extract product details from clean HTML meta and text snippet
+ */
+async function scrapeProductWithGeminiFallback(html, productUrl) {
+  try {
+    const $ = cheerio.load(html);
+    const metaTags = [];
+    $('meta').each((i, el) => {
+      const name = $(el).attr('name') || $(el).attr('property');
+      const content = $(el).attr('content');
+      if (name && content) {
+        metaTags.push(`${name}: ${content}`);
+      }
+    });
+
+    const bodyText = $('body').text().replace(/\s+/g, ' ').substring(0, 15000);
+    const context = `URL: ${productUrl}\n\nMeta Tags:\n${metaTags.join('\n')}\n\nClean Body Text:\n${bodyText}`;
+
+    const systemInstruction = `You are a shopping site parser. Extract structured details from the product page context. You must return a valid JSON object matching the following structure precisely (no extra wrapping or explanation):
+{
+  "title": "string (the product name)",
+  "price": number (the current selling price as a number, in INR),
+  "originalPrice": number (the original MRP price as a number, in INR. If not found, use the current price),
+  "discount": "string (e.g. '30% OFF' or empty if none)",
+  "image": "string (main product image URL)",
+  "rating": number (rating out of 5, or null if not found)
+}`;
+
+    const prompt = `Here is the product page context:\n${context}`;
+    const result = await callGeminiAPI(prompt, systemInstruction);
+
+    if (result && result.title && typeof result.price === 'number') {
+      return {
+        success: true,
+        platform: 'Gemini AI Parser',
+        title: result.title,
+        price: result.price,
+        originalPrice: result.originalPrice || result.price,
+        discount: result.discount || `${Math.round(((result.originalPrice - result.price) / result.originalPrice) * 100)}% OFF` || '0%',
+        currency: '₹',
+        image: result.image || '',
+        rating: result.rating || null,
+        url: productUrl
+      };
+    }
+  } catch (e) {
+    console.error(`[Gemini AI Parser Error] Failed to extract product details: ${e.message}`);
+  }
+  return null;
+}
+
+/**
+ * Use Gemini AI to predict a realistic 90-day price history curve
+ */
+async function predictPriceHistoryWithGemini(productUrl, title, price, originalPrice) {
+  try {
+    const prompt = `Given this product information:
+Title: ${title}
+Current Price: INR ${price}
+Original Price (MRP): INR ${originalPrice || price}
+URL: ${productUrl}
+
+Generate a realistic price history array containing 30 data points spanning the last 90 days.
+The price points must fluctuate realistically based on standard e-commerce patterns (sales, discounts, price hikes) between the lowest historically likely price and MRP, ending at the current price (INR ${price}) on the final day.
+Return a valid JSON array of objects (and absolutely nothing else), where each object has:
+- date: string (format YYYY-MM-DD)
+- price: number`;
+
+    const systemInstruction = "You are a shopping database generator. You output only a JSON array of price history points.";
+    const result = await callGeminiAPI(prompt, systemInstruction);
+
+    if (Array.isArray(result) && result.length > 0) {
+      const dataPoints = result.map(pt => ({
+        timestamp: new Date(`${pt.date}T00:00:00Z`),
+        price: parseFloat(pt.price)
+      }));
+      console.log(`[Gemini AI Prediction] Successfully generated ${dataPoints.length} realistic price points.`);
+      return {
+        url: productUrl,
+        source: 'Gemini AI Prediction',
+        dataPoints: dataPoints
+      };
+    }
+  } catch (e) {
+    console.error(`[Gemini AI Prediction Error] Failed to generate history: ${e.message}`);
+  }
+  return null;
+}
+
+/**
+ * Direct shopping website scraping without checking other trackers (useful for parallel execution)
+ */
+async function scrapeProductDirectOnly(url) {
+  if (!url) {
+    return { success: false, error: 'URL is required' };
+  }
+
+  let targetPlatform = 'E-Commerce Store';
+  try {
+    const parsed = new URL(url);
+    const hostParts = parsed.hostname.split('.');
+    if (hostParts.length >= 2) {
+      targetPlatform = hostParts[hostParts.length - 2].toUpperCase();
+    }
+  } catch (e) {}
+
+  console.log(`[Scraper] Direct scraping shopping website...`);
+  let directData = null;
+  let directError = null;
+  let attempts = 3;
+  let directHtml = '';
+  for (let i = 0; i < attempts; i++) {
+    try {
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * i));
+      }
+      directHtml = await fetchPageHtml(url, 60000);
+      const $ = cheerio.load(directHtml);
+      let data;
+
+      if (url.includes('flipkart.com')) {
+        data = parseFlipkart($, url);
+        if (!data.title) throw new Error('Failed to parse Flipkart product details.');
+      } else if (url.includes('shopsy.in') || url.includes('shopsy.com')) {
+        data = parseFlipkart($, url);
+        if (!data.title) throw new Error('Failed to parse Shopsy product details.');
+        data.platform = 'Shopsy';
+      } else if (url.includes('amazon.in') || url.includes('amazon.com')) {
+        data = parseAmazon($, url);
+        if (!data.title) throw new Error('Failed to parse Amazon product details.');
+      } else if (url.includes('myntra.com')) {
+        data = parseMyntra($, url);
+        if (!data.title) throw new Error('Failed to parse Myntra product details.');
+      } else if (url.includes('ajio.com')) {
+        data = parseAjio($, url);
+        if (!data.title) throw new Error('Failed to parse Ajio product details.');
+      } else if (url.includes('meesho.com')) {
+        data = parseMeesho($, url);
+        if (!data.title) throw new Error('Failed to parse Meesho product details.');
+      } else if (url.includes('croma.com')) {
+        data = parseCroma($, url);
+        if (!data.title) throw new Error('Failed to parse Croma product details.');
+      } else if (url.includes('reliancedigital.in')) {
+        data = parseRelianceDigital($, url);
+        if (!data.title) throw new Error('Failed to parse Reliance Digital product details.');
+      } else if (url.includes('tatacliq.com')) {
+        data = parseTataCliq($, url);
+        if (!data.title) throw new Error('Failed to parse Tata Cliq product details.');
+      } else if (url.includes('nykaa.com')) {
+        data = parseNykaa($, url);
+        if (!data.title) throw new Error('Failed to parse Nykaa product details.');
+      } else {
+        data = parseGenericMeta($, url);
+        if (!data.title) throw new Error('Failed to parse product details from target site.');
+      }
+
+      if (!data.price || data.price <= 0) {
+        throw new Error('No valid price extracted.');
+      }
+
+      if (!data.image || data.image.trim() === '' || data.image.startsWith('data:')) {
+        throw new Error('No valid image extracted (missing or placeholder).');
+      }
+
+      directData = data;
+      break;
+    } catch (err) {
+      console.log(`⚠️ [Scraper Direct Attempt ${i+1}/${attempts} Failed] URL: ${url}. Error: ${err.message}`);
+      directError = err;
+      
+      // If the page returned 404, the product doesn't exist. Stop retrying immediately!
+      if (err.message && err.message.includes('404')) {
+        console.log(`[Scraper] Store page returned 404 Not Found. Aborting retries...`);
+        break;
+      }
+      
+      // If we successfully fetched HTML (length > 2000) but parsing failed, do NOT retry
+      if (directHtml && directHtml.length > 2000 && !directHtml.includes('cf-challenge') && !directHtml.includes('cloudflare')) {
+        console.log(`[Scraper] Page html fetched successfully but parsing failed. Bypassing retries...`);
+        break;
+      }
+    }
+  }
+
+  // If direct parser failed but we have HTML, try Gemini AI extraction
+  if ((!directData || !directData.title || !directData.price) && directHtml && process.env.GEMINI_API_KEY) {
+    console.log(`[Scraper] Direct parsing failed. Invoking Gemini AI fallback parser...`);
+    const aiData = await scrapeProductWithGeminiFallback(directHtml, url);
+    if (aiData && aiData.title) {
+      console.log(`[Scraper] Success via Gemini AI fallback parser!`);
+      directData = aiData;
+    }
+  }
+
+  if (directData && directData.title) {
+    directData.platform = directData.platform || targetPlatform;
+    return directData;
+  }
+
+  return {
+    success: false,
+    error: directError ? directError.message : 'Failed to scrape product details.'
+  };
+}
+
 module.exports = {
   scrapeProduct,
-  scrapeHistoricalTracker
+  scrapeHistoricalTracker,
+  scrapeProductDirectOnly,
+  predictPriceHistoryWithGemini
 };

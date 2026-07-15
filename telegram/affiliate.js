@@ -1,4 +1,5 @@
 const axios = require('axios');
+const db = require('./db');
 
 class AffiliateService {
   constructor() {
@@ -31,15 +32,27 @@ class AmazonAffiliateProvider {
 
   async convert(url, platform) {
     try {
-      if (!this.tag) {
-        console.warn('[Affiliate Service] Amazon Affiliate Tag is not configured in environment variables.');
+      let currentTag = this.tag;
+      try {
+        const res = await db.pool.query(
+          "SELECT tag_value FROM web_affiliate_configs WHERE platform ILIKE 'Amazon' LIMIT 1"
+        );
+        if (res.rows.length > 0) {
+          currentTag = res.rows[0].tag_value;
+        }
+      } catch (dbErr) {
+        console.warn('[Affiliate Service] Failed to query Amazon tag from DB, using fallback/env:', dbErr.message);
+      }
+
+      if (!currentTag) {
+        console.warn('[Affiliate Service] Amazon Affiliate Tag is not configured.');
         return url;
       }
       
       const parsed = new URL(url);
       
       // Update/Append the tag parameter
-      parsed.searchParams.set('tag', this.tag);
+      parsed.searchParams.set('tag', currentTag);
       return parsed.toString();
     } catch (e) {
       console.error('[Affiliate Service] Amazon Link conversion failed:', e.message);
@@ -55,19 +68,30 @@ class EarnKaroAffiliateProvider {
 
   async convert(url, platform) {
     try {
-      if (!this.apiKey) {
-        console.warn('[Affiliate Service] EarnKaro API key (EARNKARO_API) is missing in environment variables. Falling back to original URL.');
+      let currentKey = this.apiKey;
+      try {
+        const res = await db.pool.query(
+          "SELECT tag_value FROM web_affiliate_configs WHERE platform ILIKE 'EarnKaro' LIMIT 1"
+        );
+        if (res.rows.length > 0) {
+          currentKey = res.rows[0].tag_value;
+        }
+      } catch (dbErr) {
+        console.warn('[Affiliate Service] Failed to query EarnKaro key from DB, using fallback/env:', dbErr.message);
+      }
+
+      if (!currentKey) {
+        console.warn('[Affiliate Service] EarnKaro API key is missing. Falling back to original URL.');
         return url;
       }
       
       // Call EarnKaro Affiliate Link Conversion API endpoint
-      // E.g., http://api.earnkaro.com/v1/convert?api_key=...&url=...
       const endpoint = `https://api.earnkaro.com/v1/convert`;
       console.log(`[Affiliate Service] Converting link for ${platform} via EarnKaro API...`);
       
       const response = await axios.get(endpoint, {
         params: {
-          api_key: this.apiKey,
+          api_key: currentKey,
           url: url
         },
         timeout: 6000

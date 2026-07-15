@@ -169,6 +169,14 @@ function escapeMarkdown(text) {
   return String(text).replace(/([_*\[`])/g, '\\$1');
 }
 
+function escapeHTML(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 if (!token) {
   console.error('[History Bot Error] HISTORY_BOT_TOKEN, BOT_TOKEN or TELEGRAM_BOT_TOKEN is missing in the environment variables!');
   process.exit(1);
@@ -434,13 +442,18 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
         pointBackgroundColor: '#4f46e5',
         pointBorderColor: '#ffffff',
         pointBorderWidth: 1.5,
-        pointRadius: filtered.length > 20 ? 0 : 3,
+        pointRadius: 4,
         fill: true,
         backgroundColor: 'rgba(79, 70, 229, 0.1)',
         lineTension: 0.3
       }]
     },
     options: {
+      plugins: {
+        background: {
+          color: 'white'
+        }
+      },
       title: {
         display: true,
         text: productName.substring(0, 32) + '... History Trend',
@@ -514,12 +527,29 @@ async function fetchProductHistory(platform, pid, url = '') {
 
 // Render Result Card for User
 async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessageId = null, refreshData = false) {
-  try {
-    let resultMsg = null;
-    let extraMsgs = [];
-    let timer1 = null;
-    let timer2 = null;
+  let resultMsg = null;
+  let extraMsgs = [];
+  let timer1 = null;
+  let timer2 = null;
 
+  // Deletion/Cleanup helper
+  async function cleanupProgress() {
+    clearTimeout(timer1);
+    clearTimeout(timer2);
+    if (editMessageId) {
+      await bot.deleteMessage(chatId, editMessageId).catch(() => {});
+    }
+    if (resultMsg) {
+      await bot.deleteMessage(chatId, resultMsg.message_id).catch(() => {});
+    }
+    for (const m of extraMsgs) {
+      if (m) {
+        await bot.deleteMessage(chatId, m.message_id).catch(() => {});
+      }
+    }
+  }
+
+  try {
     if (editMessageId) {
       await bot.editMessageText('⏳ Generating Graph & Recommendation...', { chat_id: chatId, message_id: editMessageId }).catch(() => {});
     } else {
@@ -543,23 +573,6 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
           extraMsgs.push(m);
         } catch (e) {}
       }, 60000); // 60 seconds (1 minute)
-    }
-
-    // Deletion/Cleanup helper
-    async function cleanupProgress() {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      if (editMessageId) {
-        await bot.deleteMessage(chatId, editMessageId).catch(() => {});
-      }
-      if (resultMsg) {
-        await bot.deleteMessage(chatId, resultMsg.message_id).catch(() => {});
-      }
-      for (const m of extraMsgs) {
-        if (m) {
-          await bot.deleteMessage(chatId, m.message_id).catch(() => {});
-        }
-      }
     }
 
     if (refreshData) {
@@ -601,15 +614,15 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
 
     // Format output text
     const affiliateUrl = await affiliate.convert(data.url || `https://www.amazon.in/dp/${pid}`, platform);
-    const textCaption = `🏷 *[${escapeMarkdown(data.title)}](${affiliateUrl})*\n\n` +
-      `💰 *Current :* ₹${currentPrice.toLocaleString('en-IN')}\n` +
-      `📉 *Lowest :* ₹${lowestPrice.toLocaleString('en-IN')}\n` +
-      `📈 *Highest :* ₹${highestPrice.toLocaleString('en-IN')}\n` +
-      `📊 *Average :* ₹${averagePrice.toLocaleString('en-IN')}\n` +
-      `🔥 *Drop From Peak :* ${dropFromPeak}%\n\n` +
-      `🛍 *Recommendation*\n` +
-      `${rec.color} *${escapeMarkdown(rec.text)}*\n_${escapeMarkdown(rec.details)}_\n\n` +
-      `Platform: ${escapeMarkdown(data.platform || platform.toUpperCase())}`;
+    const textCaption = `🏷 <a href="${affiliateUrl}"><b>${escapeHTML(data.title)}</b></a>\n\n` +
+      `💰 <b>Current :</b> ₹${currentPrice.toLocaleString('en-IN')}\n` +
+      `📉 <b>Lowest :</b> ₹${lowestPrice.toLocaleString('en-IN')}\n` +
+      `📈 <b>Highest :</b> ₹${highestPrice.toLocaleString('en-IN')}\n` +
+      `📊 <b>Average :</b> ₹${averagePrice.toLocaleString('en-IN')}\n` +
+      `🔥 <b>Drop From Peak :</b> ${dropFromPeak}%\n\n` +
+      `🛍 <b>Recommendation</b>\n` +
+      `${rec.color} <b>${escapeHTML(rec.text)}</b>\n<i>${escapeHTML(rec.details)}</i>\n\n` +
+      `Platform: ${escapeHTML(data.platform || platform.toUpperCase())}`;
 
     // Inline buttons for timeline filters & buy now
     const trackerUsername = process.env.PRICE_TRACKER_BOT_USERNAME || 'PriceTrackerBot';
@@ -629,29 +642,50 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
 
     const chartUrl = generateChartUrl(history, range, data.title);
     
-    // Merge product image and graph using the express proxy endpoint via QuickChart Watermark API
+    // Merge product image and graph using the QuickChart Watermark API
     let finalChartUrl = chartUrl;
     if (data.image) {
-      const proxiedProductImg = `${scraperApiUrl}/api/proxy-image?url=${encodeURIComponent(data.image)}`;
-      finalChartUrl = `https://quickchart.io/watermark?mainImageUrl=${encodeURIComponent(chartUrl)}&markImageUrl=${encodeURIComponent(proxiedProductImg)}&markRatio=0.22&position=topRight&opacity=1.0`;
+      finalChartUrl = `https://quickchart.io/watermark?mainImageUrl=${encodeURIComponent(chartUrl)}&markImageUrl=${encodeURIComponent(data.image)}&markRatio=0.18&position=topRight&opacity=1.0`;
     }
 
     // Send photo or edit existing photo message
     await cleanupProgress();
 
     try {
-      await bot.sendPhoto(chatId, finalChartUrl, {
+      console.log('[History Bot] Downloading consolidated watermark chart image buffer...');
+      const imgRes = await axios.get(finalChartUrl, { responseType: 'arraybuffer', timeout: 8000 });
+      const imageBuffer = Buffer.from(imgRes.data, 'binary');
+      
+      await bot.sendPhoto(chatId, imageBuffer, {
         caption: textCaption,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         reply_markup: { inline_keyboard: inlineKeyboard }
+      }, {
+        filename: 'chart.png',
+        contentType: 'image/png'
       });
     } catch (sendErr) {
-      console.error('[Consolidated Send Error, falling back to plain chart]', sendErr.message);
-      await bot.sendPhoto(chatId, chartUrl, {
-        caption: textCaption,
-        parse_mode: 'Markdown',
-        reply_markup: { inline_keyboard: inlineKeyboard }
-      }).catch(() => {});
+      console.error('[Consolidated Send Error, falling back to plain chart buffer]', sendErr.message);
+      try {
+        const plainRes = await axios.get(chartUrl, { responseType: 'arraybuffer', timeout: 8000 });
+        const plainBuffer = Buffer.from(plainRes.data, 'binary');
+        await bot.sendPhoto(chatId, plainBuffer, {
+          caption: textCaption,
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: inlineKeyboard }
+        }, {
+          filename: 'chart.png',
+          contentType: 'image/png'
+        });
+      } catch (fallbackErr) {
+        console.error('[Fallback Chart Send Error]', fallbackErr.message);
+        // Last-resort fallback: send URL directly (in case axios fails but Telegram can fetch)
+        await bot.sendPhoto(chatId, chartUrl, {
+          caption: textCaption,
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: inlineKeyboard }
+        }).catch(() => {});
+      }
     }
 
   } catch (err) {

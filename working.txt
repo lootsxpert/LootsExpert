@@ -1,0 +1,26 @@
+. PostgreSQL Database Cache (Priority 1)
+How it works: Before any network request is made, the central API checks your Postgres database.
+Result: If the product exists (e.g., your query for Myntra product 35159421), it skips scraping entirely and returns the cached points (DB has complete history cached (63 points). Returning directly!) in under 10ms.
+2. Parallel Dual Scraping (Priority 2)
+How it works: If the product is not in the database, the API fires two requests in parallel:
+Direct Scraper: Connects directly to the shopping site (Myntra/Flipkart) to fetch product details.
+Historical Scraper: Probes the BuyHatke magic link directly for historical chart points.
+Result: Parallel execution reduces the latency to the slower of the two requests rather than waiting for them sequentially.
+3. ScraperAPI (No-JS Rendering Bypass)
+How it works: Proxies requests through ScraperAPI with Indian IP location (country_code=in).
+Result: We bypassed JavaScript rendering (render=false) for major platforms. Pages load in under 2 seconds instead of timing out at 35 seconds.
+4. Cheerio Parsers with Gemini AI Fallback
+How it works:
+The direct scraper uses Cheerio selectors (with the window.__myx = fix for Myntra).
+If parsing fails (like on the Flipkart Mivi Duopods page: Error: No valid price extracted), retries are bypassed immediately.
+The raw HTML is passed to the Gemini AI Fallback Parser using the updated gemini-2.5-flash model.
+Result: Gemini successfully extracts details (Success via Gemini AI fallback parser!) in under 2 seconds.
+5. Gemini AI Prediction / Local Simulator Fallback
+How it works: If tracker historical price data is missing:
+The API asks Gemini (gemini-2.5-flash) to generate a realistic 90-day price history curve.
+We capped this call at a 5-second timeout. If Gemini lags (e.g., timeout of 5000ms exceeded on product 38664303), the system immediately falls back to the local simulated price walker.
+Result: The request never hangs, keeping the Telegram bot response times fast.
+6. Bulk SQL Insertion
+How it works: The scraped history is saved using a single bulk insert statement.
+Result: Even massive history datasets (like the 449 points for Flipkart product 464) are written to the remote Postgres database in under 150ms! Duplicate queries are automatically ignored (Successfully imported 0 price points).
+7:48

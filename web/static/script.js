@@ -1170,7 +1170,7 @@
     const store = platform.toLowerCase();
     if (store === 'amazon') url = `https://www.amazon.in/dp/${pid}`;
     else if (store === 'flipkart') url = `https://www.flipkart.com/p/p?pid=${pid}`;
-    else if (store === 'shopsy') url = `https://www.shopsy.in/p/p?pid=${pid}`;
+    else if (store === 'shopsy') url = `https://www.shopsy.in/open-menu/p/p?pid=${pid}`;
     else if (store === 'myntra') url = `https://www.myntra.com/p/${pid}/buy`;
     else if (store === 'ajio') url = `https://www.ajio.com/p/${pid}`;
     else if (store === 'meesho') url = `https://www.meesho.com/p/${pid}`;

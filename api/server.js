@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const { scrapeProduct, scrapeHistoricalTracker } = require('./scraper');
+const { scrapeProduct, scrapeHistoricalTracker, scrapeProductDirectOnly, predictPriceHistoryWithGemini } = require('./scraper');
 const { 
   initDatabase, 
   getProductByUrl, 
@@ -224,14 +224,6 @@ function getCanonicalUrl(url) {
       }
     }
 
-    // Meesho normalization
-    if (parsed.hostname.includes('meesho.com')) {
-      const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9]+)/i);
-      if (match) {
-        return `https://www.meesho.com/p/${match[1]}`;
-      }
-    }
-    
     return url;
   } catch (e) {
     return url;
@@ -543,7 +535,7 @@ app.get('/api/history', async (req, res) => {
     const store = platform.toLowerCase();
     if (store === 'amazon') canonicalUrl = `https://www.amazon.in/dp/${pid}`;
     else if (store === 'flipkart') canonicalUrl = `https://www.flipkart.com/p/p?pid=${pid}`;
-    else if (store === 'shopsy') canonicalUrl = `https://www.shopsy.in/p/p?pid=${pid}`;
+    else if (store === 'shopsy') canonicalUrl = `https://www.shopsy.in/open-menu/p/p?pid=${pid}`;
     else if (store === 'myntra') canonicalUrl = `https://www.myntra.com/${pid}`;
     else if (store === 'ajio') canonicalUrl = `https://www.ajio.com/s/p/${cleanAjioPid(pid)}`;
     else if (store === 'meesho') canonicalUrl = `https://www.meesho.com/p/${pid}`;
@@ -586,11 +578,74 @@ app.get('/api/history', async (req, res) => {
     if (productInDb) {
       console.log(`[API History] Found product in DB. Using resolved URL: ${productInDb.url}`);
       canonicalUrl = productInDb.url;
+      
+      // Let's get history from our database
+      const historyPoints = await getPriceHistory(productInDb.id);
+      if (historyPoints && historyPoints.length >= 5) {
+        console.log(`[API History] DB has complete history cached (${historyPoints.length} points). Returning directly!`);
+        
+        // Sort history points by date to find latest price
+        historyPoints.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        const latestPoint = historyPoints[historyPoints.length - 1];
+        const latestPrice = parseFloat(latestPoint.price);
+        
+        const validHistoryPrices = historyPoints.map(h => parseFloat(h.price)).filter(p => !isNaN(p) && p > 0);
+        const lowestPriceVal = validHistoryPrices.length > 0 ? Math.min(...validHistoryPrices) : latestPrice;
+        const highestPriceVal = validHistoryPrices.length > 0 ? Math.max(...validHistoryPrices) : latestPrice;
+        const averagePriceVal = validHistoryPrices.length > 0 ? (validHistoryPrices.reduce((sum, p) => sum + p, 0) / validHistoryPrices.length) : latestPrice;
+        
+        const origPrice = Math.max(...validHistoryPrices) || latestPrice;
+        
+        return res.json({
+          success: true,
+          url: productInDb.url,
+          platform: productInDb.platform,
+          title: productInDb.title,
+          price: latestPrice,
+          originalPrice: origPrice,
+          discount: productInDb.discount || `${Math.round(((origPrice - latestPrice) / origPrice) * 100)}% off`,
+          image: productInDb.image,
+          rating: productInDb.rating || 4.2,
+          highestPrice: highestPriceVal,
+          lowestPrice: lowestPriceVal,
+          averagePrice: Math.round(averagePriceVal * 100) / 100,
+          highest_price: highestPriceVal,
+          lowest_price: lowestPriceVal,
+          average_price: Math.round(averagePriceVal * 100) / 100,
+          history: historyPoints.map(h => ({
+            price: parseFloat(h.price),
+            date: h.timestamp
+          }))
+        });
+      }
     }
+
+    // 1. Run direct scraping and tracker scraping in parallel
+    console.log(`[API History] DB history missing or low. Launching direct and tracker scraping in parallel...`);
     
-    // 1. Try to live scrape details of the product
-    let scrapeResult = await scrapeProduct(canonicalUrl).catch(() => ({ success: false }));
-    
+    let searchTitle = '';
+    try {
+      const parsed = new URL(canonicalUrl);
+      const pathSegments = parsed.pathname.split('/').filter(s => s && isNaN(s) && s !== 'dp' && s !== 'p' && s !== 'buy');
+      if (pathSegments.length > 0) {
+        searchTitle = pathSegments.join(' ').replace(/[-_]/g, ' ').substring(0, 50);
+      }
+    } catch (e) {}
+    if (!searchTitle || searchTitle.trim() === "") {
+      searchTitle = 'Product Details';
+    }
+
+    const [directScrape, trackerScrape] = await Promise.all([
+      scrapeProductDirectOnly(canonicalUrl).catch(e => {
+        console.error(`[API History] Direct scrape promise failed: ${e.message}`);
+        return { success: false };
+      }),
+      scrapeHistoricalTracker(canonicalUrl, searchTitle).catch(e => {
+        console.error(`[API History] Tracker scrape promise failed: ${e.message}`);
+        return null;
+      })
+    ]);
+
     let title = '';
     let price = null;
     let originalPrice = null;
@@ -598,17 +653,29 @@ app.get('/api/history', async (req, res) => {
     let image = '';
     let rating = null;
     let platformName = platform || 'Store';
-    
-    if (scrapeResult && scrapeResult.success) {
-      title = scrapeResult.title;
-      price = parseFloat(scrapeResult.price);
-      originalPrice = parseFloat(scrapeResult.originalPrice) || price;
-      discount = scrapeResult.discount;
-      image = scrapeResult.image;
-      rating = scrapeResult.rating;
-      platformName = scrapeResult.platform;
+    let dataPoints = [];
+
+    // Prioritize direct scrape for metadata
+    if (directScrape && directScrape.title) {
+      console.log(`[API History] Using direct scrape details: ${directScrape.title}`);
+      title = directScrape.title;
+      price = parseFloat(directScrape.price);
+      originalPrice = parseFloat(directScrape.originalPrice) || price;
+      discount = directScrape.discount;
+      image = directScrape.image;
+      rating = directScrape.rating;
+      platformName = directScrape.platform;
+    } else if (trackerScrape && trackerScrape.title) {
+      console.log(`[API History] Using tracker scrape details: ${trackerScrape.title}`);
+      title = trackerScrape.title;
+      price = parseFloat(trackerScrape.price);
+      originalPrice = parseFloat(trackerScrape.originalPrice) || price;
+      discount = trackerScrape.discount;
+      image = trackerScrape.image;
+      rating = trackerScrape.rating;
+      platformName = trackerScrape.platform;
     } else {
-      console.warn(`[API History] Live scraping failed for: ${canonicalUrl}. Operating in fallback mode...`);
+      console.warn(`[API History] Direct and tracker scrapes both failed to extract product metadata.`);
       try {
         const parsed = new URL(canonicalUrl);
         const hostParts = parsed.hostname.split('.');
@@ -618,138 +685,85 @@ app.get('/api/history', async (req, res) => {
       } catch (e) {}
     }
 
-    // 2. Try to get cached history from our database
-    productInDb = productInDb || await getProductByUrl(canonicalUrl);
-    let historyPoints = [];
-    
-    if (productInDb) {
-      historyPoints = await getPriceHistory(productInDb.id);
-    }
-
-    // 3. Fetch from external provider if points are low
-    if (historyPoints.length < 5) {
-      console.log(`[API History] DB history points low. Scraping trackers for: ${canonicalUrl}`);
-      
-      // Compute fallback title from pathname if not present
-      let searchTitle = title;
-      if (!searchTitle || searchTitle.trim() === "") {
-        try {
-          const parsed = new URL(canonicalUrl);
-          const pathSegments = parsed.pathname.split('/').filter(s => s && isNaN(s) && s !== 'dp' && s !== 'p' && s !== 'buy');
-          if (pathSegments.length > 0) {
-            searchTitle = pathSegments.join(' ').replace(/[-_]/g, ' ').substring(0, 50);
-          }
-        } catch (e) {}
-      }
-      if (!searchTitle || searchTitle.trim() === "") {
-        searchTitle = 'Product Details';
-      }
-
-      const externalHistory = await scrapeHistoricalTracker(canonicalUrl, searchTitle, price || 0);
-      
-      if (externalHistory && externalHistory.dataPoints && externalHistory.dataPoints.length > 0) {
-        if (!productInDb) {
-          productInDb = await saveProduct({
-            url: canonicalUrl,
-            platform: platformName,
-            title: title || searchTitle,
-            image: image || '',
-            rating: rating || 4.2
-          });
-        }
-        
-        if (productInDb) {
-          await updateProductHistoryUrl(productInDb.id, externalHistory.url);
-          const formattedPoints = externalHistory.dataPoints.map(p => ({
-            price: p.price,
-            timestamp: p.timestamp
-          }));
-          await importPriceHistoryBatch(productInDb.id, formattedPoints);
-          historyPoints = await getPriceHistory(productInDb.id);
+    // Set data points: if tracker has them, use them!
+    if (trackerScrape && trackerScrape.dataPoints && trackerScrape.dataPoints.length >= 5) {
+      console.log(`[API History] Using tracker-provided data points (${trackerScrape.dataPoints.length} points).`);
+      dataPoints = trackerScrape.dataPoints;
+    } else if (price) {
+      // Generate predictions using Gemini or local simulation
+      console.log(`[API History] Tracker history empty or low. Predicting price history...`);
+      if (process.env.GEMINI_API_KEY) {
+        const geminiHistory = await predictPriceHistoryWithGemini(canonicalUrl, title || searchTitle, price, originalPrice);
+        if (geminiHistory && geminiHistory.dataPoints && geminiHistory.dataPoints.length > 0) {
+          dataPoints = geminiHistory.dataPoints;
         }
       }
-    }
-
-    // 4. Model Prediction Fallback: if no tracker data exists, generate simulated history points
-    if (historyPoints.length === 0) {
-      console.log('[API History] No history found. Generating simulated price prediction...');
-      const fallbackPrice = price || 1299;
-      const fallbackOrig = originalPrice || (fallbackPrice * 1.25);
-      const simulatedPoints = generateSimulatedHistory(fallbackPrice, fallbackOrig);
       
-      if (!productInDb) {
-        productInDb = await saveProduct({
-          url: canonicalUrl,
-          platform: platformName,
-          title: title || 'Product Details',
-          image: image || '',
-          rating: rating || 4.2
-        });
-      }
-      
-      if (productInDb) {
-        const formattedSim = simulatedPoints.map(p => ({
-          price: p.price,
-          timestamp: p.timestamp
+      // Fallback to local simulation if Gemini fails or is not configured
+      if (dataPoints.length === 0) {
+        console.log(`[API History] Generating local simulated prediction points.`);
+        const simulated = generateSimulatedHistory(price, originalPrice);
+        dataPoints = simulated.map(pt => ({
+          price: pt.price,
+          timestamp: new Date(pt.timestamp)
         }));
-        await importPriceHistoryBatch(productInDb.id, formattedSim);
-        historyPoints = await getPriceHistory(productInDb.id);
       }
-      scrapeResult.historySource = 'Prediction Model';
     }
 
-    // 5. Final fallback metadata checks to prevent blank responses
-    if (!title && productInDb) {
-      title = productInDb.title;
-    }
-    if (!title) {
-      try {
-        const parsed = new URL(canonicalUrl);
-        const pathSegments = parsed.pathname.split('/').filter(s => s && isNaN(s) && s !== 'dp' && s !== 'p' && s !== 'buy');
-        if (pathSegments.length > 0) {
-          title = pathSegments.join(' ').replace(/[-_]/g, ' ').substring(0, 50);
-        }
-      } catch (e) {}
-      if (!title) title = 'Product Details';
-    }
-    
-    if (!price && historyPoints.length > 0) {
-      price = parseFloat(historyPoints[historyPoints.length - 1].price);
+    // Final checks to ensure no empty values
+    if (!title) title = searchTitle || 'Product Details';
+    if (!price && dataPoints.length > 0) {
+      dataPoints.sort((a, b) => a.timestamp - b.timestamp);
+      price = parseFloat(dataPoints[dataPoints.length - 1].price);
       originalPrice = originalPrice || (price * 1.25);
     }
     if (!price) {
       price = 1299;
       originalPrice = 1699;
     }
-    if (!image && productInDb) {
-      image = productInDb.image;
-    }
     if (!image) {
       image = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80';
     }
 
-    // Add current price point if changed
-    if (price && historyPoints.length > 0) {
-      const lastPoint = historyPoints[historyPoints.length - 1];
-      if (Math.abs(parseFloat(lastPoint.price) - price) > 0.01) {
-        historyPoints.push({
-          price: price,
-          timestamp: new Date()
+    // Save/Update product and import history in DB
+    if (title && price) {
+      if (!productInDb) {
+        productInDb = await saveProduct({
+          url: canonicalUrl,
+          platform: platformName,
+          title: title,
+          image: image,
+          rating: rating || 4.2
         });
+      }
+      
+      if (productInDb) {
+        const trackerUrl = (trackerScrape && trackerScrape.url) ? trackerScrape.url : canonicalUrl;
+        await updateProductHistoryUrl(productInDb.id, trackerUrl);
+        
+        const formattedPoints = dataPoints.map(p => ({
+          price: p.price,
+          timestamp: p.timestamp
+        }));
+        await importPriceHistoryBatch(productInDb.id, formattedPoints);
+        
+        // Fetch fully populated and formatted history points back from DB
+        dataPoints = await getPriceHistory(productInDb.id);
       }
     }
 
-    // Calculate highest, lowest, average prices dynamically
-    const validHistoryPrices = historyPoints.map(h => parseFloat(h.price)).filter(p => !isNaN(p) && p > 0);
+    // Calculate dynamic stats
+    const validHistoryPrices = dataPoints.map(h => parseFloat(h.price)).filter(p => !isNaN(p) && p > 0);
     if (price && !isNaN(price) && price > 0) {
       validHistoryPrices.push(parseFloat(price));
     }
-    const lowestPriceVal = validHistoryPrices.length > 0 ? Math.min(...validHistoryPrices) : (price || 0);
-    const highestPriceVal = validHistoryPrices.length > 0 ? Math.max(...validHistoryPrices) : (price || 0);
-    const averagePriceVal = validHistoryPrices.length > 0 ? (validHistoryPrices.reduce((sum, p) => sum + p, 0) / validHistoryPrices.length) : (price || 0);
+    const lowestPriceVal = validHistoryPrices.length > 0 ? Math.min(...validHistoryPrices) : price;
+    const highestPriceVal = validHistoryPrices.length > 0 ? Math.max(...validHistoryPrices) : price;
+    const averagePriceVal = validHistoryPrices.length > 0 ? (validHistoryPrices.reduce((sum, p) => sum + p, 0) / validHistoryPrices.length) : price;
 
     return res.json({
       success: true,
+      url: canonicalUrl,
       platform: platformName,
       title: title,
       price: price,
@@ -763,7 +777,7 @@ app.get('/api/history', async (req, res) => {
       highest_price: highestPriceVal,
       lowest_price: lowestPriceVal,
       average_price: Math.round(averagePriceVal * 100) / 100,
-      history: historyPoints.map(h => ({
+      history: dataPoints.map(h => ({
         price: parseFloat(h.price),
         date: h.timestamp
       }))

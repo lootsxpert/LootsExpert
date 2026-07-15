@@ -171,6 +171,14 @@ function escapeMarkdown(text) {
   return String(text).replace(/([_*\[`])/g, '\\$1');
 }
 
+function escapeHTML(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 if (!token) {
   console.error('[Error] TELEGRAM_BOT_TOKEN is missing in the environment variables!');
   process.exit(1);
@@ -350,7 +358,7 @@ function reconstructUrl(platform, pid) {
   const p = platform.toLowerCase();
   if (p === 'amazon') return `https://www.amazon.in/dp/${pid}`;
   if (p === 'flipkart') return `https://www.flipkart.com/p/p?pid=${pid}`;
-  if (p === 'shopsy') return `https://www.shopsy.in/p/p?pid=${pid}`;
+  if (p === 'shopsy') return `https://www.shopsy.in/open-menu/p/p?pid=${pid}`;
   if (p === 'myntra') return `https://www.myntra.com/${pid}`;
   if (p === 'ajio') return `https://www.ajio.com/s/p/${pid}`;
   if (p === 'meesho') return `https://www.meesho.com/p/${pid}`;
@@ -540,18 +548,19 @@ bot.onText(/\/my_trackings/, async (msg) => {
         return;
       }
 
-      let reply = `📂 *Your Tracked Products*\n\n`;
+      let reply = `📂 <b>Your Tracked Products</b>\n\n`;
       trackings.forEach((t, index) => {
+        const link = t.aff_url || t.product_url;
         reply += `${index + 1}.\n` +
-          `*${t.product_name.substring(0, 60)}...*\n` +
+          `<a href="${link}"><b>${escapeHTML(t.product_name.substring(0, 60))}...</b></a>\n` +
           `/product_${t.product_id}\n` +
           `/stop_${t.product_id}\n` +
-          `*Current Price:* ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
+          `<b>Current Price:</b> ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
           `----------------\n\n`;
       });
 
       await bot.sendMessage(chatId, reply, {
-        parse_mode: 'Markdown'
+        parse_mode: 'HTML'
       });
     } catch (err) {
       console.error('[Command /my_trackings Error]', err.message);
@@ -589,17 +598,17 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
         highestPrice = Math.max(...prices, highestPrice);
       }
 
-      const clickableName = `[${escapeMarkdown(product.product_name)}](${product.aff_url || product.product_url})`;
+      const clickableName = `<a href="${product.aff_url || product.product_url}"><b>${escapeHTML(product.product_name)}</b></a>`;
 
-      const caption = `🛍️ *${escapeMarkdown(product.platform.toUpperCase())} Product Details*\n\n` +
-        `📌 *${clickableName}*\n\n` +
-        `💵 *Current Price:* ₹${parseFloat(product.current_price).toLocaleString('en-IN')}\n` +
-        `📈 *Highest Price:* ₹${highestPrice.toLocaleString('en-IN')}\n` +
-        `📉 *Lowest Price:* ₹${lowestPrice.toLocaleString('en-IN')}\n` +
-        `🏪 *Platform:* ${escapeMarkdown(product.platform.toUpperCase())}`;
+      const caption = `🛍️ <b>${escapeHTML(product.platform.toUpperCase())} Product Details</b>\n\n` +
+        `📌 ${clickableName}\n\n` +
+        `💵 <b>Current Price:</b> ₹${parseFloat(product.current_price).toLocaleString('en-IN')}\n` +
+        `📈 <b>Highest Price:</b> ₹${highestPrice.toLocaleString('en-IN')}\n` +
+        `📉 <b>Lowest Price:</b> ₹${lowestPrice.toLocaleString('en-IN')}\n` +
+        `🏪 <b>Platform:</b> ${escapeHTML(product.platform.toUpperCase())}`;
 
       const opts = {
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [{ text: '🛒 Buy Now', url: product.aff_url || product.product_url }],
@@ -700,13 +709,18 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
                 pointBackgroundColor: '#4f46e5',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 1.5,
-                pointRadius: labels.length > 20 ? 0 : 3,
+                pointRadius: 4,
                 fill: true,
                 backgroundColor: 'rgba(79, 70, 229, 0.1)',
                 lineTension: 0.3
               }]
             },
             options: {
+              plugins: {
+                background: {
+                  color: 'white'
+                }
+              },
               title: {
                 display: true,
                 text: product.product_name.substring(0, 32) + '... Trend',
@@ -742,10 +756,10 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
           
           const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
           await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
-          const graphClickable = `[${escapeMarkdown(product.product_name)}](${product.aff_url || product.product_url})`;
+          const graphClickable = `<a href="${product.aff_url || product.product_url}"><b>${escapeHTML(product.product_name)}</b></a>`;
           await bot.sendPhoto(chatId, graphUrl, {
-            caption: `📊 Price History graph for *${graphClickable}*`,
-            parse_mode: 'Markdown'
+            caption: `📊 Price History graph for ${graphClickable}`,
+            parse_mode: 'HTML'
           });
         } else {
           await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
@@ -1029,14 +1043,14 @@ bot.on('callback_query', async (callbackQuery) => {
         );
         
         if (saved) {
-          const clickableName = `[${escapeMarkdown(data.title)}](${affUrl || url})`;
-          const successMsg = `✅ *Product added successfully!*\n\n` +
-            `📌 *${clickableName}*\n\n` +
-            `💰 *Current Price:* ₹${parseFloat(data.price).toLocaleString('en-IN')}\n\n` +
+          const clickableName = `<a href="${affUrl || url}"><b>${escapeHTML(data.title)}</b></a>`;
+          const successMsg = `✅ <b>Product added successfully!</b>\n\n` +
+            `📌 ${clickableName}\n\n` +
+            `💰 <b>Current Price:</b> ₹${parseFloat(data.price).toLocaleString('en-IN')}\n\n` +
             `🔔 Price tracking has been enabled.\nYou'll receive a notification whenever the price changes.`;
             
           const opts = {
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: [
                 [{ text: '🛒 Buy Now', url: affUrl || url }],
@@ -1108,13 +1122,18 @@ bot.on('callback_query', async (callbackQuery) => {
               pointBackgroundColor: '#4f46e5',
               pointBorderColor: '#ffffff',
               pointBorderWidth: 1.5,
-              pointRadius: labels.length > 20 ? 0 : 3,
+              pointRadius: 4,
               fill: true,
               backgroundColor: 'rgba(79, 70, 229, 0.1)',
               lineTension: 0.3
             }]
           },
           options: {
+            plugins: {
+              background: {
+                color: 'white'
+              }
+            },
             title: {
               display: true,
               text: product.product_name.substring(0, 32) + '... Trend',
@@ -1149,10 +1168,10 @@ bot.on('callback_query', async (callbackQuery) => {
         };
         
         const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
-        const graphClickable = `[${escapeMarkdown(product.product_name)}](${product.aff_url || product.product_url})`;
+        const graphClickable = `<a href="${product.aff_url || product.product_url}"><b>${escapeHTML(product.product_name)}</b></a>`;
         await bot.sendPhoto(chatId, graphUrl, {
-          caption: `📊 Price History graph for *${graphClickable}*`,
-          parse_mode: 'Markdown'
+          caption: `📊 Price History graph for ${graphClickable}`,
+          parse_mode: 'HTML'
         });
       } else {
         await bot.sendMessage(chatId, '⚠️ Not enough price history points to generate a graph.');
@@ -1174,18 +1193,19 @@ bot.on('callback_query', async (callbackQuery) => {
       return;
     }
 
-    let reply = `📂 *Your Tracked Products*\n\n`;
+    let reply = `📂 <b>Your Tracked Products</b>\n\n`;
     trackings.forEach((t, index) => {
+      const link = t.aff_url || t.product_url;
       reply += `${index + 1}.\n` +
-        `*${t.product_name.substring(0, 60)}...*\n` +
+        `<a href="${link}"><b>${escapeHTML(t.product_name.substring(0, 60))}...</b></a>\n` +
         `/product_${t.product_id}\n` +
         `/stop_${t.product_id}\n` +
-        `*Current Price:* ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
+        `<b>Current Price:</b> ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
         `----------------\n\n`;
     });
 
     await bot.sendMessage(chatId, reply, {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [getMainButtons()] }
     });
   }
@@ -1474,18 +1494,18 @@ bot.on('message', async (msg) => {
           console.error('[History Fetch Error]', e.message);
         }
 
-        const clickableName = `[${escapeMarkdown(data.title)}](${affUrl || productUrl})`;
+        const clickableName = `<a href="${affUrl || productUrl}"><b>${escapeHTML(data.title)}</b></a>`;
 
-        const successText = `🛍️ *Tracking your product*\n\n` +
-          `📌 *${clickableName}*\n\n` +
-          `💵 *Current Price:* ₹${livePrice.toLocaleString('en-IN')}\n` +
-          `📈 *Highest Price:* ₹${highestPrice.toLocaleString('en-IN')}\n` +
-          `📉 *Lowest Price:* ₹${lowestPrice.toLocaleString('en-IN')}\n\n` +
+        const successText = `🛍️ <b>Tracking your product</b>\n\n` +
+          `📌 ${clickableName}\n\n` +
+          `💵 <b>Current Price:</b> ₹${livePrice.toLocaleString('en-IN')}\n` +
+          `📈 <b>Highest Price:</b> ₹${highestPrice.toLocaleString('en-IN')}\n` +
+          `📉 <b>Lowest Price:</b> ₹${lowestPrice.toLocaleString('en-IN')}\n\n` +
           `/product_${saved.product_id}\n` +
           `/stop_${saved.product_id}`;
           
         const opts = {
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
               [{ text: '🛒 Buy Now', url: affUrl || productUrl }],
@@ -1546,28 +1566,28 @@ function startScheduler() {
                 const diff = newPrice - oldPrice;
                 const pct = ((Math.abs(diff) / oldPrice) * 100).toFixed(1);
                 
-                const clickableName = `[${escapeMarkdown(product.product_name)}](${product.aff_url || product.product_url})`;
+                const clickableName = `<a href="${product.aff_url || product.product_url}"><b>${escapeHTML(product.product_name)}</b></a>`;
                 let notifyMsg = '';
                 if (diff < 0) {
-                  notifyMsg = `📢 *Price Changed!*\n\n` +
-                    `*${clickableName}*\n\n` +
-                    `*Old Price:* ₹${oldPrice.toLocaleString('en-IN')}\n` +
-                    `*Current Price:* ₹${newPrice.toLocaleString('en-IN')}\n` +
-                    `*Difference:* -₹${Math.abs(diff).toLocaleString('en-IN')} (-${pct}%)\n\n` +
+                  notifyMsg = `📢 <b>Price Changed!</b>\n\n` +
+                    `${clickableName}\n\n` +
+                    `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
+                    `<b>Current Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
+                    `<b>Difference:</b> -₹${Math.abs(diff).toLocaleString('en-IN')} (-${pct}%)\n\n` +
                     `/product${product.product_id} Click For More Details\n` +
                     `/stop${product.product_id} For Stop tracking This product`;
                 } else {
-                  notifyMsg = `📈 *Price Increased!*\n\n` +
-                    `*${clickableName}*\n\n` +
-                    `*Old Price:* ₹${oldPrice.toLocaleString('en-IN')}\n` +
-                    `*New Price:* ₹${newPrice.toLocaleString('en-IN')}\n` +
-                    `*Difference:* +₹${diff.toLocaleString('en-IN')} (+${pct}%)\n\n` +
+                  notifyMsg = `📈 <b>Price Increased!</b>\n\n` +
+                    `${clickableName}\n\n` +
+                    `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
+                    `<b>New Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
+                    `<b>Difference:</b> +₹${diff.toLocaleString('en-IN')} (+${pct}%)\n\n` +
                     `/product${product.product_id} Click For More Details\n` +
                     `/stop${product.product_id} For Stop tracking This product`;
                 }
                 
                 const opts = {
-                  parse_mode: 'Markdown',
+                  parse_mode: 'HTML',
                   reply_markup: {
                     inline_keyboard: [
                       [{ text: '🛒 Buy Now', url: product.aff_url || product.product_url }],
