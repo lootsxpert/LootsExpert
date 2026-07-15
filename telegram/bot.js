@@ -1599,7 +1599,8 @@ function startScheduler() {
                 const diff = newPrice - oldPrice;
                 const pct = ((Math.abs(diff) / oldPrice) * 100).toFixed(1);
                 
-                const clickableName = `<a href="${product.aff_url || product.product_url}"><b>${escapeHTML(product.product_name)}</b></a>`;
+                const currentAffUrl = await affiliate.convert(product.product_url, product.platform);
+                const clickableName = `<a href="${currentAffUrl}"><b>${escapeHTML(product.product_name)}</b></a>`;
                 let notifyMsg = '';
                 if (diff < 0) {
                   notifyMsg = `📢 <b>Price Changed!</b>\n\n` +
@@ -1607,23 +1608,23 @@ function startScheduler() {
                     `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `<b>Current Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `<b>Difference:</b> -₹${Math.abs(diff).toLocaleString('en-IN')} (-${pct}%)\n\n` +
-                    `/product${product.product_id} Click For More Details\n` +
-                    `/stop${product.product_id} For Stop tracking This product`;
+                    `/product_${product.product_id} Click For More Details\n` +
+                    `/stop_${product.product_id} For Stop tracking This product`;
                 } else {
                   notifyMsg = `📈 <b>Price Increased!</b>\n\n` +
                     `${clickableName}\n\n` +
                     `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `<b>New Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `<b>Difference:</b> +₹${diff.toLocaleString('en-IN')} (+${pct}%)\n\n` +
-                    `/product${product.product_id} Click For More Details\n` +
-                    `/stop${product.product_id} For Stop tracking This product`;
+                    `/product_${product.product_id} Click For More Details\n` +
+                    `/stop_${product.product_id} For Stop tracking This product`;
                 }
                 
                 const opts = {
                   parse_mode: 'HTML',
                   reply_markup: {
                     inline_keyboard: [
-                      [{ text: '🛒 Buy Now', url: product.aff_url || product.product_url }],
+                      [{ text: '🛒 Buy Now', url: currentAffUrl }],
                       [
                         { text: '📊 Price Graph', callback_data: `graph:${product.product_id}` },
                         { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }

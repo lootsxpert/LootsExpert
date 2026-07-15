@@ -35,6 +35,7 @@
     <!-- Sidebar Menu Tabs -->
     <aside class="dashboard-sidebar">
       <button class="tab-btn active" data-tab="users"><i class="fa-solid fa-users"></i> Manage Users</button>
+      <button class="tab-btn" data-tab="telegram-users"><i class="fa-solid fa-brands fa-telegram"></i> Telegram Users</button>
       <button class="tab-btn" data-tab="products"><i class="fa-solid fa-box"></i> Tracked Products</button>
       <button class="tab-btn" data-tab="categories"><i class="fa-solid fa-folder-open"></i> Categories</button>
       <button class="tab-btn" data-tab="stores"><i class="fa-solid fa-store"></i> Supported Stores</button>
@@ -92,6 +93,109 @@
           </div>
         {% else %}
           <p class="empty-text">No web users registered yet.</p>
+        {% endif %}
+      </section>
+
+      <!-- Tab Telegram Users -->
+      <section class="tab-content" id="tab-telegram-users">
+        <h3>Telegram Bot Users</h3>
+        <p class="tab-desc">View and manage users who started the Price Tracker and History Telegram Bots.</p>
+        
+        {% if telegram_users %}
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Telegram ID</th>
+                  <th>Full Name</th>
+                  <th>Username</th>
+                  <th>Joined Date</th>
+                  <th>Tracked Items</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for u in telegram_users %}
+                  <tr>
+                    <td><code>{{ u['telegram_id'] }}</code></td>
+                    <td><strong>{{ u['name'] }}</strong></td>
+                    <td>
+                      {% if u['username'] %}
+                        <a href="https://t.me/{{ u['username'] }}" target="_blank">@{{ u['username'] }}</a>
+                      {% else %}
+                        <span class="text-secondary">None</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-secondary">{{ u['joined_date'].strftime('%Y-%m-%d') if u['joined_date'] else 'N/A' }}</td>
+                    <td>
+                      <span class="badge" style="background-color: #e0f2fe; color: #0369a1; padding: 4px 8px; border-radius: 9999px; font-weight: 600;">
+                        {{ u['tracked_count'] }} items
+                      </span>
+                    </td>
+                    <td>
+                      {% if u['is_banned'] %}
+                        <span style="color: #b91c1c; font-weight: 600; background: #fee2e2; padding: 3px 8px; border-radius: 9999px; font-size: 11px;">BANNED</span>
+                      {% else %}
+                        <span style="color: #15803d; font-weight: 600; background: #dcfce7; padding: 3px 8px; border-radius: 9999px; font-size: 11px;">ACTIVE</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary btn-sm" onclick="toggleWatchlist('{{ u['telegram_id'] }}')" style="padding: 4px 8px; font-size: 12px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;">
+                          <i class="fa-solid fa-eye"></i> Watchlist
+                        </button>
+                        <form action="/admin/telegram-user/toggle-ban/{{ u['telegram_id'] }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to {{ 'unban' if u['is_banned'] else 'ban' }} this user?');">
+                          <input type="hidden" name="action" value="{{ 'unban' if u['is_banned'] else 'ban' }}">
+                          {% if u['is_banned'] %}
+                            <button type="submit" class="btn btn-success btn-sm" style="padding: 4px 8px; font-size: 12px; background: #22c55e; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                              <i class="fa-solid fa-user-check"></i> Unban
+                            </button>
+                          {% else %}
+                            <button type="submit" class="btn btn-danger btn-sm" style="padding: 4px 8px; font-size: 12px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                              <i class="fa-solid fa-user-slash"></i> Ban
+                            </button>
+                          {% endif %}
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                  
+                  <!-- Nested Watchlist Row -->
+                  <tr id="watchlist-row-{{ u['telegram_id'] }}" style="display: none; background-color: #f8fafc;">
+                    <td colspan="7" style="padding: 15px 25px;">
+                      <h4 style="margin: 0 0 10px 0; font-size: 14px; color: #1e293b;">
+                        📦 Watchlist for <strong>{{ u['name'] }}</strong>
+                      </h4>
+                      <div class="watchlist-items-list" style="display: flex; flex-direction: column; gap: 8px;">
+                        {% set ns = namespace(found=false) %}
+                        {% for p in telegram_watchlist %}
+                          {% if p['user_id'] == u['telegram_id'] %}
+                            {% set ns.found = true %}
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                              <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <span style="font-weight: 600; color: #0f172a; font-size: 13px;">{{ p['product_name'] }}</span>
+                                <span class="text-secondary" style="font-size: 11px; color: #64748b;">
+                                  Store: <strong style="color:#0284c7">{{ p['platform'].upper() }}</strong> | 
+                                  Url: <a href="{{ p['product_url'] }}" target="_blank" style="word-break: break-all;">{{ p['product_url'] }}</a>
+                                </span>
+                              </div>
+                              <span style="font-weight: 700; color: #10b981; font-size: 14px;">₹{{ p['current_price'] }}</span>
+                            </div>
+                          {% endif %}
+                        {% endfor %}
+                        {% if not ns.found %}
+                          <p style="color: #64748b; font-style: italic; margin: 0; font-size: 13px;">No active trackers found for this user.</p>
+                        {% endif %}
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="empty-text">No Telegram users registered in database yet.</p>
         {% endif %}
       </section>
 
@@ -703,5 +807,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 });
+
+function toggleWatchlist(userId) {
+  const row = document.getElementById(`watchlist-row-${userId}`);
+  if (row) {
+    row.style.display = (row.style.display === 'none') ? 'table-row' : 'none';
+  }
+}
 </script>
 {% endblock %}

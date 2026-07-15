@@ -817,9 +817,38 @@ def admin():
         cur.execute("SELECT id, name, username, email, created_at FROM web_users ORDER BY created_at DESC")
         users = cur.fetchall()
         
-        # Get products count and list from telegram_products pool (we connect to same pool)
+        # Get products count and list from telegram_products pool
         cur.execute("SELECT id, platform, product_name, current_price, tracking_status FROM telegram_products ORDER BY created_at DESC LIMIT 50")
         products = cur.fetchall()
+        
+        # Get Telegram users and their tracked products count
+        cur.execute("""
+            SELECT 
+                u.telegram_id, 
+                u.name, 
+                u.username, 
+                u.joined_date, 
+                u.is_banned,
+                COUNT(p.id)::integer as tracked_count
+            FROM telegram_users u
+            LEFT JOIN telegram_products p ON u.telegram_id = p.user_id
+            GROUP BY u.telegram_id, u.name, u.username, u.joined_date, u.is_banned
+            ORDER BY u.joined_date DESC
+        """)
+        telegram_users = cur.fetchall()
+
+        # Get full Telegram watchlist details
+        cur.execute("""
+            SELECT 
+                p.user_id,
+                p.product_name,
+                p.product_url,
+                p.current_price,
+                p.platform
+            FROM telegram_products p
+            ORDER BY p.created_at DESC
+        """)
+        telegram_watchlist = cur.fetchall()
         
         # Get counts
         cur.execute("SELECT COUNT(*) FROM web_users")
@@ -971,6 +1000,8 @@ def admin():
             "admin.html", 
             users=users, 
             products=products, 
+            telegram_users=telegram_users,
+            telegram_watchlist=telegram_watchlist,
             total_users=total_web_users, 
             total_products=total_products,
             categories=admin_categories,
@@ -1222,6 +1253,27 @@ def admin_marquee_delete(item_id):
         return redirect(url_for("admin", msg="Marquee item deleted successfully!"))
     except Exception as e:
         return f"Database Error: {str(e)}"
+
+
+@app.route("/admin/telegram-user/toggle-ban/<int:telegram_id>", methods=["POST"])
+def admin_telegram_user_toggle_ban(telegram_id):
+    if 'admin' not in session:
+        return redirect(url_for("login", msg="Access restricted to administrator."))
+        
+    action = request.form.get('action')
+    is_ban = (action == 'ban')
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE telegram_users SET is_banned = %s WHERE telegram_id = %s", (is_ban, telegram_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        msg = f"User {telegram_id} successfully {'banned' if is_ban else 'unbanned'}!"
+        return redirect(url_for("admin", msg=msg))
+    except Exception as e:
+        return redirect(url_for("admin", error=f"Database Error: {str(e)}"))
 
 
 # ==============================================================================
