@@ -399,6 +399,20 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
         await bot.sendMessage(chatId, '⚠️ Invalid track link parameter.');
         return;
       }
+
+      // Check tracking limit
+      const limit = parseInt(process.env.MAX_TRACK_PRODUCTS) || 10;
+      const currentCount = await db.getUserTrackedCount(chatId);
+      if (currentCount >= limit) {
+        await bot.sendMessage(
+          chatId, 
+          `⚠️ <b>Tracking limit reached.</b>\n\n` +
+          `You are already tracking ${currentCount} products.\n\n` +
+          `Please remove one or more products from /my_trackings before adding a new one.`,
+          { parse_mode: 'HTML' }
+        );
+        return;
+      }
       
       const statusMsg = await bot.sendMessage(chatId, '🔍 Checking product info...');
       
@@ -1000,10 +1014,10 @@ bot.on('callback_query', async (callbackQuery) => {
         if (currentCount >= limit) {
           await bot.sendMessage(
             chatId, 
-            `⚠️ *Tracking limit reached.*\n\n` +
+            `⚠️ <b>Tracking limit reached.</b>\n\n` +
             `You are already tracking the maximum number of products allowed (${limit}).\n\n` +
             `Please remove one or more products from /my_trackings before adding a new one.`, 
-            { parse_mode: 'Markdown' }
+            { parse_mode: 'HTML' }
           );
           return;
         }
@@ -1378,10 +1392,10 @@ bot.on('message', async (msg) => {
     if (currentCount >= limit) {
       await bot.sendMessage(
         chatId, 
-        `⚠️ *Tracking limit reached.*\n\n` +
+        `⚠️ <b>Tracking limit reached.</b>\n\n` +
         `You are already tracking ${currentCount} products.\n\n` +
         `Please remove one or more products from /my_trackings before adding a new one.`,
-        { parse_mode: 'Markdown' }
+        { parse_mode: 'HTML' }
       );
       return;
     }
