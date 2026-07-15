@@ -739,11 +739,10 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
     `📉 *Lowest Price*\n` +
     `📊 *Average Price*\n` +
     `🔥 *Buy Recommendation*\n\n` +
-    `*Supported Stores:*\n` +
-    `• Amazon India\n• Myntra\n• Meesho\n• AJio\n• Croma\n` +
-    `• Shopsy (Low success rate)\n\n` +
-    `*Unsupported Stores:*\n` +
-    `• Reliance Digital\n• Nykaa\n• Tata Cliq`;
+    `*Note on Supported Stores:*\n` +
+    `• *Supported:* Amazon India, Croma, Myntra, Meesho, AJio\n` +
+    `• *Low Success Rate:* Shopsy\n` +
+    `• *Unsupported:* Reliance Digital, Nykaa, Tata Cliq, and other stores`;
 
   await bot.sendMessage(chatId, welcomeText, {
     parse_mode: 'Markdown',

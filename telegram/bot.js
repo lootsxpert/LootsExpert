@@ -489,11 +489,10 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
     `I'm <b>@${trackerBotUsername}</b>, your personal assistant for tracking product prices.\n\n` +
     `I will notify you whenever the price goes up or down.\n\n` +
     `Simply send me a product link.\n\n` +
-    `<b>Supported Stores:</b>\n` +
-    `• Amazon India\n• Myntra\n• Meesho\n• AJio\n• Croma\n` +
-    `• Shopsy (Low success rate)\n\n` +
-    `<b>Unsupported Stores:</b>\n` +
-    `• Reliance Digital\n• Nykaa\n• Tata Cliq\n\n` +
+    `⚠️ <b>Note on Supported Stores:</b>\n` +
+    `• <b>Supported:</b> Amazon India, Croma, Myntra, Meesho, AJio\n` +
+    `• <b>Low Success Rate:</b> Shopsy\n` +
+    `• <b>Unsupported:</b> Reliance Digital, Nykaa, Tata Cliq, and other stores\n\n` +
     `Use /my_trackings to see tracked products.\n` +
     `Use /help for help.\n\n` +
     `<b>Also Try:</b>\n` +
