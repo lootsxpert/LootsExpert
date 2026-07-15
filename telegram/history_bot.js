@@ -733,14 +733,17 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
   const name = msg.from.first_name || 'shopper';
   const welcomeText = `👋 *Welcome to Price History Bot* ${escapeMarkdown(name)}!\n\n` +
     `Track product prices before you buy.\n\n` +
-    `Simply send any Amazon, Flipkart, Myntra, Ajio, Meesho, Shopsy, or similar product link.\n\n` +
+    `Simply send any supported product link.\n\n` +
     `You'll instantly see:\n` +
     `📈 *Price History*\n` +
     `📉 *Lowest Price*\n` +
     `📊 *Average Price*\n` +
     `🔥 *Buy Recommendation*\n\n` +
     `*Supported Stores:*\n` +
-    `• Amazon\n• Flipkart\n• Myntra\n• Ajio\n• Meesho\n• Shopsy\n• Croma / TataCliq / Reliance Digital / Nykaa (via search)`;
+    `• Amazon India\n• Myntra\n• Meesho\n• AJio\n• Croma\n` +
+    `• Shopsy (Low success rate)\n\n` +
+    `*Unsupported Stores:*\n` +
+    `• Reliance Digital\n• Nykaa\n• Tata Cliq`;
 
   await bot.sendMessage(chatId, welcomeText, {
     parse_mode: 'Markdown',
