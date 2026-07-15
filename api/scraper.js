@@ -103,6 +103,11 @@ function getCanonicalUrl(url) {
 
     // Ajio normalization
     if (parsed.hostname.includes('ajio.com')) {
+      const pathParts = parsed.pathname.split('/');
+      const pIndex = pathParts.indexOf('p');
+      if (pIndex > 1 && pathParts[pIndex + 1]) {
+        return `https://www.ajio.com${parsed.pathname}`;
+      }
       const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9_]+)/i);
       if (match) {
         const cleanPid = match[1].split('_')[0];
@@ -1714,7 +1719,7 @@ async function callGeminiAPI(prompt, systemInstruction = null) {
     throw new Error('GEMINI_API_KEY environment variable is not defined.');
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   const requestBody = {
     contents: [
       {

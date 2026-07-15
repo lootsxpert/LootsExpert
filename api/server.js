@@ -169,6 +169,40 @@ function expandUrl(shortUrl) {
           console.error(`[Proxy Expand] ScrapingBee failed: ${e.message}`);
         }
       }
+
+      // Fallback: Scrape.do
+      const scrapeDoKey = process.env.SCRAPEDO_KEY;
+      if (scrapeDoKey) {
+        try {
+          const axios = require('axios');
+          console.log(`[Proxy Expand] Trying Scrape.do fallback for: ${shortUrl}`);
+          const res = await axios.get('https://api.scrape.do/', {
+            params: {
+              token: scrapeDoKey,
+              url: shortUrl
+            },
+            timeout: 15000
+          });
+          if (res.headers && (res.headers['x-final-url'] || res.headers['sa-final-url'] || res.headers['spb-resolved-url'])) {
+            let finalUrl = res.headers['x-final-url'] || res.headers['sa-final-url'] || res.headers['spb-resolved-url'] || shortUrl;
+            try {
+              const urlObj = new URL(finalUrl);
+              const paramsToCheck = ['dl', 'dest', 'redirect', 'to', 'target', 'url', 'redirect_url'];
+              for (const param of paramsToCheck) {
+                const val = urlObj.searchParams.get(param);
+                if (val && val.startsWith('http')) {
+                  finalUrl = decodeURIComponent(val);
+                  break;
+                }
+              }
+            } catch (e) {}
+            console.log(`[Proxy Expand] Scrape.do successfully resolved: ${finalUrl}`);
+            return finalUrl;
+          }
+        } catch (e) {
+          console.error(`[Proxy Expand] Scrape.do failed: ${e.message}`);
+        }
+      }
     }
     return resolved;
   });
@@ -221,6 +255,11 @@ function getCanonicalUrl(url) {
 
     // Ajio normalization
     if (parsed.hostname.includes('ajio.com')) {
+      const pathParts = parsed.pathname.split('/');
+      const pIndex = pathParts.indexOf('p');
+      if (pIndex > 1 && pathParts[pIndex + 1]) {
+        return `https://www.ajio.com${parsed.pathname}`;
+      }
       const match = parsed.pathname.match(/\/p\/([a-zA-Z0-9_]+)/i);
       if (match) {
         const cleanPid = match[1].split('_')[0];
@@ -349,11 +388,13 @@ app.get('/api/scrape', async (req, res) => {
 
   let canonicalUrl = getCanonicalUrl(url);
   // Expand short URLs dynamically
-  const isShort = !canonicalUrl.includes('amazon.in') && !canonicalUrl.includes('flipkart.com') && 
+  const isShort = (!canonicalUrl.includes('amazon.in') && !canonicalUrl.includes('flipkart.com') && 
                   !canonicalUrl.includes('shopsy.in') && !canonicalUrl.includes('myntra.com') && 
                   !canonicalUrl.includes('ajio.com') && !canonicalUrl.includes('meesho.com') &&
                   !canonicalUrl.includes('croma.com') && !canonicalUrl.includes('tatacliq.com') &&
-                  !canonicalUrl.includes('reliancedigital.in') && !canonicalUrl.includes('nykaa.com');
+                  !canonicalUrl.includes('reliancedigital.in') && !canonicalUrl.includes('nykaa.com')) ||
+                  ((canonicalUrl.includes('shopsy.in') || canonicalUrl.includes('shopsy.com')) && (canonicalUrl.includes('/p/itm') || canonicalUrl.includes('/p/p') || canonicalUrl.includes('/open-menu/p/p'))) ||
+                  (canonicalUrl.includes('ajio.com') && (canonicalUrl.includes('/s/p/') || canonicalUrl.includes('ajio.com/p/')));
   if (isShort) {
     console.log(`[API Server] Expanding short URL inside scrape: ${canonicalUrl}`);
     const expanded = await expandUrl(canonicalUrl);
@@ -566,6 +607,8 @@ app.get('/api/history', async (req, res) => {
   const isShorthand = isHistoryShort || 
                       canonicalUrl.includes('/p/p') || 
                       canonicalUrl.includes('/open-menu/p/p') || 
+                      ((canonicalUrl.includes('shopsy.in') || canonicalUrl.includes('shopsy.com')) && canonicalUrl.includes('/p/itm')) ||
+                      (canonicalUrl.includes('ajio.com') && (canonicalUrl.includes('/s/p/') || canonicalUrl.includes('ajio.com/p/'))) ||
                       (canonicalUrl.includes('tatacliq.com') && (canonicalUrl.includes('/p-mp') || canonicalUrl.match(/\/p-mp[0-9]+$/)));
 
   if (isShorthand) {
@@ -671,16 +714,22 @@ app.get('/api/history', async (req, res) => {
       searchTitle = 'Product Details';
     }
 
-    let [directScrape, trackerScrape] = await Promise.all([
-      scrapeProductDirectOnly(canonicalUrl).catch(e => {
+    console.log(`[API History] Launching tracker scraping first...`);
+    let trackerScrape = await scrapeHistoricalTracker(canonicalUrl, searchTitle).catch(e => {
+      console.error(`[API History] Tracker scrape promise failed: ${e.message}`);
+      return null;
+    });
+
+    let directScrape = null;
+    if (trackerScrape && trackerScrape.title && trackerScrape.dataPoints && trackerScrape.dataPoints.length >= 5) {
+      console.log(`[API History] Tracker scrape succeeded with ${trackerScrape.dataPoints.length} points. Skipping direct e-commerce scraper to save API credits.`);
+    } else {
+      console.log(`[API History] Tracker scrape returned no data or low history. Launching direct e-commerce scraper...`);
+      directScrape = await scrapeProductDirectOnly(canonicalUrl).catch(e => {
         console.error(`[API History] Direct scrape promise failed: ${e.message}`);
         return { success: false };
-      }),
-      scrapeHistoricalTracker(canonicalUrl, searchTitle).catch(e => {
-        console.error(`[API History] Tracker scrape promise failed: ${e.message}`);
-        return null;
-      })
-    ]);
+      });
+    }
 
     // Fuzzy match title check to prevent BuyHatke mismatch redirection bugs
     if (directScrape && directScrape.title && trackerScrape && trackerScrape.title) {
