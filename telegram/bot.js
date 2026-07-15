@@ -483,11 +483,7 @@ bot.onText(/^\/start(?: (.+))?$/, async (msg, match) => {
         }
       };
       
-      if (imageUrl) {
-        await bot.sendPhoto(chatId, imageUrl, { caption: confirmationText, ...opts });
-      } else {
-        await bot.sendMessage(chatId, confirmationText, opts);
-      }
+      await bot.sendMessage(chatId, confirmationText, opts);
       
     } catch (err) {
       console.error('[Deep Link Error]', err.message);
@@ -638,11 +634,7 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
         }
       };
 
-      if (product.image_url) {
-        await bot.sendPhoto(chatId, product.image_url, { caption: caption, ...opts });
-      } else {
-        await bot.sendMessage(chatId, caption, opts);
-      }
+      await bot.sendMessage(chatId, caption, opts);
     } catch (err) {
       console.error('[Command /product Error]', err.message);
       await bot.sendMessage(chatId, '⚠️ Failed to retrieve product information.');
@@ -1368,7 +1360,7 @@ bot.on('message', async (msg) => {
   if (isShort) {
     const statusMsg = await bot.sendMessage(chatId, '🔍 Resolving link...');
     resolvedUrl = await expandUrl(productUrl);
-    await cleanupProgress();
+    await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
   }
   const detected = detectPlatformAndPid(resolvedUrl);
   
@@ -1566,11 +1558,7 @@ bot.on('message', async (msg) => {
           }
         };
 
-        if (data.image) {
-          await bot.sendPhoto(chatId, data.image, { caption: successText, ...opts });
-        } else {
-          await bot.sendMessage(chatId, successText, opts);
-        }
+        await bot.sendMessage(chatId, successText, opts);
       }
       
     } catch (err) {
@@ -1649,13 +1637,7 @@ function startScheduler() {
                   }
                 };
                 
-                if (product.image_url) {
-                  await bot.sendPhoto(userChatId, product.image_url, { caption: notifyMsg, ...opts }).catch(async () => {
-                    await bot.sendMessage(userChatId, notifyMsg, opts).catch(() => {});
-                  });
-                } else {
-                  await bot.sendMessage(userChatId, notifyMsg, opts).catch(() => {});
-                }
+                await bot.sendMessage(userChatId, notifyMsg, opts).catch(() => {});
               }
             }
           }
