@@ -1231,8 +1231,8 @@ bot.on('callback_query', async (callbackQuery) => {
       const link = t.aff_url || t.product_url;
       reply += `${index + 1}.\n` +
         `<a href="${link}"><b>${escapeHTML(t.product_name.substring(0, 60))}...</b></a>\n` +
-        `/product_${t.product_id}\n` +
-        `/stop_${t.product_id}\n` +
+        `/product${t.product_id}\n` +
+        `/stop${t.product_id}\n` +
         `<b>Current Price:</b> ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
         `----------------\n\n`;
     });
@@ -1534,8 +1534,8 @@ bot.on('message', async (msg) => {
           `💵 <b>Current Price:</b> ₹${livePrice.toLocaleString('en-IN')}\n` +
           `📈 <b>Highest Price:</b> ₹${highestPrice.toLocaleString('en-IN')}\n` +
           `📉 <b>Lowest Price:</b> ₹${lowestPrice.toLocaleString('en-IN')}\n\n` +
-          `/product_${saved.product_id}\n` +
-          `/stop_${saved.product_id}`;
+          `/product${saved.product_id}\n` +
+          `/stop${saved.product_id}`;
           
         const opts = {
           parse_mode: 'HTML',
@@ -1608,16 +1608,16 @@ function startScheduler() {
                     `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `<b>Current Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `<b>Difference:</b> -₹${Math.abs(diff).toLocaleString('en-IN')} (-${pct}%)\n\n` +
-                    `/product_${product.product_id} Click For More Details\n` +
-                    `/stop_${product.product_id} For Stop tracking This product`;
+                    `/product${product.product_id} Click For More Details\n` +
+                    `/stop${product.product_id} For Stop tracking This product`;
                 } else {
                   notifyMsg = `📈 <b>Price Increased!</b>\n\n` +
                     `${clickableName}\n\n` +
                     `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `<b>New Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `<b>Difference:</b> +₹${diff.toLocaleString('en-IN')} (+${pct}%)\n\n` +
-                    `/product_${product.product_id} Click For More Details\n` +
-                    `/stop_${product.product_id} For Stop tracking This product`;
+                    `/product${product.product_id} Click For More Details\n` +
+                    `/stop${product.product_id} For Stop tracking This product`;
                 }
                 
                 const opts = {
