@@ -81,7 +81,11 @@ function getCanonicalUrl(url) {
     // Shopsy normalization
     if (parsed.hostname.includes('shopsy.in') || parsed.hostname.includes('shopsy.com')) {
       const pid = parsed.searchParams.get('pid');
-      let canonical = `https://www.shopsy.in${parsed.pathname}`;
+      let path = parsed.pathname;
+      if (path === '/open-menu/p/p' || path === '/p/p' || path === '/p' || path === '/open-menu/p') {
+        path = '/p/itm';
+      }
+      let canonical = `https://www.shopsy.in${path}`;
       if (pid) {
         canonical += `?pid=${pid}`;
       }
@@ -207,7 +211,6 @@ async function fetchPageHtml(url, customTimeout = 35000) {
                      url.includes('shopsy.in') ||
                      url.includes('shopsy.com') ||
                      url.includes('nykaa.com') ||
-                     url.includes('tatacliq.com') ||
                      url.includes('croma.com') ||
                      url.includes('reliancedigital.in');
 
@@ -762,32 +765,52 @@ function parseMeesho($, url) {
   let specs = [];
 
   let scriptContent = '';
-  $('script').each((i, el) => {
-    const html = $(el).html();
-    if (html && html.includes('window.__INITIAL_STATE__')) {
-      scriptContent = html;
-      return false;
-    }
-  });
+  // Try __NEXT_DATA__ first
+  let nextScript = $('#__NEXT_DATA__').html();
+  if (nextScript) {
+    scriptContent = nextScript;
+  } else {
+    $('script').each((i, el) => {
+      const html = $(el).html();
+      if (html && (html.includes('window.__INITIAL_STATE__') || html.includes('{"props":{"pageProps":'))) {
+        scriptContent = html;
+        return false;
+      }
+    });
+  }
 
   if (scriptContent) {
     try {
-      const parts = scriptContent.split('window.__INITIAL_STATE__=');
-      if (parts.length > 1) {
-        const jsonStr = parts[1].trim();
-        const cleanJsonStr = jsonStr.endsWith(';') ? jsonStr.slice(0, -1) : jsonStr;
-        const data = JSON.parse(cleanJsonStr);
+      let data = null;
+      if (scriptContent.includes('window.__INITIAL_STATE__=')) {
+        const parts = scriptContent.split('window.__INITIAL_STATE__=');
+        if (parts.length > 1) {
+          const jsonStr = parts[1].trim();
+          const cleanJsonStr = jsonStr.endsWith(';') ? jsonStr.slice(0, -1) : jsonStr;
+          data = JSON.parse(cleanJsonStr);
+        }
+      } else {
+        data = JSON.parse(scriptContent.trim());
+      }
+
+      if (data) {
+        // Extract from Next.js nested state structure if present
+        const pageProps = data.props?.pageProps;
+        const initialState = pageProps?.initialState;
+        const state = initialState || data;
 
         let pdp = null;
-        if (data.productDetails) {
-          pdp = data.productDetails;
-        } else if (data.pdp && data.pdp.productDetails) {
-          pdp = data.pdp.productDetails;
-        } else if (data.product && data.product.productDetails) {
-          pdp = data.product.productDetails;
+        if (state.productDetails) {
+          pdp = state.productDetails;
+        } else if (state.pdp && state.pdp.productDetails) {
+          pdp = state.pdp.productDetails;
+        } else if (state.product && state.product.productDetails) {
+          pdp = state.product.productDetails;
+        } else if (state.pdp) {
+          pdp = state.pdp;
         }
 
-        if (pdp) {
+        if (pdp && (pdp.name || pdp.title)) {
           title = pdp.name || pdp.title;
           price = parseFloat(pdp.price || pdp.discountedPrice || pdp.sellingPrice);
           originalPrice = parseFloat(pdp.mrp || pdp.originalPrice || price);
@@ -807,6 +830,32 @@ function parseMeesho($, url) {
             specs = [{ key: 'Description', value: pdp.description }];
           }
         }
+
+        // Recursive search fallback if structure changed
+        if (!title || !price) {
+          function findKeyRecursive(obj, key) {
+            if (!obj || typeof obj !== 'object') return null;
+            if (key in obj) return obj[key];
+            for (const k in obj) {
+              const res = findKeyRecursive(obj[k], key);
+              if (res !== null) return res;
+            }
+            return null;
+          }
+          const foundName = findKeyRecursive(state, 'name');
+          const foundPrice = findKeyRecursive(state, 'price') || findKeyRecursive(state, 'sellingPrice');
+          const foundMrp = findKeyRecursive(state, 'mrp') || findKeyRecursive(state, 'originalPrice') || foundPrice;
+          const foundImages = findKeyRecursive(state, 'images');
+
+          if (foundName && foundPrice) {
+            title = foundName;
+            price = parseFloat(foundPrice);
+            originalPrice = parseFloat(foundMrp);
+            if (foundImages && Array.isArray(foundImages) && foundImages[0]) {
+              image = foundImages[0];
+            }
+          }
+        }
       }
     } catch (e) {
       console.error('[Scraper Error] Meesho JSON parse failed:', e.message);
@@ -814,7 +863,7 @@ function parseMeesho($, url) {
   }
 
   if (!title) {
-    title = $('span[class*="CatalogDetails__Text"]').first().text().trim() || $('h1').text().trim();
+    title = $('span[class*="CatalogDetails__Text"]').first().text().trim() || $('h1').first().text().trim();
     price = parsePrice($('h4[class*="CatalogDetails__Price"]').first().text().trim());
     originalPrice = parsePrice($('p[class*="CatalogDetails__Mrp"]').first().text().trim()) || price;
     image = $('img[class*="ProductImage"]').first().attr('src');
@@ -977,6 +1026,8 @@ function parseTataCliq($, url) {
               $('.ProductImage__image').attr('src') ||
               $('img.ProductImage__image').attr('src');
               
+  let canonical = $('link[rel="canonical"]').attr('href') || url;
+  
   return {
     success: !!title,
     platform: 'Tata Cliq',
@@ -986,7 +1037,7 @@ function parseTataCliq($, url) {
     discount: (originalPrice > price) ? `${Math.round(((originalPrice - price) / originalPrice) * 100)}% off` : '0%',
     currency: '₹',
     image: image || '',
-    url
+    url: canonical
   };
 }
 
@@ -1349,12 +1400,6 @@ async function scrapeFromBuyHatke(productUrl, productTitle) {
       platformKey = 'myntra';
     } else if (hostname.includes('ajio.com')) {
       platformKey = 'ajio';
-    } else if (hostname.includes('meesho.com')) {
-      platformKey = 'meesho';
-    } else if (hostname.includes('shopsy.in') || hostname.includes('shopsy.com')) {
-      platformKey = 'shopsy';
-    } else if (hostname.includes('croma.com')) {
-      platformKey = 'croma';
     }
     
     if (platformKey) {
@@ -1837,6 +1882,16 @@ async function scrapeProductDirectOnly(url) {
 
       if (!data.image || data.image.trim() === '' || data.image.startsWith('data:')) {
         throw new Error('No valid image extracted (missing or placeholder).');
+      }
+
+      if (data) {
+        try {
+          const canonical = $('link[rel="canonical"]').attr('href');
+          if (canonical && canonical.startsWith('http')) {
+            console.log(`[Scraper] Resolving input URL ${url} to page canonical: ${canonical}`);
+            data.url = canonical;
+          }
+        } catch (e) {}
       }
 
       directData = data;

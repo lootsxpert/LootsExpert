@@ -604,8 +604,7 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
         `📌 ${clickableName}\n\n` +
         `💵 <b>Current Price:</b> ₹${parseFloat(product.current_price).toLocaleString('en-IN')}\n` +
         `📈 <b>Highest Price:</b> ₹${highestPrice.toLocaleString('en-IN')}\n` +
-        `📉 <b>Lowest Price:</b> ₹${lowestPrice.toLocaleString('en-IN')}\n` +
-        `🏪 <b>Platform:</b> ${escapeHTML(product.platform.toUpperCase())}`;
+        `📉 <b>Lowest Price:</b> ₹${lowestPrice.toLocaleString('en-IN')}`;
 
       const opts = {
         parse_mode: 'HTML',
@@ -733,6 +732,14 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
               },
               scales: {
                 xAxes: [{
+                  scaleLabel: {
+                    display: true,
+                    labelString: 'Time',
+                    fontColor: '#000000',
+                    fontFamily: 'Inter',
+                    fontSize: 10,
+                    fontStyle: 'bold'
+                  },
                   gridLines: { display: false, drawBorder: false },
                   ticks: {
                     fontFamily: 'Inter',
@@ -742,6 +749,14 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
                   }
                 }],
                 yAxes: [{
+                  scaleLabel: {
+                    display: true,
+                    labelString: 'Price',
+                    fontColor: '#000000',
+                    fontFamily: 'Inter',
+                    fontSize: 10,
+                    fontStyle: 'bold'
+                  },
                   gridLines: { color: '#e2e8f0', drawBorder: false },
                   ticks: {
                     fontFamily: 'Inter',
@@ -751,10 +766,11 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
                   }
                 }]
               }
-            }
+            },
+            backgroundColor: 'white'
           };
           
-          const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+          const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&f=jpg&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
           await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
           const graphClickable = `<a href="${product.aff_url || product.product_url}"><b>${escapeHTML(product.product_name)}</b></a>`;
           await bot.sendPhoto(chatId, graphUrl, {
@@ -1146,6 +1162,14 @@ bot.on('callback_query', async (callbackQuery) => {
             },
             scales: {
               xAxes: [{
+                scaleLabel: {
+                  display: true,
+                  labelString: 'Time',
+                  fontColor: '#000000',
+                  fontFamily: 'Inter',
+                  fontSize: 10,
+                  fontStyle: 'bold'
+                },
                 gridLines: { display: false, drawBorder: false },
                 ticks: {
                   fontFamily: 'Inter',
@@ -1155,6 +1179,14 @@ bot.on('callback_query', async (callbackQuery) => {
                 }
               }],
               yAxes: [{
+                scaleLabel: {
+                  display: true,
+                  labelString: 'Price',
+                  fontColor: '#000000',
+                  fontFamily: 'Inter',
+                  fontSize: 10,
+                  fontStyle: 'bold'
+                },
                 gridLines: { color: '#e2e8f0', drawBorder: false },
                 ticks: {
                   fontFamily: 'Inter',
@@ -1164,10 +1196,11 @@ bot.on('callback_query', async (callbackQuery) => {
                 }
               }]
             }
-          }
+          },
+          backgroundColor: 'white'
         };
         
-        const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+        const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&f=jpg&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
         const graphClickable = `<a href="${product.aff_url || product.product_url}"><b>${escapeHTML(product.product_name)}</b></a>`;
         await bot.sendPhoto(chatId, graphUrl, {
           caption: `📊 Price History graph for ${graphClickable}`,

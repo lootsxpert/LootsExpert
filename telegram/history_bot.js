@@ -466,6 +466,14 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
       },
       scales: {
         xAxes: [{
+          scaleLabel: {
+            display: true,
+            labelString: 'Time',
+            fontColor: '#000000',
+            fontFamily: 'Inter',
+            fontSize: 10,
+            fontStyle: 'bold'
+          },
           gridLines: { display: false, drawBorder: false },
           ticks: {
             fontFamily: 'Inter',
@@ -475,6 +483,14 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
           }
         }],
         yAxes: [{
+          scaleLabel: {
+            display: true,
+            labelString: 'Price',
+            fontColor: '#000000',
+            fontFamily: 'Inter',
+            fontSize: 10,
+            fontStyle: 'bold'
+          },
           gridLines: { color: '#e2e8f0', drawBorder: false },
           ticks: {
             fontFamily: 'Inter',
@@ -484,10 +500,11 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
           }
         }]
       }
-    }
+    },
+    backgroundColor: 'white'
   };
 
-  return `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+  return `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&f=jpg&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
 }
 
 // Fetch historical data through API (with caching)
@@ -526,7 +543,7 @@ async function fetchProductHistory(platform, pid, url = '') {
 }
 
 // Render Result Card for User
-async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessageId = null, refreshData = false) {
+async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessageId = null, refreshData = false, originalUserUrl = '') {
   let resultMsg = null;
   let extraMsgs = [];
   let timer1 = null;
@@ -581,12 +598,12 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
 
     let data;
     try {
-      data = await fetchProductHistory(platform, pid);
+      data = await fetchProductHistory(platform, pid, originalUserUrl);
     } catch (err) {
       console.log('[History Bot Fetch] First attempt failed. Retrying...');
       await new Promise(resolve => setTimeout(resolve, 6000));
       try {
-        data = await fetchProductHistory(platform, pid);
+        data = await fetchProductHistory(platform, pid, originalUserUrl);
       } catch (retryErr) {
         throw retryErr;
       }
@@ -621,8 +638,7 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
       `📊 <b>Average :</b> ₹${averagePrice.toLocaleString('en-IN')}\n` +
       `🔥 <b>Drop From Peak :</b> ${dropFromPeak}%\n\n` +
       `🛍 <b>Recommendation</b>\n` +
-      `${rec.color} <b>${escapeHTML(rec.text)}</b>\n<i>${escapeHTML(rec.details)}</i>\n\n` +
-      `Platform: ${escapeHTML(data.platform || platform.toUpperCase())}`;
+      `${rec.color} <b>${escapeHTML(rec.text)}</b>\n<i>${escapeHTML(rec.details)}</i>`;
 
     // Inline buttons for timeline filters & buy now
     const trackerUsername = process.env.PRICE_TRACKER_BOT_USERNAME || 'PriceTrackerBot';
@@ -643,10 +659,7 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
     const chartUrl = generateChartUrl(history, range, data.title);
     
     // Merge product image and graph using the QuickChart Watermark API
-    let finalChartUrl = chartUrl;
-    if (data.image) {
-      finalChartUrl = `https://quickchart.io/watermark?mainImageUrl=${encodeURIComponent(chartUrl)}&markImageUrl=${encodeURIComponent(data.image)}&markRatio=0.18&position=topRight&opacity=1.0`;
-    }
+    const finalChartUrl = chartUrl;
 
     // Send photo or edit existing photo message
     await cleanupProgress();
@@ -661,8 +674,8 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
         parse_mode: 'HTML',
         reply_markup: { inline_keyboard: inlineKeyboard }
       }, {
-        filename: 'chart.png',
-        contentType: 'image/png'
+        filename: 'chart.jpg',
+        contentType: 'image/jpeg'
       });
     } catch (sendErr) {
       console.error('[Consolidated Send Error, falling back to plain chart buffer]', sendErr.message);
@@ -674,8 +687,8 @@ async function renderHistoryCard(chatId, platform, pid, range = 'all', editMessa
           parse_mode: 'HTML',
           reply_markup: { inline_keyboard: inlineKeyboard }
         }, {
-          filename: 'chart.png',
-          contentType: 'image/png'
+          filename: 'chart.jpg',
+          contentType: 'image/jpeg'
         });
       } catch (fallbackErr) {
         console.error('[Fallback Chart Send Error]', fallbackErr.message);
@@ -946,7 +959,7 @@ bot.on('message', async (msg) => {
     }
 
     const { platform, pid } = detected;
-    await renderHistoryCard(chatId, platform, pid, 'all', null, false);
+    await renderHistoryCard(chatId, platform, pid, 'all', null, false, resolvedUrl);
   });
 });
 

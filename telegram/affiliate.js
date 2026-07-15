@@ -53,7 +53,9 @@ class AmazonAffiliateProvider {
       
       // Update/Append the tag parameter
       parsed.searchParams.set('tag', currentTag);
-      return parsed.toString();
+      const affUrl = parsed.toString();
+      console.log(`[Affiliate Service] Amazon Link Converted:\n  Original: ${url}\n  Affiliate: ${affUrl}`);
+      return affUrl;
     } catch (e) {
       console.error('[Affiliate Service] Amazon Link conversion failed:', e.message);
       return url;
@@ -86,29 +88,32 @@ class EarnKaroAffiliateProvider {
       }
       
       // Call EarnKaro Affiliate Link Conversion API endpoint
-      const endpoint = `https://api.earnkaro.com/v1/convert`;
-      console.log(`[Affiliate Service] Converting link for ${platform} via EarnKaro API...`);
+      const endpoint = `https://ekaro-api.affiliaters.in/api/converter/public`;
+      console.log(`[Affiliate Service] Converting link for ${platform} via new EarnKaro API...`);
       
-      const response = await axios.get(endpoint, {
-        params: {
-          api_key: currentKey,
-          url: url
+      const response = await axios.post(endpoint, {
+        deal: url,
+        convert_option: 'convert_only'
+      }, {
+        headers: {
+          'Authorization': `Bearer ${currentKey}`,
+          'Content-Type': 'application/json'
         },
         timeout: 6000
       });
       
-      if (response.data) {
-        const affUrl = response.data.aff_url || response.data.converted_url || response.data.url;
-        if (affUrl) {
-          console.log(`[Affiliate Service] Link converted successfully: ${affUrl}`);
+      if (response.data && response.data.success === 1 && response.data.data) {
+        const affUrl = response.data.data.trim();
+        if (affUrl && affUrl.startsWith('http')) {
+          console.log(`[Affiliate Service] EarnKaro Link Converted:\n  Original: ${url}\n  Affiliate: ${affUrl}`);
           return affUrl;
         }
       }
       
-      console.log('[Affiliate Service] EarnKaro returned empty or unexpected structure. Returning original URL.');
+      console.log('[Affiliate Service] New EarnKaro API returned empty or unsuccessful status. Returning original URL.');
       return url;
     } catch (err) {
-      console.warn(`[Affiliate Service Warning] EarnKaro API call failed: ${err.message}. Gracefully falling back to original URL.`);
+      console.warn(`[Affiliate Service Warning] New EarnKaro API call failed: ${err.message}. Gracefully falling back to original URL.`);
       return url;
     }
   }

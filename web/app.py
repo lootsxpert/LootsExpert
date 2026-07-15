@@ -1279,14 +1279,28 @@ def outbound_redirect():
     
     if 'amazon' not in lower_platform and ek_key:
         try:
-            ek_url = f"https://api.earnkaro.com/v1/convert?api_key={urllib.parse.quote(ek_key)}&url={urllib.parse.quote(target_url)}"
-            req = urllib.request.Request(ek_url, headers={'User-Agent': 'Mozilla/5.0'})
+            ek_url = "https://ekaro-api.affiliaters.in/api/converter/public"
+            payload = json.dumps({
+                "deal": target_url,
+                "convert_option": "convert_only"
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                ek_url, 
+                data=payload,
+                headers={
+                    'Authorization': f'Bearer {ek_key}',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0'
+                },
+                method='POST'
+            )
             with urllib.request.urlopen(req, timeout=5) as r:
                 if r.status == 200:
                     res_data = json.loads(r.read().decode('utf-8'))
-                    aff_url = res_data.get("aff_url") or res_data.get("converted_url") or res_data.get("url")
-                    if aff_url:
-                        return redirect(aff_url)
+                    if res_data.get("success") == 1 and res_data.get("data"):
+                        aff_url = res_data.get("data").strip()
+                        if aff_url.startswith('http'):
+                            return redirect(aff_url)
         except Exception as ek_err:
             print(f"[EarnKaro URL Conversion Error] {ek_err}")
             

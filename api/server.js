@@ -200,7 +200,11 @@ function getCanonicalUrl(url) {
     // Shopsy normalization
     if (parsed.hostname.includes('shopsy.in') || parsed.hostname.includes('shopsy.com')) {
       const pid = parsed.searchParams.get('pid');
-      let canonical = `https://www.shopsy.in${parsed.pathname}`;
+      let path = parsed.pathname;
+      if (path === '/open-menu/p/p' || path === '/p/p' || path === '/p' || path === '/open-menu/p') {
+        path = '/p/itm';
+      }
+      let canonical = `https://www.shopsy.in${path}`;
       if (pid) {
         canonical += `?pid=${pid}`;
       }
@@ -558,7 +562,13 @@ app.get('/api/history', async (req, res) => {
                          !canonicalUrl.includes('ajio.com') && !canonicalUrl.includes('meesho.com') &&
                          !canonicalUrl.includes('croma.com') && !canonicalUrl.includes('tatacliq.com') &&
                          !canonicalUrl.includes('reliancedigital.in') && !canonicalUrl.includes('nykaa.com');
-  if (isHistoryShort) {
+  
+  const isShorthand = isHistoryShort || 
+                      canonicalUrl.includes('/p/p') || 
+                      canonicalUrl.includes('/open-menu/p/p') || 
+                      (canonicalUrl.includes('tatacliq.com') && (canonicalUrl.includes('/p-mp') || canonicalUrl.match(/\/p-mp[0-9]+$/)));
+
+  if (isShorthand) {
     console.log(`[API Server] Expanding short URL inside history lookup: ${canonicalUrl}`);
     const expandedHistory = await expandUrl(canonicalUrl);
     canonicalUrl = getCanonicalUrl(expandedHistory);
@@ -577,7 +587,33 @@ app.get('/api/history', async (req, res) => {
     let productInDb = await getProductByUrl(canonicalUrl);
     if (productInDb) {
       console.log(`[API History] Found product in DB. Using resolved URL: ${productInDb.url}`);
-      canonicalUrl = productInDb.url;
+      
+      const incomingUrl = req.query.url ? decodeURIComponent(req.query.url) : '';
+      const isIncomingLong = incomingUrl && 
+                             !incomingUrl.includes('/p/p') && 
+                             !incomingUrl.includes('/open-menu/p/p') && 
+                             !(incomingUrl.includes('tatacliq.com') && incomingUrl.includes('/p-mp'));
+      
+      if (isIncomingLong) {
+        console.log(`[API History] Overriding database shorthand URL with user's incoming long URL: ${incomingUrl}`);
+        canonicalUrl = incomingUrl;
+        
+        // Migrate database row to the long URL if it was shorthand
+        const dbUrl = productInDb.url;
+        const isDbShorthand = dbUrl.includes('/p/p') || dbUrl.includes('/open-menu/p/p') || (dbUrl.includes('tatacliq.com') && dbUrl.includes('/p-mp'));
+        if (isDbShorthand) {
+          console.log(`[API History] Shorthand DB URL ${dbUrl} detected. Upgrading DB row to: ${incomingUrl}`);
+          try {
+            await db.pool.query("UPDATE products SET url = $1 WHERE id = $2", [incomingUrl, productInDb.id]);
+            await db.pool.query("UPDATE telegram_products SET product_url = $1 WHERE product_url = $2", [incomingUrl, dbUrl]);
+            productInDb.url = incomingUrl;
+          } catch (e) {
+            console.error('[API History] Shorthand DB URL migration failed:', e.message);
+          }
+        }
+      } else {
+        canonicalUrl = getCanonicalUrl(productInDb.url);
+      }
       
       // Let's get history from our database
       const historyPoints = await getPriceHistory(productInDb.id);
@@ -635,7 +671,7 @@ app.get('/api/history', async (req, res) => {
       searchTitle = 'Product Details';
     }
 
-    const [directScrape, trackerScrape] = await Promise.all([
+    let [directScrape, trackerScrape] = await Promise.all([
       scrapeProductDirectOnly(canonicalUrl).catch(e => {
         console.error(`[API History] Direct scrape promise failed: ${e.message}`);
         return { success: false };
@@ -645,6 +681,20 @@ app.get('/api/history', async (req, res) => {
         return null;
       })
     ]);
+
+    // Fuzzy match title check to prevent BuyHatke mismatch redirection bugs
+    if (directScrape && directScrape.title && trackerScrape && trackerScrape.title) {
+      const cleanWords = (t) => t.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2);
+      const w1 = cleanWords(directScrape.title);
+      const w2 = cleanWords(trackerScrape.title);
+      const common = w1.filter(w => w2.includes(w));
+      const minCommon = Math.min(2, Math.ceil(Math.min(w1.length, w2.length) * 0.3));
+      
+      if (common.length < minCommon) {
+        console.warn(`[API History] Discarding tracker data: Title mismatch ("${directScrape.title}" vs "${trackerScrape.title}")`);
+        trackerScrape = null;
+      }
+    }
 
     let title = '';
     let price = null;
@@ -665,6 +715,10 @@ app.get('/api/history', async (req, res) => {
       image = directScrape.image;
       rating = directScrape.rating;
       platformName = directScrape.platform;
+      if (directScrape.url && directScrape.url.startsWith('http')) {
+        console.log(`[API History] Updating lookup canonical URL to scraped canonical URL: ${directScrape.url}`);
+        canonicalUrl = directScrape.url;
+      }
     } else if (trackerScrape && trackerScrape.title) {
       console.log(`[API History] Using tracker scrape details: ${trackerScrape.title}`);
       title = trackerScrape.title;
