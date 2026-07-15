@@ -504,7 +504,7 @@ function generateChartUrl(historyPoints, range = 'all', productName = '') {
     backgroundColor: 'white'
   };
 
-  return `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&f=jpg&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+  return `https://quickchart.io/chart?w=600&h=350&backgroundColor=white&f=jpg&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
 }
 
 // Fetch historical data through API (with caching)

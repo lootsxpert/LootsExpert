@@ -770,7 +770,7 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
             backgroundColor: 'white'
           };
           
-          const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&f=jpg&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+          const graphUrl = `https://quickchart.io/chart?w=600&h=350&backgroundColor=white&f=jpg&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
           await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
           const graphClickable = `<a href="${product.aff_url || product.product_url}"><b>${escapeHTML(product.product_name)}</b></a>`;
           await bot.sendPhoto(chatId, graphUrl, {
@@ -1200,7 +1200,7 @@ bot.on('callback_query', async (callbackQuery) => {
           backgroundColor: 'white'
         };
         
-        const graphUrl = `https://quickchart.io/chart?w=600&h=350&bkg=ffffff&f=jpg&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+        const graphUrl = `https://quickchart.io/chart?w=600&h=350&backgroundColor=white&f=jpg&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
         const graphClickable = `<a href="${product.aff_url || product.product_url}"><b>${escapeHTML(product.product_name)}</b></a>`;
         await bot.sendPhoto(chatId, graphUrl, {
           caption: `📊 Price History graph for ${graphClickable}`,
