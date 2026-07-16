@@ -5,6 +5,8 @@ const https = require('https');
 const http = require('http');
 const urlModule = require('url');
 
+const ID_SUFFIX = 'YE6WHE87';
+
 function expandUrl(shortUrl) {
   return new Promise((resolve) => {
     let redirectsCount = 0;
@@ -565,8 +567,8 @@ bot.onText(/\/my_trackings/, async (msg) => {
         const link = t.aff_url || t.product_url;
         reply += `${index + 1}.\n` +
           `<a href="${link}"><b>${escapeHTML(t.product_name.substring(0, 60))}...</b></a>\n` +
-          `/product_${t.id}\n` +
-          `/stop_${t.id}\n` +
+          `/product_${t.id}${ID_SUFFIX}\n` +
+          `/stop_${t.id}${ID_SUFFIX}\n` +
           `<b>Current Price:</b> ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
           `----------------\n\n`;
       });
@@ -583,10 +585,14 @@ bot.onText(/\/my_trackings/, async (msg) => {
 
 // Command: /product<id>
 bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
-  const productPid = match[1];
+  let productPid = match[1];
   if (!productPid) {
     await bot.sendMessage(msg.chat.id, '❌ Please specify a product ID. Example: `/product 45` or `/product_45`', { parse_mode: 'HTML' });
     return;
+  }
+  
+  if (productPid && productPid.endsWith(ID_SUFFIX)) {
+    productPid = productPid.slice(0, -ID_SUFFIX.length);
   }
 
   await verifyUserAndExecute(msg, 'product', { pid: productPid }, async () => {
@@ -602,7 +608,7 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
       }
       await bot.deleteMessage(chatId, infoMsg.message_id);
 
-      if (!product || String(product.user_id) !== String(chatId)) {
+      if (!product || String(product.user_id) !== String(chatId) || product.tracking_status !== 'active') {
         await bot.sendMessage(chatId, '❌ Product not found or you are not tracking it.');
         return;
       }
@@ -649,10 +655,14 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
 
 // Command: /stop<id>
 bot.onText(/^\/stop(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
-  const productPid = match[1];
+  let productPid = match[1];
   if (!productPid) {
     await bot.sendMessage(msg.chat.id, '❌ Please specify a product ID. Example: `/stop 45` or `/stop_45`', { parse_mode: 'HTML' });
     return;
+  }
+
+  if (productPid && productPid.endsWith(ID_SUFFIX)) {
+    productPid = productPid.slice(0, -ID_SUFFIX.length);
   }
 
   await verifyUserAndExecute(msg, 'stop', { pid: productPid }, async () => {
@@ -1091,8 +1101,8 @@ bot.on('callback_query', async (callbackQuery) => {
             `📌 ${clickableName}\n\n` +
             `💰 <b>Current Price:</b> ₹${parseFloat(data.price).toLocaleString('en-IN')}\n\n` +
             `🔔 Price tracking has been enabled.\nYou'll receive a notification whenever the price changes.\n\n` +
-            `/product_${saved.id}\n` +
-            `/stop_${saved.id}`;
+            `/product_${saved.id}${ID_SUFFIX}\n` +
+            `/stop_${saved.id}${ID_SUFFIX}`;
             
           const opts = {
             parse_mode: 'HTML',
@@ -1611,16 +1621,16 @@ function startScheduler() {
                     `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `<b>Current Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `<b>Difference:</b> -₹${Math.abs(diff).toLocaleString('en-IN')} (-${pct}%)\n\n` +
-                    `/product_${product.id} Click For More Details\n` +
-                    `/stop_${product.id} For Stop tracking This product`;
+                    `/product_${product.id}${ID_SUFFIX} Click For More Details\n` +
+                    `/stop_${product.id}${ID_SUFFIX} For Stop tracking This product`;
                 } else {
                    notifyMsg = `📈 <b>Price Increased!</b>\n\n` +
                     `${clickableName}\n\n` +
                     `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `<b>New Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `<b>Difference:</b> +₹${diff.toLocaleString('en-IN')} (+${pct}%)\n\n` +
-                    `/product_${product.id} Click For More Details\n` +
-                    `/stop_${product.id} For Stop tracking This product`;
+                    `/product_${product.id}${ID_SUFFIX} Click For More Details\n` +
+                    `/stop_${product.id}${ID_SUFFIX} For Stop tracking This product`;
                 }
                 
                 const opts = {

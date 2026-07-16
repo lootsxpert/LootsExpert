@@ -818,7 +818,7 @@ def admin():
         users = cur.fetchall()
         
         # Get products count and list from telegram_products pool
-        cur.execute("SELECT id, platform, product_name, current_price, tracking_status FROM telegram_products ORDER BY created_at DESC LIMIT 50")
+        cur.execute("SELECT id, platform, product_name, current_price, tracking_status FROM telegram_products WHERE tracking_status = 'active' ORDER BY created_at DESC LIMIT 50")
         products = cur.fetchall()
         
         # Get Telegram users and their tracked products count
@@ -829,7 +829,7 @@ def admin():
                 u.username, 
                 u.joined_date, 
                 u.is_banned,
-                COUNT(p.id)::integer as tracked_count
+                COUNT(CASE WHEN p.tracking_status = 'active' THEN p.id END)::integer as tracked_count
             FROM telegram_users u
             LEFT JOIN telegram_products p ON u.telegram_id = p.user_id
             GROUP BY u.telegram_id, u.name, u.username, u.joined_date, u.is_banned
@@ -846,6 +846,7 @@ def admin():
                 p.current_price,
                 p.platform
             FROM telegram_products p
+            WHERE p.tracking_status = 'active'
             ORDER BY p.created_at DESC
         """)
         telegram_watchlist = cur.fetchall()
@@ -854,7 +855,7 @@ def admin():
         cur.execute("SELECT COUNT(*) FROM web_users")
         total_web_users = cur.fetchone()['count']
         
-        cur.execute("SELECT COUNT(*) FROM telegram_products")
+        cur.execute("SELECT COUNT(*) FROM telegram_products WHERE tracking_status = 'active'")
         total_products = cur.fetchone()['count']
 
         # Get categories, stores, and marquee items for admin panel management
