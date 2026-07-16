@@ -565,8 +565,8 @@ bot.onText(/\/my_trackings/, async (msg) => {
         const link = t.aff_url || t.product_url;
         reply += `${index + 1}.\n` +
           `<a href="${link}"><b>${escapeHTML(t.product_name.substring(0, 60))}...</b></a>\n` +
-          `/product_${t.product_id}\n` +
-          `/stop_${t.product_id}\n` +
+          `/product_${t.id}\n` +
+          `/stop_${t.id}\n` +
           `<b>Current Price:</b> ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
           `----------------\n\n`;
       });
@@ -585,7 +585,7 @@ bot.onText(/\/my_trackings/, async (msg) => {
 bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
   const productPid = match[1];
   if (!productPid) {
-    await bot.sendMessage(msg.chat.id, '❌ Please specify a product ID. Example: `/product B0DFYL4635` or `/product_B0DFYL4635`', { parse_mode: 'Markdown' });
+    await bot.sendMessage(msg.chat.id, '❌ Please specify a product ID. Example: `/product 45` or `/product_45`', { parse_mode: 'HTML' });
     return;
   }
 
@@ -594,7 +594,12 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
     const infoMsg = await bot.sendMessage(chatId, '🔍 Getting Product Info...');
 
     try {
-      const product = await db.getProductByPid(chatId, productPid);
+      let product = null;
+      if (/^\d+$/.test(productPid)) {
+        product = await db.getProductById(parseInt(productPid));
+      } else {
+        product = await db.getProductByPid(chatId, productPid);
+      }
       await bot.deleteMessage(chatId, infoMsg.message_id);
 
       if (!product || String(product.user_id) !== String(chatId)) {
@@ -624,8 +629,8 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
           inline_keyboard: [
             [{ text: '🛒 Buy Now', url: product.aff_url || product.product_url }],
             [
-              { text: '❌ Stop Tracking', callback_data: `stop:${product.product_id}` },
-              { text: '📊 Price Graph', callback_data: `graph:${product.product_id}` }
+              { text: '❌ Stop Tracking', callback_data: `stop:${product.id}` },
+              { text: '📊 Price Graph', callback_data: `graph:${product.id}` }
             ],
             [
               { text: '🔍 View Full Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }
@@ -646,7 +651,7 @@ bot.onText(/^\/product(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
 bot.onText(/^\/stop(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
   const productPid = match[1];
   if (!productPid) {
-    await bot.sendMessage(msg.chat.id, '❌ Please specify a product ID. Example: `/stop B0DFYL4635` or `/stop_B0DFYL4635`', { parse_mode: 'Markdown' });
+    await bot.sendMessage(msg.chat.id, '❌ Please specify a product ID. Example: `/stop 45` or `/stop_45`', { parse_mode: 'HTML' });
     return;
   }
 
@@ -655,18 +660,28 @@ bot.onText(/^\/stop(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
     const statusMsg = await bot.sendMessage(chatId, '🗑️ Deleting Product...');
 
     try {
-      const product = await db.getProductByPid(chatId, productPid);
+      let product = null;
+      if (/^\d+$/.test(productPid)) {
+        product = await db.getProductById(parseInt(productPid));
+      } else {
+        product = await db.getProductByPid(chatId, productPid);
+      }
+      
       if (!product || String(product.user_id) !== String(chatId)) {
         await bot.deleteMessage(chatId, statusMsg.message_id);
         await bot.sendMessage(chatId, '❌ Product tracking record not found.');
         return;
       }
 
-      await db.stopTrackingByPid(chatId, productPid);
+      if (/^\d+$/.test(productPid)) {
+        await db.stopTrackingById(parseInt(productPid));
+      } else {
+        await db.stopTrackingByPid(chatId, productPid);
+      }
       await bot.deleteMessage(chatId, statusMsg.message_id);
       
-      await bot.sendMessage(chatId, `✅ *Product removed successfully.*\n\nYou will no longer receive alerts.`, {
-        parse_mode: 'Markdown',
+      await bot.sendMessage(chatId, `✅ <b>Product removed successfully.</b>\n\nYou will no longer receive alerts.`, {
+        parse_mode: 'HTML',
         reply_markup: { inline_keyboard: [getMainButtons()] }
       });
     } catch (err) {
@@ -686,7 +701,12 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
     if (productPid) {
       const statusMsg = await bot.sendMessage(chatId, '📊 Generating price graph...');
       try {
-        const product = await db.getProductByPid(chatId, productPid);
+        let product = null;
+        if (/^\d+$/.test(productPid)) {
+          product = await db.getProductById(parseInt(productPid));
+        } else {
+          product = await db.getProductByPid(chatId, productPid);
+        }
         if (product && product.price_history && product.price_history.length > 0) {
           // Filter to last 3 months
           const limitDate = new Date();
@@ -805,14 +825,14 @@ bot.onText(/^\/pricegraph(?:[_ ]?([a-zA-Z0-9]+))?$/, async (msg, match) => {
           return;
         }
         
-        let reply = `📈 *Generate Price Graph*\n\nSelect a product to generate its price history graph:\n\n`;
+        let reply = `📈 <b>Generate Price Graph</b>\n\nSelect a product to generate its price history graph:\n\n`;
         trackings.forEach((t, index) => {
-          reply += `${index + 1}. *${t.product_name.substring(0, 60)}...*\n` +
-                   `📊 Generate Graph: /pricegraph_${t.product_id}\n\n`;
+          reply += `${index + 1}. <b>${escapeHTML(t.product_name.substring(0, 60))}...</b>\n` +
+                   `📊 Generate Graph: /pricegraph_${t.id}\n\n`;
         });
         
         await bot.sendMessage(chatId, reply, {
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
           reply_markup: { inline_keyboard: [getMainButtons()] }
         });
       } catch (err) {
@@ -1013,15 +1033,14 @@ bot.on('callback_query', async (callbackQuery) => {
           );
           return;
         }
-
         // Check if already tracking
         const alreadyTracking = await db.getUserTracking(chatId, store, pid);
         if (alreadyTracking) {
           await bot.sendMessage(
             chatId, 
-            `ℹ️ *You're already tracking this product.*\n\nWe'll notify you whenever its price changes.`,
+            `ℹ️ <b>You're already tracking this product.</b>\n\nWe'll notify you whenever its price changes.`,
             {
-              parse_mode: 'Markdown',
+              parse_mode: 'HTML',
               reply_markup: {
                 inline_keyboard: [
                   [
@@ -1066,13 +1085,16 @@ bot.on('callback_query', async (callbackQuery) => {
           parseFloat(data.price)
         );
         
+        let successMsg = '';
         if (saved) {
           const clickableName = `<a href="${affUrl || url}"><b>${escapeHTML(data.title)}</b></a>`;
-          const successMsg = `✅ <b>Product added successfully!</b>\n\n` +
+          successMsg = `✅ <b>Product added successfully!</b>\n\n` +
             `📌 ${clickableName}\n\n` +
             `💰 <b>Current Price:</b> ₹${parseFloat(data.price).toLocaleString('en-IN')}\n\n` +
-            `🔔 Price tracking has been enabled.\nYou'll receive a notification whenever the price changes.`;
-            
+            `🔔 Price tracking has been enabled.\nYou'll receive a notification whenever the price changes.\n\n` +
+            `/product_${saved.id}\n` +
+            `/stop_${saved.id}`;
+        }            
           const opts = {
             parse_mode: 'HTML',
             reply_markup: {
@@ -1101,9 +1123,13 @@ bot.on('callback_query', async (callbackQuery) => {
     await bot.answerCallbackQuery(callbackQuery.id);
     
     try {
-      await db.stopTrackingByPid(chatId, productPid);
-      await bot.sendMessage(chatId, '✅ *Product removed successfully.*\n\nYou will no longer receive alerts.', {
-        parse_mode: 'Markdown',
+      if (/^\d+$/.test(productPid)) {
+        await db.stopTrackingById(parseInt(productPid));
+      } else {
+        await db.stopTrackingByPid(chatId, productPid);
+      }
+      await bot.sendMessage(chatId, '✅ <b>Product removed successfully.</b>\n\nYou will no longer receive alerts.', {
+        parse_mode: 'HTML',
         reply_markup: { inline_keyboard: [getMainButtons()] }
       });
     } catch (err) {
@@ -1116,7 +1142,13 @@ bot.on('callback_query', async (callbackQuery) => {
     await bot.answerCallbackQuery(callbackQuery.id, { text: 'Generating price graph...' });
     
     try {
-      const product = await db.getProductByPid(chatId, productPid);
+      let product = null;
+      if (/^\d+$/.test(productPid)) {
+        product = await db.getProductById(parseInt(productPid));
+      } else {
+        product = await db.getProductByPid(chatId, productPid);
+      }
+      
       if (product && product.price_history && product.price_history.length > 0) {
         // Filter to last 3 months
         const limitDate = new Date();
@@ -1239,8 +1271,8 @@ bot.on('callback_query', async (callbackQuery) => {
       const link = t.aff_url || t.product_url;
       reply += `${index + 1}.\n` +
         `<a href="${link}"><b>${escapeHTML(t.product_name.substring(0, 60))}...</b></a>\n` +
-        `/product${t.product_id}\n` +
-        `/stop${t.product_id}\n` +
+        `/product_${t.id}\n` +
+        `/stop_${t.id}\n` +
         `<b>Current Price:</b> ₹${parseFloat(t.current_price).toLocaleString('en-IN')}\n\n` +
         `----------------\n\n`;
     });
@@ -1496,71 +1528,28 @@ bot.on('message', async (msg) => {
         return;
       }
 
-      await bot.editMessageText('Adding Your Product...', { chat_id: chatId, message_id: resultMsg.message_id });
-      
-      // Convert to affiliate URL (check global DB first to avoid redundant API hits)
-      let affUrl = await db.getExistingAffUrl(platform, pid);
-      if (!affUrl) {
-        affUrl = await affiliate.convert(productUrl, platform);
-      }
-      
-      // Save to database
-      const saved = await db.addProduct(
-        chatId,
-        platform,
-        pid,
-        data.title,
-        productUrl,
-        affUrl,
-        data.image,
-        livePrice
-      );
-      
       await cleanupProgress();
-      
-      if (saved) {
-        let lowestPrice = livePrice;
-        let highestPrice = livePrice;
-        try {
-          const historyRes = await db.pool.query(
-            'SELECT price FROM telegram_price_history WHERE product_id = $1',
-            [saved.id]
-          );
-          const historyPoints = historyRes.rows.map(h => parseFloat(h.price));
-          if (historyPoints.length > 0) {
-            lowestPrice = Math.min(...historyPoints, livePrice);
-            highestPrice = Math.max(...historyPoints, livePrice);
-          }
-        } catch (e) {
-          console.error('[History Fetch Error]', e.message);
-        }
 
-        const clickableName = `<a href="${affUrl || productUrl}"><b>${escapeHTML(data.title)}</b></a>`;
-
-        const successText = `🛍️ <b>Tracking your product</b>\n\n` +
-          `📌 ${clickableName}\n\n` +
-          `💵 <b>Current Price:</b> ₹${livePrice.toLocaleString('en-IN')}\n` +
-          `📈 <b>Highest Price:</b> ₹${highestPrice.toLocaleString('en-IN')}\n` +
-          `📉 <b>Lowest Price:</b> ₹${lowestPrice.toLocaleString('en-IN')}\n\n` +
-          `/product${saved.product_id}\n` +
-          `/stop${saved.product_id}`;
-          
-        const opts = {
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🛒 Buy Now', url: affUrl || productUrl }],
-              [
-                { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${platform}_${pid}` },
-                { text: '📂 My Trackings', callback_data: 'my_trackings' }
-              ]
+      // Show confirmation preview card
+      const confirmationText = `🏷️ <b>${escapeHTML(data.title)}</b>\n\n` +
+        `💰 <b>Current Price:</b> ₹${livePrice.toLocaleString('en-IN')}\n` +
+        `🏪 <b>Store:</b> ${escapeHTML(platform.toUpperCase())}\n\n` +
+        `Would you like to track this product?\n` +
+        `You'll receive a Telegram notification whenever the price changes.`;
+        
+      const opts = {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Yes, Track', callback_data: `track:yes:${platform}:${pid}` },
+              { text: '❌ Cancel', callback_data: `track:cancel` }
             ]
-          }
-        };
+          ]
+        }
+      };
 
-        await bot.sendMessage(chatId, successText, opts);
-      }
-      
+      await bot.sendMessage(chatId, confirmationText, opts);
     } catch (err) {
       console.error('[Automatic Tracking Error]', err.message);
       await cleanupProgress();
@@ -1573,8 +1562,19 @@ bot.on('message', async (msg) => {
 
 // Background Scheduler
 function startScheduler() {
-  const intervalMinutes = parseInt(process.env.TRACKING_INTERVAL_MINUTES) || 30;
-  console.log(`⏰ [Telegram Scheduler] Initializing tracker scheduler to run every ${intervalMinutes} minutes...`);
+  // Read tracking interval from environment: prioritize TRACKING_INTERVAL_HOURS, fallback to TRACKING_INTERVAL_MINUTES
+  let intervalMs;
+  let intervalText;
+  if (process.env.TRACKING_INTERVAL_HOURS) {
+    const hours = parseFloat(process.env.TRACKING_INTERVAL_HOURS);
+    intervalMs = hours * 60 * 60 * 1000;
+    intervalText = `${hours} hours`;
+  } else {
+    const minutes = parseInt(process.env.TRACKING_INTERVAL_MINUTES) || 30;
+    intervalMs = minutes * 60 * 1000;
+    intervalText = `${minutes} minutes`;
+  }
+  console.log(`⏰ [Telegram Scheduler] Initializing tracker scheduler to run every ${intervalText}...`);
   
   setInterval(async () => {
     console.log('⏰ [Telegram Scheduler] Starting price update loop...');
@@ -1607,21 +1607,21 @@ function startScheduler() {
                 const clickableName = `<a href="${currentAffUrl}"><b>${escapeHTML(product.product_name)}</b></a>`;
                 let notifyMsg = '';
                 if (diff < 0) {
-                  notifyMsg = `📢 <b>Price Changed!</b>\n\n` +
+                   notifyMsg = `📢 <b>Price Changed!</b>\n\n` +
                     `${clickableName}\n\n` +
                     `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `<b>Current Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `<b>Difference:</b> -₹${Math.abs(diff).toLocaleString('en-IN')} (-${pct}%)\n\n` +
-                    `/product${product.product_id} Click For More Details\n` +
-                    `/stop${product.product_id} For Stop tracking This product`;
+                    `/product_${product.id} Click For More Details\n` +
+                    `/stop_${product.id} For Stop tracking This product`;
                 } else {
-                  notifyMsg = `📈 <b>Price Increased!</b>\n\n` +
+                   notifyMsg = `📈 <b>Price Increased!</b>\n\n` +
                     `${clickableName}\n\n` +
                     `<b>Old Price:</b> ₹${oldPrice.toLocaleString('en-IN')}\n` +
                     `<b>New Price:</b> ₹${newPrice.toLocaleString('en-IN')}\n` +
                     `<b>Difference:</b> +₹${diff.toLocaleString('en-IN')} (+${pct}%)\n\n` +
-                    `/product${product.product_id} Click For More Details\n` +
-                    `/stop${product.product_id} For Stop tracking This product`;
+                    `/product_${product.id} Click For More Details\n` +
+                    `/stop_${product.id} For Stop tracking This product`;
                 }
                 
                 const opts = {
@@ -1630,7 +1630,7 @@ function startScheduler() {
                     inline_keyboard: [
                       [{ text: '🛒 Buy Now', url: currentAffUrl }],
                       [
-                        { text: '📊 Price Graph', callback_data: `graph:${product.product_id}` },
+                        { text: '📊 Price Graph', callback_data: `graph:${product.id}` },
                         { text: '📈 Price History', url: `https://t.me/${historyBotUsername}?start=graph_${product.platform}_${product.product_id}` }
                       ]
                     ]
@@ -1651,7 +1651,7 @@ function startScheduler() {
     } catch (err) {
       console.error('⏰ [Telegram Scheduler Error]', err.message);
     }
-  }, intervalMinutes * 60 * 1000);
+  }, intervalMs);
 }
 
 // Start database and scheduler

@@ -419,6 +419,23 @@ async function stopTrackingByPid(userId, productPid) {
 }
 
 /**
+ * Stop tracking a product by database ID
+ */
+async function stopTrackingById(id) {
+  try {
+    const res = await pool.query(
+      `UPDATE telegram_products SET tracking_status = 'stopped', updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    return res.rows[0] || null;
+  } catch (err) {
+    console.error('[DB Error] stopTrackingById:', err);
+    return null;
+  }
+}
+
+/**
  * Fetch all registered user IDs (for /broadcast)
  */
 async function getAllUsers() {
@@ -441,6 +458,7 @@ module.exports = {
   getProductByPid,
   addProduct,
   stopTracking,
+  stopTrackingById,
   stopTrackingByPid,
   getUserTrackings,
   getAllActiveTrackings,
