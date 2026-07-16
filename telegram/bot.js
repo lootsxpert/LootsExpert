@@ -1085,16 +1085,15 @@ bot.on('callback_query', async (callbackQuery) => {
           parseFloat(data.price)
         );
         
-        let successMsg = '';
         if (saved) {
           const clickableName = `<a href="${affUrl || url}"><b>${escapeHTML(data.title)}</b></a>`;
-          successMsg = `✅ <b>Product added successfully!</b>\n\n` +
+          const successMsg = `✅ <b>Product added successfully!</b>\n\n` +
             `📌 ${clickableName}\n\n` +
             `💰 <b>Current Price:</b> ₹${parseFloat(data.price).toLocaleString('en-IN')}\n\n` +
             `🔔 Price tracking has been enabled.\nYou'll receive a notification whenever the price changes.\n\n` +
             `/product_${saved.id}\n` +
             `/stop_${saved.id}`;
-        }            
+            
           const opts = {
             parse_mode: 'HTML',
             reply_markup: {
