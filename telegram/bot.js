@@ -1045,7 +1045,7 @@ bot.on('callback_query', async (callbackQuery) => {
         }
         // Check if already tracking
         const alreadyTracking = await db.getUserTracking(chatId, store, pid);
-        if (alreadyTracking) {
+        if (alreadyTracking && alreadyTracking.tracking_status === 'active') {
           await bot.sendMessage(
             chatId, 
             `ℹ️ <b>You're already tracking this product.</b>\n\nWe'll notify you whenever its price changes.`,
@@ -1435,12 +1435,12 @@ bot.on('message', async (msg) => {
 
     // Check if already tracking
     const alreadyTracking = await db.getUserTracking(chatId, platform, pid);
-    if (alreadyTracking) {
+    if (alreadyTracking && alreadyTracking.tracking_status === 'active') {
       await bot.sendMessage(
         chatId,
-        `ℹ️ *You're already tracking this product.*\n\nWe'll notify you whenever its price changes.`,
+        `ℹ️ <b>You're already tracking this product.</b>\n\nWe'll notify you whenever its price changes.`,
         {
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
               [
