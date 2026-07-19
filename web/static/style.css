@@ -81,14 +81,13 @@ body {
 
 /* --- APP NAVIGATION HEADER --- */
 .app-nav-header {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: #ffffff;
   border-bottom: 1px solid var(--border-clean);
   position: sticky;
   top: 0;
   z-index: 100;
   width: 100%;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
 .nav-container {
@@ -102,11 +101,12 @@ body {
 }
 
 .header-logo-img {
-  height: 42px;
+  height: 48px;
   width: auto;
   object-fit: contain;
   display: block;
 }
+
 
 .app-nav-header .logo {
   font-family: 'Outfit', sans-serif;

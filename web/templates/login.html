@@ -3,43 +3,193 @@
 {% block title %}Login — Price Graph{% endblock %}
 
 {% block content %}
-<div class="auth-wrapper">
-  <div class="auth-card">
-    <div class="auth-header">
-      <h2>Welcome Back</h2>
-      <p>Log in to access your alerts, watchlist, and personalized e-commerce tracker dashboard.</p>
+<!-- Google Identity Services client script -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<div class="auth-wrapper py-10 px-4 flex justify-center items-center">
+  <div class="auth-card max-w-md w-full bg-white border border-slate-200 shadow-xl rounded-2xl p-8">
+    <div class="auth-header text-center mb-6">
+      <h2 class="text-2xl font-black text-slate-800 font-outfit">Welcome Back</h2>
+      <p class="text-xs text-slate-500 mt-1">Log in or sign up to access watchlists, price history, and alerts.</p>
     </div>
 
     {% if error %}
-      <div class="alert alert-danger">
-        <i class="fa-solid fa-triangle-exclamation"></i> {{ error }}
+      <div class="alert alert-danger mb-4 p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs flex gap-2 items-center">
+        <i class="fa-solid fa-triangle-exclamation"></i> <span>{{ error }}</span>
       </div>
     {% endif %}
 
     {% if msg %}
-      <div class="alert alert-success">
-        <i class="fa-solid fa-circle-check"></i> {{ msg }}
+      <div class="alert alert-success mb-4 p-3 bg-green-50 border border-green-100 text-green-600 rounded-xl text-xs flex gap-2 items-center">
+        <i class="fa-solid fa-circle-check"></i> <span>{{ msg }}</span>
       </div>
     {% endif %}
 
-    <form action="/login" method="POST" class="auth-form">
+    <!-- Google One-Tap & Button Container -->
+    <div class="mb-5 flex flex-col items-center">
+      <div id="g_id_onload" 
+           data-client_id="842188849688-6u6v2n2v0v22e4m3t6.apps.googleusercontent.com" 
+           data-context="signin" 
+           data-ux_mode="popup" 
+           data-callback="handleGoogleCallback" 
+           data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin" 
+           data-type="standard" 
+           data-shape="rectangular" 
+           data-theme="outline" 
+           data-text="signin_with" 
+           data-size="large" 
+           data-logo_alignment="left"
+           style="width: 100%;">
+      </div>
+    </div>
+
+    <div class="relative flex py-2 items-center mb-4">
+      <div class="flex-grow border-t border-slate-200"></div>
+      <span class="flex-shrink mx-4 text-slate-400 text-xs font-bold uppercase tracking-wider">Or verification OTP</span>
+      <div class="flex-grow border-t border-slate-200"></div>
+    </div>
+
+    <!-- Email / OTP Verification Section -->
+    <div class="auth-form mb-6">
+      <div class="form-group mb-3">
+        <label class="block text-xs font-bold text-slate-600 mb-1"><i class="fa-solid fa-envelope"></i> Email Address</label>
+        <div class="flex gap-2">
+          <input type="email" id="otp-email" placeholder="Enter your email" class="flex-grow p-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600">
+          <button type="button" id="send-otp-btn" onclick="sendOtpCode()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all">Send OTP</button>
+        </div>
+      </div>
+
+      <div id="otp-fields" style="display: none;" class="space-y-3 mt-3">
+        <div class="form-group">
+          <label class="block text-xs font-bold text-slate-600 mb-1"><i class="fa-solid fa-signature"></i> Full Name (New Users)</label>
+          <input type="text" id="otp-name" placeholder="John Doe" class="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600">
+        </div>
+        <div class="form-group">
+          <label class="block text-xs font-bold text-slate-600 mb-1"><i class="fa-solid fa-key"></i> 6-Digit Code</label>
+          <input type="text" id="otp-code" placeholder="Enter OTP sent to email" class="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600 text-center tracking-widest font-mono text-lg" maxlength="6">
+        </div>
+        <button type="button" id="verify-otp-btn" onclick="verifyOtpCode()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-all">Verify &amp; Log In</button>
+      </div>
+    </div>
+
+    <div class="relative flex py-2 items-center mb-4">
+      <div class="flex-grow border-t border-slate-200"></div>
+      <span class="flex-shrink mx-4 text-slate-400 text-xs font-bold uppercase tracking-wider">Or Credentials</span>
+      <div class="flex-grow border-t border-slate-200"></div>
+    </div>
+
+    <form action="/login" method="POST" class="auth-form space-y-4">
       <div class="form-group">
-        <label for="username"><i class="fa-solid fa-user"></i> Username</label>
-        <input type="text" id="username" name="username" placeholder="Enter your username" required autocomplete="off">
+        <label for="username" class="block text-xs font-bold text-slate-600 mb-1"><i class="fa-solid fa-user"></i> Username</label>
+        <input type="text" id="username" name="username" placeholder="Enter your username" required autocomplete="off" class="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600">
       </div>
 
       <div class="form-group">
-        <label for="password"><i class="fa-solid fa-lock"></i> Password</label>
-        <input type="password" id="password" name="password" placeholder="Enter your password" required>
+        <label for="password" class="block text-xs font-bold text-slate-600 mb-1"><i class="fa-solid fa-lock"></i> Password</label>
+        <input type="password" id="password" name="password" placeholder="Enter your password" required class="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-indigo-600">
       </div>
 
-      <button type="submit" class="auth-btn">Log In</button>
+      <button type="submit" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl transition-all">Log In</button>
     </form>
 
-    <div class="auth-footer">
-      <p>Forgot password? <a href="/forgot-password">Reset via Recovery Question</a></p>
-      <p>Don't have an account? <a href="/register">Register here</a></p>
+    <div class="auth-footer text-center mt-6 text-xs text-slate-500 space-y-2">
+      <p>Forgot password? <a href="/forgot-password" class="text-indigo-600 font-bold hover:underline">Reset via Recovery Question</a></p>
+      <p>Don't have an account? <a href="/register" class="text-indigo-600 font-bold hover:underline">Register here</a></p>
     </div>
   </div>
 </div>
+
+<script>
+  function handleGoogleCallback(response) {
+    fetch('/api/auth/google', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id_token: response.credential })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '/dashboard';
+      } else {
+        alert('Google Login failed: ' + data.error);
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Network error during Google Login.');
+    });
+  }
+
+  async function sendOtpCode() {
+    const email = document.getElementById('otp-email').value.trim();
+    if (!email) {
+      alert('Please enter a valid email address.');
+      return;
+    }
+    
+    const sendBtn = document.getElementById('send-otp-btn');
+    sendBtn.disabled = true;
+    sendBtn.innerText = 'Sending...';
+    
+    try {
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (data.success) {
+        document.getElementById('otp-fields').style.display = 'block';
+        alert(data.message || 'Verification code sent to your email.');
+        sendBtn.innerText = 'Resend';
+      } else {
+        alert('Error: ' + data.error);
+        sendBtn.innerText = 'Send OTP';
+      }
+    } catch (e) {
+      alert('Failed to send verification code.');
+      sendBtn.innerText = 'Send OTP';
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }
+
+  async function verifyOtpCode() {
+    const email = document.getElementById('otp-email').value.trim();
+    const otp = document.getElementById('otp-code').value.trim();
+    const name = document.getElementById('otp-name').value.trim();
+    
+    if (!email || !otp) {
+      alert('Email and verification code are required.');
+      return;
+    }
+    
+    const verifyBtn = document.getElementById('verify-otp-btn');
+    verifyBtn.disabled = true;
+    verifyBtn.innerText = 'Verifying...';
+    
+    try {
+      const res = await fetch('/api/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, name })
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = '/dashboard';
+      } else {
+        alert('Verification failed: ' + data.error);
+      }
+    } catch (e) {
+      alert('Verification error.');
+    } finally {
+      verifyBtn.disabled = false;
+      verifyBtn.innerText = 'Verify & Log In';
+    }
+  }
+</script>
 {% endblock %}

@@ -13,6 +13,10 @@ import cloudinary
 import cloudinary.uploader
 from werkzeug.utils import secure_filename
 import time
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import random
 
 # Configure SSL context to bypass verification for Railway internal API queries
 ssl_context = ssl.create_default_context()
@@ -21,6 +25,63 @@ ssl_context.verify_mode = ssl.CERT_NONE
 
 # Load env variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
+otp_store = {}
+
+def send_otp_email(email, otp):
+    smtp_server = os.environ.get('SMTP_SERVER', '')
+    smtp_port = int(os.environ.get('SMTP_PORT', '587'))
+    smtp_user = os.environ.get('SMTP_USER', 'support@pricegraph.in')
+    smtp_password = os.environ.get('SMTP_PASSWORD', '')
+    
+    print(f"[OTP Service] Generated OTP {otp} for email {email}")
+    
+    if not smtp_server or not smtp_password:
+        print(f"[OTP Service MOCK] -------------------------------------")
+        print(f"[OTP Service MOCK] Sent OTP {otp} to email: {email}")
+        print(f"[OTP Service MOCK] -------------------------------------")
+        return True
+        
+    try:
+        msg = MIMEMultipart()
+        msg['From'] = f"Price Graph Support <{smtp_user}>"
+        msg['To'] = email
+        msg['Subject'] = f"{otp} is your Price Graph Verification Code"
+        
+        body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <div style="max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+            <div style="background-color: #4f46e5; color: white; padding: 24px; text-align: center;">
+              <h2 style="margin: 0; font-size: 24px;">Verify Your Email Address</h2>
+            </div>
+            <div style="padding: 24px; background-color: #fff; line-height: 1.6;">
+              <p>Hello,</p>
+              <p>Thank you for choosing <strong>Price Graph</strong>. Use the following One-Time Password (OTP) to complete your verification. This code is valid for 5 minutes.</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <span style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #4f46e5; background-color: #e0e7ff; padding: 12px 24px; border-radius: 6px; display: inline-block;">{otp}</span>
+              </div>
+              <p style="color: #666; font-size: 14px;">If you did not request this verification, please ignore this email.</p>
+            </div>
+            <div style="background-color: #f9fafb; padding: 16px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #f0f0f0;">
+              © 2026 Price Graph. All rights reserved.
+            </div>
+          </div>
+        </body>
+        </html>
+        """
+        msg.attach(MIMEText(body, 'html'))
+        
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.sendmail(smtp_user, email, msg.as_string())
+        server.quit()
+        print(f"[OTP Service] Successfully sent email to {email}")
+        return True
+    except Exception as e:
+        print(f"[OTP Service Error] Failed to send email via SMTP: {e}")
+        return False
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.environ.get('SECRET_KEY', 'pricegraph_flask_session_secret_key_2026')
@@ -1074,10 +1135,9 @@ def flipkart_tracker():
 def amazon_quiz():
     return render_template("amazon_quiz.html")
 
-# PRD catalog pages
 @app.route("/coupons")
 def coupons():
-    return render_template("coupons.html")
+    return redirect("/")
 
 @app.route("/categories")
 def categories():
@@ -1412,6 +1472,302 @@ def admin_affiliate_save():
         return redirect(url_for("admin", msg=f"Affiliate config for {platform} saved successfully!", tab="affiliate"))
     except Exception as e:
         return redirect(url_for("admin", error=f"Database Error: {str(e)}", tab="affiliate"))
+
+
+@app.route("/search")
+def search_page():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return redirect("/")
+        
+    # Check if the query is a URL instead of keywords
+    if q.startswith("http://") or q.startswith("https://") or "flipkart.com" in q or "amazon.in" in q or "shopsy.in" in q or "myntra.com" in q or "ajio.com" in q or "meesho.com" in q:
+        return redirect(url_for("catch_all_url", target_url=q))
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Search matching products from database
+        cur.execute(
+            "SELECT * FROM products WHERE title ILIKE %s ORDER BY deal_score DESC LIMIT 40",
+            (f"%{q}%",)
+        )
+        all_matches = cur.fetchall()
+        
+        # Group similar products by title keywords to find matching stores
+        grouped_results = []
+        visited_ids = set()
+        
+        for item in all_matches:
+            if item['id'] in visited_ids:
+                continue
+                
+            group = {
+                'id': item['id'],
+                'title': item['title'],
+                'image': item['image'],
+                'category': item['category'],
+                'rating': float(item['rating']) if item['rating'] else 0,
+                'stores': []
+            }
+            
+            group['stores'].append({
+                'id': item['id'],
+                'platform': item['platform'],
+                'price': float(item['current_price']) if item['current_price'] else 0,
+                'original_price': float(item['original_price']) if item['original_price'] else 0,
+                'discount': item['discount'],
+                'url': item['url']
+            })
+            visited_ids.add(item['id'])
+            
+            # Find similar items in the result set
+            title_words = [w.lower() for w in item['title'].split() if len(w) > 3][:3]
+            
+            for other in all_matches:
+                if other['id'] in visited_ids:
+                    continue
+                other_words = other['title'].lower()
+                if other['platform'].lower() != item['platform'].lower() and all(w in other_words for w in title_words):
+                    group['stores'].append({
+                        'id': other['id'],
+                        'platform': other['platform'],
+                        'price': float(other['current_price']) if other['current_price'] else 0,
+                        'original_price': float(other['original_price']) if other['original_price'] else 0,
+                        'discount': other['discount'],
+                        'url': other['url']
+                    })
+                    visited_ids.add(other['id'])
+            
+            # If no other stores found in matches, search the DB generally for alternatives
+            if len(group['stores']) < 2 and len(title_words) >= 2:
+                try:
+                    exclude_platforms = [s['platform'] for s in group['stores']]
+                    query_words = " AND ".join(["title ILIKE %s" for _ in title_words])
+                    params = [f"%{w}%" for w in title_words]
+                    
+                    sql = f"SELECT * FROM products WHERE id != %s AND platform NOT IN %s AND {query_words} LIMIT 5"
+                    cur.execute(sql, [item['id'], tuple(exclude_platforms)] + params)
+                    db_alternatives = cur.fetchall()
+                    
+                    for alt in db_alternatives:
+                        group['stores'].append({
+                            'id': alt['id'],
+                            'platform': alt['platform'],
+                            'price': float(alt['current_price']) if alt['current_price'] else 0,
+                            'original_price': float(alt['original_price']) if alt['original_price'] else 0,
+                            'discount': alt['discount'],
+                            'url': alt['url']
+                        })
+                except Exception as db_alt_err:
+                    print(f"[Search alternatives error] {db_alt_err}")
+            
+            grouped_results.append(group)
+            
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"[Search Route Error] {e}")
+        grouped_results = []
+        
+    return render_template("search.html", query=q, results=grouped_results)
+
+@app.route("/api/autocomplete")
+def api_autocomplete():
+    q = request.args.get('q', '').strip()
+    if not q or len(q) < 2:
+        return jsonify([])
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute(
+            "SELECT id, title, image, platform, current_price FROM products WHERE title ILIKE %s LIMIT 6",
+            (f"%{q}%",)
+        )
+        products = cur.fetchall()
+        
+        # Serialize decimals
+        for p in products:
+            if p['current_price']:
+                p['current_price'] = float(p['current_price'])
+                
+        cur.close()
+        conn.close()
+        return jsonify(products)
+    except Exception as e:
+        print(f"[Autocomplete Error] {e}")
+        return jsonify([])
+
+@app.route("/api/comparison")
+def api_comparison():
+    title = request.args.get('title', '').strip()
+    if not title:
+        return jsonify({'success': True, 'matches': {}})
+        
+    try:
+        words = [w.lower() for w in title.split() if len(w) > 3][:3]
+        if not words:
+            return jsonify({'success': True, 'matches': {}})
+            
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        query_words = " AND ".join(["title ILIKE %s" for _ in words])
+        params = [f"%{w}%" for w in words]
+        
+        sql = f"SELECT platform, url, current_price, original_price, discount FROM products WHERE {query_words} ORDER BY current_price ASC"
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+        
+        matches = {}
+        for r in rows:
+            plat = r['platform'].lower()
+            if plat not in matches:
+                matches[plat] = {
+                    'url': r['url'],
+                    'price': float(r['current_price']) if r['current_price'] else 0,
+                    'original_price': float(r['original_price']) if r['original_price'] else 0,
+                    'discount': r['discount']
+                }
+                
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'matches': matches})
+    except Exception as e:
+        print(f"[API Comparison Error] {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route("/api/auth/send-otp", methods=["POST"])
+def send_otp():
+    data = request.json or {}
+    email = data.get("email", "").strip().lower()
+    if not email:
+        return jsonify({"success": False, "error": "Email is required."}), 400
+        
+    otp = str(random.randint(100000, 999999))
+    otp_store[email] = {
+        "otp": otp,
+        "expires_at": time.time() + 300 # 5 minutes
+    }
+    
+    sent = send_otp_email(email, otp)
+    if sent:
+        return jsonify({"success": True, "message": "OTP sent successfully to your email."})
+    else:
+        return jsonify({"success": False, "error": "Failed to send email. Please try again later."}), 500
+
+@app.route("/api/auth/verify-otp", methods=["POST"])
+def verify_otp():
+    data = request.json or {}
+    email = data.get("email", "").strip().lower()
+    otp_val = data.get("otp", "").strip()
+    name = data.get("name", "").strip()
+    
+    if not email or not otp_val:
+        return jsonify({"success": False, "error": "Email and OTP are required."}), 400
+        
+    stored = otp_store.get(email)
+    if not stored:
+        return jsonify({"success": False, "error": "No OTP verification request found for this email."}), 400
+        
+    if time.time() > stored["expires_at"]:
+        otp_store.pop(email, None)
+        return jsonify({"success": False, "error": "OTP has expired. Please request a new one."}), 400
+        
+    if stored["otp"] != otp_val:
+        return jsonify({"success": False, "error": "Invalid verification code. Please check and try again."}), 400
+        
+    # OTP verified successfully! Clear it.
+    otp_store.pop(email, None)
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM web_users WHERE email = %s LIMIT 1", (email,))
+        user = cur.fetchone()
+        
+        if not user:
+            # Sign up new user
+            display_name = name or email.split("@")[0]
+            username = f"{email.split('@')[0]}_{random.randint(1000, 9999)}"
+            password_hash = generate_password_hash(os.urandom(16).hex())
+            recovery_hash = generate_password_hash("otp_verified")
+            
+            cur.execute("""
+                INSERT INTO web_users (name, username, email, password_hash, recovery_question, recovery_answer_hash)
+                VALUES (%s, %s, %s, %s, 'Email OTP Verified', %s) RETURNING *
+            """, (display_name, username, email, password_hash, recovery_hash))
+            user = cur.fetchone()
+            conn.commit()
+            
+        cur.close()
+        conn.close()
+        
+        session.clear()
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['name'] = user['name']
+        session['profile_pic'] = user['profile_pic'] or ''
+        
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"[OTP Verification DB Error] {e}")
+        return jsonify({"success": False, "error": f"Database login error: {str(e)}"}), 500
+
+@app.route("/api/auth/google", methods=["POST"])
+def google_auth():
+    data = request.json or {}
+    id_token = data.get("id_token")
+    if not id_token:
+        return jsonify({"success": False, "error": "ID token is required."}), 400
+        
+    try:
+        # Verify token info via Google OAuth2 API
+        verify_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}"
+        req = urllib.request.Request(verify_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            token_info = json.loads(r.read().decode('utf-8'))
+            
+        # Check payload
+        email = token_info.get("email")
+        name = token_info.get("name")
+        picture = token_info.get("picture", "")
+        
+        if not email:
+            return jsonify({"success": False, "error": "Google token is missing email information."}), 400
+            
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM web_users WHERE email = %s LIMIT 1", (email,))
+        user = cur.fetchone()
+        
+        if not user:
+            # Register user
+            username = f"google_{email.split('@')[0]}_{random.randint(1000, 9999)}"
+            password_hash = generate_password_hash(os.urandom(16).hex())
+            recovery_hash = generate_password_hash("google_verified")
+            
+            cur.execute("""
+                INSERT INTO web_users (name, username, email, password_hash, recovery_question, recovery_answer_hash, profile_pic)
+                VALUES (%s, %s, %s, %s, 'Google Auth Verified', %s, %s) RETURNING *
+            """, (name, username, email, password_hash, recovery_hash, picture))
+            user = cur.fetchone()
+            conn.commit()
+            
+        cur.close()
+        conn.close()
+        
+        session.clear()
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        session['name'] = user['name']
+        session['profile_pic'] = user['profile_pic'] or ''
+        
+        return jsonify({"success": True})
+    except Exception as e:
+        print(f"[Google Auth Error] {e}")
+        return jsonify({"success": False, "error": f"Google authentication failed: {str(e)}"}), 500
 
 # Error pages routing
 @app.errorhandler(404)

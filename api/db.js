@@ -117,44 +117,29 @@ async function initDatabase() {
   }
 }
 
-/**
- * Classify product title into a standard shopping category
- */
 function classifyCategory(title, url) {
   const t = (title || '').toLowerCase();
   
-  if (t.includes('phone') || t.includes('mobile') || t.includes('smartphone') || t.includes('iphone') || t.includes('galaxy') || t.includes('pixel') || t.includes('oneplus')) {
-    return 'Electronics';
+  if (t.includes('phone') || t.includes('mobile') || t.includes('smartphone') || t.includes('iphone') || t.includes('galaxy') || t.includes('pixel') || t.includes('oneplus') || t.includes('realme') || t.includes('redmi') || t.includes('poco') || t.includes('motorola')) {
+    return 'Mobiles';
   }
-  if (t.includes('laptop') || t.includes('notebook') || t.includes('macbook') || t.includes('computer') || t.includes('monitor') || t.includes('keyboard') || t.includes('mouse') || t.includes('pc') || t.includes('chromebook')) {
-    return 'Computers & Accessories';
+  if (t.includes('laptop') || t.includes('notebook') || t.includes('macbook') || t.includes('chromebook') || t.includes('computer')) {
+    return 'Laptops';
   }
-  if (t.includes('tv') || t.includes('television') || t.includes('smart tv') || t.includes('led tv')) {
-    return 'Smart Televisions';
+  if (t.includes('t-shirt') || t.includes('shirt') || t.includes('jeans') || t.includes('jacket') || t.includes('apparel') || t.includes('clothing') || t.includes('hoodie') || t.includes('shoe') || t.includes('sneaker') || t.includes('sandal') || t.includes('footwear') || t.includes('slippers') || t.includes('belt') || t.includes('wallet') || t.includes('watch') || t.includes('bag')) {
+    return 'Fashion';
   }
-  if (t.includes('fridge') || t.includes('refrigerator')) {
-    return 'Refrigerators';
+  if (t.includes('refrigerator') || t.includes('fridge') || t.includes('washing machine') || t.includes('washer') || t.includes('dryer') || t.includes('air conditioner') || t.includes('ac') || t.includes('geyser') || t.includes('heater') || t.includes('vacuum')) {
+    return 'Home Appliances';
   }
-  if (t.includes('washing machine') || t.includes('washer') || t.includes('dryer')) {
-    return 'Washing Machines';
+  if (t.includes('shampoo') || t.includes('cream') || t.includes('serum') || t.includes('makeup') || t.includes('soap') || t.includes('perfume') || t.includes('grooming') || t.includes('face wash') || t.includes('moisturizer') || t.includes('cosmetics') || t.includes('beauty') || t.includes('hair')) {
+    return 'Beauty & Care';
   }
-  if (t.includes('headphone') || t.includes('earphone') || t.includes('earbuds') || t.includes('buds') || t.includes('speaker') || t.includes('soundbar') || t.includes('audio') || t.includes('mic')) {
-    return 'Electronics';
+  if (t.includes('chair') || t.includes('desk') || t.includes('sofa') || t.includes('table') || t.includes('bed') || t.includes('wardrobe') || t.includes('furniture') || t.includes('cabinet')) {
+    return 'Furniture';
   }
-  if (t.includes('shoe') || t.includes('sneaker') || t.includes('sandal') || t.includes('crocs') || t.includes('footwear') || t.includes('boot') || t.includes('runner') || t.includes('slippers')) {
-    return 'Shoes';
-  }
-  if (t.includes('ring') || t.includes('necklace') || t.includes('bracelet') || t.includes('earring') || t.includes('jewel') || t.includes('chain') || t.includes('pendant')) {
-    return 'Jewellery';
-  }
-  if (t.includes('tool') || t.includes('drill') || t.includes('screw') || t.includes('home improvement') || t.includes('bulb') || t.includes('led light') || t.includes('shower') || t.includes('tap')) {
-    return 'Home Improvement';
-  }
-  if (t.includes('shampoo') || t.includes('cream') || t.includes('serum') || t.includes('makeup') || t.includes('soap') || t.includes('perfume') || t.includes('grooming') || t.includes('face wash') || t.includes('moisturizer')) {
-    return 'Health & Personal Care';
-  }
-  if (t.includes('t-shirt') || t.includes('shirt') || t.includes('jeans') || t.includes('jacket') || t.includes('apparel') || t.includes('clothing') || t.includes('hoodie')) {
-    return 'Fashion & Apparel';
+  if (t.includes('mixer') || t.includes('grinder') || t.includes('blender') || t.includes('cooker') || t.includes('kettle') || t.includes('fryer') || t.includes('purifier') || t.includes('induction') || t.includes('cookware') || t.includes('kitchen') || t.includes('oven')) {
+    return 'Kitchen';
   }
   
   return 'Electronics'; // Default category
@@ -413,12 +398,44 @@ async function getProductByUrl(url) {
   }
 }
 
+function autoCategorize(title) {
+  if (!title) return 'Electronics';
+  const t = title.toLowerCase();
+  
+  if (/\b(phone|iphone|mobile|smartphone|pixel|samsung galaxy|oneplus|realme|xiaomi|redmi|poco|motorola|moto)\b/i.test(t)) {
+    return 'Mobiles';
+  }
+  if (/\b(laptop|notebook|macbook|chromebook|thinkpad|ideapad|pavilion|vivobook)\b/i.test(t)) {
+    return 'Laptops';
+  }
+  if (/\b(tv|television|smartwatch|earbuds|headphones|speaker|headset|airdopes|soundbar|camera|dslr|tablet|ipad|adapter|cable|charger|drones|projector|router|mouse|keyboard)\b/i.test(t)) {
+    return 'Electronics';
+  }
+  if (/\b(t-shirt|shirt|jeans|shoes|sneakers|dress|kurta|saree|watch|handbag|clothing|apparel|wallet|belt|perfume|slipper|heels|socks|trouser|jacket|sweatshirt)\b/i.test(t)) {
+    return 'Fashion';
+  }
+  if (/\b(refrigerator|fridge|washing machine|microwave|air conditioner|ac|geyser|vacuum|heater|dishwasher|dryer)\b/i.test(t)) {
+    return 'Home Appliances';
+  }
+  if (/\b(grinder|blender|cooker|kettle|fryer|purifier|induction|cookware|oven|toaster|juicer|chimney)\b/i.test(t)) {
+    return 'Kitchen';
+  }
+  if (/\b(shampoo|cream|lotion|serum|dryer|straightener|lipstick|makeup|facewash|bodywash|conditioner|soap|oil|sunscreen)\b/i.test(t)) {
+    return 'Beauty & Care';
+  }
+  if (/\b(chair|desk|sofa|table|bed|wardrobe|bookshelf|cabinet|mattress|cushion|curtain)\b/i.test(t)) {
+    return 'Furniture';
+  }
+  return 'Electronics';
+}
+
 /**
  * Save or update product info
  */
 async function saveProduct(data) {
   try {
     const { url, platform, title, image, rating } = data;
+    const category = autoCategorize(title);
     
     // Check if we are saving a long URL, but a short URL row already exists for this PID
     const detected = detectPlatformAndPid(url);
@@ -438,8 +455,8 @@ async function saveProduct(data) {
             const shortProduct = shortRes.rows[0];
             console.log(`[DB Migration] Upgrading short URL product ID ${shortProduct.id} to long URL: ${url}`);
             const updateRes = await pool.query(
-              'UPDATE products SET url = $1, platform = $2, title = $3, image = $4, rating = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *',
-              [url, platform, title, image, rating, shortProduct.id]
+              'UPDATE products SET url = $1, platform = $2, title = $3, image = $4, rating = $5, category = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING *',
+              [url, platform, title, image, rating, category, shortProduct.id]
             );
             return updateRes.rows[0];
           }
@@ -448,18 +465,19 @@ async function saveProduct(data) {
     }
 
     const query = `
-      INSERT INTO products (url, platform, title, image, rating, updated_at)
-      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+      INSERT INTO products (url, platform, title, image, rating, category, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
       ON CONFLICT (url) 
       DO UPDATE SET 
         platform = EXCLUDED.platform,
         title = EXCLUDED.title,
         image = EXCLUDED.image,
         rating = EXCLUDED.rating,
+        category = EXCLUDED.category,
         updated_at = CURRENT_TIMESTAMP
       RETURNING *;
     `;
-    const res = await pool.query(query, [url, platform, title, image, rating]);
+    const res = await pool.query(query, [url, platform, title, image, rating, category]);
     return res.rows[0];
   } catch (err) {
     console.error('[DB Error] saveProduct:', err);

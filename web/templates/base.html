@@ -2,7 +2,7 @@
 <html lang="en">
 
 <head>
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}" />
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo-removebg-preview.png') }}" />
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Price Graph — Find Real Deals, Skip the Fake Ones{% endblock %}</title>
@@ -31,7 +31,7 @@
   <div id="mobile-app-banner" class="mobile-app-banner hidden">
     <div class="banner-container">
       <div class="banner-left">
-        <img src="{{ url_for('static', filename='images/logos.png') }}" class="banner-logo-img" alt="Price Graph Logo">
+        <img src="{{ url_for('static', filename='images/logos-removebg-preview.png') }}" class="banner-logo-img" alt="Price Graph Logo">
         <div class="banner-text">
           <span class="banner-title">Price Graph App Available</span>
           <span class="banner-sub">Track prices & compare deals directly on your phone</span>
@@ -52,13 +52,11 @@
   <header class="app-nav-header">
     <div class="nav-container">
       <a href="/" class="logo">
-        <img src="{{ url_for('static', filename='images/logos.png') }}" alt="Price Graph Logo" class="header-logo-img">
-        <span class="domain-badge">pricegraph.in</span>
+        <img src="{{ url_for('static', filename='images/logos-removebg-preview.png') }}" alt="Price Graph Logo" class="header-logo-img">
       </a>
       <nav class="nav-menu">
         <a href="/store" class="nav-link"><i class="fa-solid fa-fire text-red-glow"></i> Deals</a>
         <a href="/categories" class="nav-link">Categories</a>
-        <a href="/coupons" class="nav-link">Coupons</a>
         
         <!-- Telegram Bots Links -->
         <div class="nav-dropdown-wrapper">

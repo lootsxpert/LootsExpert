@@ -48,27 +48,150 @@
   const progressTimer = document.getElementById('progress-timer');
   const errorTitle = document.getElementById('error-title');
   
-  // Handle form submit
+  // Handle form submit redirecting to search results page
   if (searchForm) {
-    searchForm.addEventListener('submit', async (e) => {
+    searchForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      const url = productUrlInput.value.trim();
-      if (!url) return;
-      
-      await fetchProductDetails(url);
+      const query = productUrlInput.value.trim();
+      if (!query) return;
+      window.location.href = `/search?q=${encodeURIComponent(query)}`;
     });
   }
   
   // Handle quick demo chips
   document.querySelectorAll('.demo-chip').forEach(chip => {
-    chip.addEventListener('click', async () => {
+    chip.addEventListener('click', () => {
       const url = chip.getAttribute('data-url');
       if (productUrlInput) {
         productUrlInput.value = url;
       }
-      await fetchProductDetails(url);
+      window.location.href = `/search?q=${encodeURIComponent(url)}`;
     });
   });
+
+  // Autocomplete functionality
+  if (productUrlInput) {
+    const dropdown = document.createElement('div');
+    dropdown.id = 'autocomplete-dropdown';
+    dropdown.style.cssText = `
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      max-height: 320px;
+      overflow-y: auto;
+      z-index: 999;
+      display: none;
+      padding: 8px 0;
+    `;
+    
+    const container = productUrlInput.closest('.autocomplete-container');
+    if (container) {
+      container.appendChild(dropdown);
+    }
+    
+    let debounceTimer;
+    productUrlInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const query = productUrlInput.value.trim();
+      
+      if (query.length < 2) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      
+      // If it looks like a URL, do not show search autocomplete suggestions
+      if (query.startsWith('http') || query.includes('com/') || query.includes('in/')) {
+        dropdown.style.display = 'none';
+        return;
+      }
+      
+      debounceTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/autocomplete?q=${encodeURIComponent(query)}`);
+          const items = await res.json();
+          
+          if (!items || items.length === 0) {
+            dropdown.style.display = 'none';
+            return;
+          }
+          
+          dropdown.innerHTML = '';
+          items.forEach(item => {
+            const row = document.createElement('div');
+            row.style.cssText = `
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              padding: 10px 16px;
+              cursor: pointer;
+              transition: background-color 0.2s;
+              border-bottom: 1px solid #f8fafc;
+            `;
+            row.addEventListener('mouseover', () => {
+              row.style.backgroundColor = '#f1f5f9';
+            });
+            row.addEventListener('mouseout', () => {
+              row.style.backgroundColor = 'transparent';
+            });
+            
+            const img = document.createElement('img');
+            img.src = item.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=100&q=80';
+            img.style.cssText = 'width: 36px; height: 36px; object-fit: contain; border-radius: 4px; background: white;';
+            
+            const info = document.createElement('div');
+            info.style.cssText = 'flex: 1; display: flex; flex-direction: column; overflow: hidden;';
+            
+            const title = document.createElement('span');
+            title.textContent = item.title;
+            title.style.cssText = 'font-size: 0.85rem; font-weight: 500; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;';
+            
+            const meta = document.createElement('div');
+            meta.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-top: 2px;';
+            
+            const plat = document.createElement('span');
+            plat.textContent = item.platform.toUpperCase();
+            plat.style.cssText = 'font-size: 0.65rem; font-weight: 700; background: #e2e8f0; color: #475569; padding: 1px 6px; border-radius: 4px;';
+            
+            const price = document.createElement('span');
+            price.textContent = item.current_price ? `₹${Math.round(item.current_price).toLocaleString('en-IN')}` : 'Check Price';
+            price.style.cssText = 'font-size: 0.75rem; font-weight: 600; color: #4f46e5;';
+            
+            meta.appendChild(plat);
+            meta.appendChild(price);
+            info.appendChild(title);
+            info.appendChild(meta);
+            
+            row.appendChild(img);
+            row.appendChild(info);
+            
+            row.addEventListener('click', () => {
+              productUrlInput.value = item.title;
+              dropdown.style.display = 'none';
+              window.location.href = `/search?q=${encodeURIComponent(item.title)}`;
+            });
+            
+            dropdown.appendChild(row);
+          });
+          
+          dropdown.style.display = 'block';
+        } catch (e) {
+          console.warn('[Autocomplete dropdown error]', e);
+        }
+      }, 250);
+    });
+    
+    // Close dropdown on click outside
+    document.addEventListener('click', (e) => {
+      if (!container.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
+  }
 
   // Handle watchlist button click
   const watchlistAddBtn = document.getElementById('watchlist-add-button');
@@ -607,11 +730,11 @@
   });
 
   // Populate Price Comparison Block
-  function renderPriceComparison(productName, currentPrice, currentPlatform) {
+  async function renderPriceComparison(productName, currentPrice, currentPlatform) {
     const comparisonList = document.getElementById('comparison-list');
     if (!comparisonList) return;
 
-    comparisonList.innerHTML = '';
+    comparisonList.innerHTML = '<div style="padding: 12px; text-align: center; color: #64748b; font-size: 0.85rem;"><i class="fa-solid fa-spinner fa-spin"></i> Checking store alternatives...</div>';
 
     // List of platforms to compare
     const platforms = [
@@ -626,6 +749,18 @@
       { name: 'Tata Cliq', key: 'tata-cliq', class: 'logo-tata-cliq', searchUrl: 'https://www.tatacliq.com/search/?searchCategory=all&text=' },
       { name: 'Nykaa', key: 'nykaa', class: 'logo-nykaa', searchUrl: 'https://www.nykaa.com/search/result/?q=' }
     ];
+
+    // Fetch matched stores from database
+    let matches = {};
+    try {
+      const res = await fetch(`/api/comparison?title=${encodeURIComponent(productName)}`);
+      const data = await res.json();
+      if (data && data.success && data.matches) {
+        matches = data.matches;
+      }
+    } catch (e) {
+      console.warn('[Comparison API Fetch Error]', e);
+    }
 
     // Determine relevant categories based on product name keywords to filter stores
     const isFashion = /shoe|shirt|tshirt|jeans|dress|bag|kurta|fashion|wear|apparel/i.test(productName);
@@ -655,8 +790,16 @@
     const compData = filteredPlatforms.map((platform, idx) => {
       let price = currentPrice;
       let isCurrent = platform.name.toLowerCase() === currentPlatform.toLowerCase();
-      
-      if (!isCurrent) {
+      let url = isCurrent ? '#' : `${platform.searchUrl}${encodeURIComponent(productName)}`;
+      let isDbMatch = false;
+
+      // Check if we have a real matched product in the DB for this platform
+      const match = matches[platform.key];
+      if (match && !isCurrent) {
+        price = match.price;
+        url = `/redirect?url=${encodeURIComponent(match.url)}&platform=${encodeURIComponent(platform.name)}&title=${encodeURIComponent(productName)}&price=${match.price}`;
+        isDbMatch = true;
+      } else if (!isCurrent) {
         // Vary the price slightly to simulate competitors (+2% to +18%)
         const variance = 0.02 + (idx * 0.04);
         price = Math.round(currentPrice * (1 + variance));
@@ -665,13 +808,16 @@
       return {
         ...platform,
         price,
-        isCurrent
+        url,
+        isCurrent,
+        isDbMatch
       };
     });
 
     // Sort by price so the lowest is first
     compData.sort((a, b) => a.price - b.price);
 
+    comparisonList.innerHTML = '';
     compData.forEach((comp, idx) => {
       const isLowest = idx === 0;
       const pctDiff = Math.round(((comp.price - compData[0].price) / compData[0].price) * 100);
@@ -683,9 +829,14 @@
         badgeHtml = `<span class="comp-comparison-tag comp-tag-higher">${pctDiff}% Higher</span>`;
       }
 
+      // If it is a real DB match, show a verified tag
+      if (comp.isDbMatch) {
+        badgeHtml += ` <span class="comp-comparison-tag comp-tag-lowest" style="background-color: #dcfce7; color: #15803d; border-color: #bbf7d0; margin-left: 4px;"><i class="fa-solid fa-circle-check"></i> Match</span>`;
+      }
+
       const row = document.createElement('a');
       row.className = 'comparison-row';
-      row.href = comp.isCurrent ? '#' : `${comp.searchUrl}${encodeURIComponent(productName)}`;
+      row.href = comp.url;
       row.target = comp.isCurrent ? '' : '_blank';
 
       // Short letters for logo
@@ -696,7 +847,7 @@
           <div class="comp-store-logo ${comp.class}">${letters}</div>
           <div class="comp-store-details">
             <span class="comp-store-name">${comp.name}</span>
-            <span class="comp-store-promo">Free Delivery</span>
+            <span class="comp-store-promo">${comp.isDbMatch ? 'Specific Product Page' : 'Free Delivery'}</span>
           </div>
         </div>
         <div class="comp-pricing">
@@ -944,25 +1095,40 @@
               ${mrpHtml}
               ${discountHtml}
             </div>
-            <div class="deal-card-footer">
-              ${tagHtml}
-              <span class="deal-card-action">Analyze <i class="fa-solid fa-arrow-right"></i></span>
-            </div>
-          </div>
-        `;
-        
-        // Card click event -> populate analyzer & scroll to top
-        card.addEventListener('click', () => {
-          const productUrlInput = document.getElementById('product-url');
-          if (productUrlInput) {
-            productUrlInput.value = deal.url;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            fetchProductDetails(deal.url);
-          } else {
-            // Redirect to home with query parameters to run analysis
-            window.location.href = `/?analyze_url=${encodeURIComponent(deal.url)}`;
-          }
-        });
+             <div class="deal-card-footer" style="flex-direction: column; align-items: stretch; gap: 8px;">
+               <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                 ${tagHtml}
+               </div>
+               <div class="deal-card-buttons" style="display: flex; gap: 6px; width: 100%; margin-top: 4px;">
+                 <button class="price-graph-btn" style="flex: 1; padding: 6px 8px; background: #e0e7ff; color: #4f46e5; border-radius: 6px; border: none; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+                   <i class="fa-solid fa-chart-line"></i> Price Graph
+                 </button>
+                 <a href="/redirect?url=${encodeURIComponent(deal.url)}&platform=${encodeURIComponent(deal.platform)}&title=${encodeURIComponent(deal.title)}&price=${deal.current_price}" target="_blank" class="shop-now-btn" style="flex: 1; padding: 6px 8px; background: #4f46e5; color: white; border-radius: 6px; text-decoration: none; text-align: center; font-size: 0.75rem; font-weight: 700; transition: all 0.2s; white-space: nowrap;">
+                   <i class="fa-solid fa-bag-shopping"></i> Shop Now
+                 </a>
+               </div>
+             </div>
+           </div>
+         `;
+         
+         const priceGraphBtn = card.querySelector('.price-graph-btn');
+         priceGraphBtn.addEventListener('click', (e) => {
+           e.stopPropagation();
+           const productUrlInput = document.getElementById('product-url');
+           if (productUrlInput) {
+             productUrlInput.value = deal.url;
+             window.scrollTo({ top: 0, behavior: 'smooth' });
+             fetchProductDetails(deal.url);
+           } else {
+             // Redirect to home with query parameters to run analysis
+             window.location.href = `/?analyze_url=${encodeURIComponent(deal.url)}`;
+           }
+         });
+
+         const shopNowBtn = card.querySelector('.shop-now-btn');
+         shopNowBtn.addEventListener('click', (e) => {
+           e.stopPropagation();
+         });
         
         dealsGrid.appendChild(card);
       });
