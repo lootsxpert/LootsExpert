@@ -224,7 +224,13 @@ function getCanonicalUrl(url) {
     // Flipkart normalization
     if (parsed.hostname.includes('flipkart.com')) {
       const pid = parsed.searchParams.get('pid');
-      let canonical = `https://www.flipkart.com${parsed.pathname}`;
+      let pathname = parsed.pathname;
+      if (pathname.startsWith('/dl/')) {
+        pathname = pathname.substring(3);
+      } else if (pathname === '/dl') {
+        pathname = '/';
+      }
+      let canonical = `https://www.flipkart.com${pathname}`;
       if (pid) {
         canonical += `?pid=${pid}`;
       }
@@ -541,7 +547,98 @@ app.get('/api/scrape', async (req, res) => {
   }
 });
 
+
+// Endpoint: POST /api/extension/save
+// Receives scraped data directly from Chrome Extension and saves it
+app.post('/api/extension/save', async (req, res) => {
+  const { url, platform, title, price, originalPrice, discount, image, rating } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ success: false, error: 'Product URL is required' });
+  }
+
+  try {
+    let canonicalUrl = getCanonicalUrl(url);
+
+    // Resolve shorthand or redirect if needed
+    const productInDb = await getProductByUrl(canonicalUrl);
+    if (productInDb) {
+      canonicalUrl = productInDb.url;
+    }
+
+    const scrapeResult = {
+      success: true,
+      platform: platform || 'Store',
+      title: title || 'Scraped Product',
+      price: price ? parseFloat(price) : null,
+      originalPrice: originalPrice ? parseFloat(originalPrice) : (price ? parseFloat(price) : null),
+      discount: discount || '',
+      currency: '₹',
+      image: image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80',
+      rating: rating ? parseFloat(rating) : 4.2,
+      url: canonicalUrl
+    };
+
+    const savedProduct = await saveProduct({
+      url: canonicalUrl,
+      platform: scrapeResult.platform,
+      title: scrapeResult.title,
+      image: scrapeResult.image,
+      rating: scrapeResult.rating
+    });
+
+    if (savedProduct) {
+      await addPriceLogIfChanged(savedProduct.id, scrapeResult.price);
+
+      // Trigger background tracker
+      triggerBackgroundTrackerScrape(
+        savedProduct.id, 
+        canonicalUrl, 
+        scrapeResult.title,
+        scrapeResult.price,
+        scrapeResult.originalPrice,
+        scrapeResult.discount
+      );
+
+      // Fetch history for output
+      const dbHistory = await getPriceHistory(savedProduct.id);
+      scrapeResult.history = dbHistory;
+      scrapeResult.historyUrl = savedProduct.history_url || null;
+
+      const historyPrices = dbHistory.map(h => parseFloat(h.price));
+      if (scrapeResult.price) {
+        historyPrices.push(parseFloat(scrapeResult.price));
+      }
+      const validPrices = historyPrices.filter(p => !isNaN(p) && p > 0);
+      const lowest = validPrices.length > 0 ? Math.min(...validPrices) : (scrapeResult.price || 0);
+      const highest = validPrices.length > 0 ? Math.max(...validPrices) : (scrapeResult.price || 0);
+      const average = validPrices.length > 0 ? (validPrices.reduce((sum, p) => sum + p, 0) / validPrices.length) : (scrapeResult.price || 0);
+
+      scrapeResult.highestPrice = highest;
+      scrapeResult.lowestPrice = lowest;
+      scrapeResult.averagePrice = Math.round(average * 100) / 100;
+      scrapeResult.highest_price = highest;
+      scrapeResult.lowest_price = lowest;
+      scrapeResult.average_price = Math.round(average * 100) / 100;
+
+      await updateProductDealStats(
+        savedProduct.id, 
+        scrapeResult.price, 
+        scrapeResult.originalPrice, 
+        scrapeResult.discount, 
+        scrapeResult.title
+      );
+    }
+
+    return res.json(scrapeResult);
+  } catch (err) {
+    console.error('[Extension Save Error]', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Endpoint: GET /api/history
+
 // Retrieves compiled historical data for the Price History Bot
 
 // Generate simulated price prediction list when tracker scraping returns empty

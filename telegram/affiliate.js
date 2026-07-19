@@ -86,13 +86,35 @@ class EarnKaroAffiliateProvider {
         console.warn('[Affiliate Service] EarnKaro API key is missing. Falling back to original URL.');
         return url;
       }
+
+      // Normalize Flipkart URLs to strip '/dl/' prefix so EarnKaro processes them correctly
+      let targetUrl = url;
+      if (platform === 'flipkart' || url.includes('flipkart.com')) {
+        try {
+          const parsed = new URL(url);
+          let pathname = parsed.pathname;
+          if (pathname.startsWith('/dl/')) {
+            pathname = pathname.substring(3);
+          } else if (pathname === '/dl') {
+            pathname = '/';
+          }
+          let cleanUrl = `https://www.flipkart.com${pathname}`;
+          const pid = parsed.searchParams.get('pid');
+          if (pid) {
+            cleanUrl += `?pid=${pid}`;
+          }
+          targetUrl = cleanUrl;
+        } catch (e) {
+          console.warn('[Affiliate Service] Failed to clean Flipkart URL, using original:', e.message);
+        }
+      }
       
       // Call EarnKaro Affiliate Link Conversion API endpoint
       const endpoint = `https://ekaro-api.affiliaters.in/api/converter/public`;
       console.log(`[Affiliate Service] Converting link for ${platform} via new EarnKaro API...`);
       
       const response = await axios.post(endpoint, {
-        deal: url,
+        deal: targetUrl,
         convert_option: 'convert_only'
       }, {
         headers: {

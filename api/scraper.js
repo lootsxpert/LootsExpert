@@ -72,7 +72,13 @@ function getCanonicalUrl(url) {
     // Flipkart normalization
     if (parsed.hostname.includes('flipkart.com')) {
       const pid = parsed.searchParams.get('pid');
-      let canonical = `https://www.flipkart.com${parsed.pathname}`;
+      let pathname = parsed.pathname;
+      if (pathname.startsWith('/dl/')) {
+        pathname = pathname.substring(3);
+      } else if (pathname === '/dl') {
+        pathname = '/';
+      }
+      let canonical = `https://www.flipkart.com${pathname}`;
       if (pid) {
         canonical += `?pid=${pid}`;
       }

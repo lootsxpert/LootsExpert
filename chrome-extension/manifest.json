@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "PriceGraph Scanner",
+  "version": "1.0",
+  "description": "Scrapes product details from Shopsy and Flipkart to display price history graphs and recommendations.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://*.shopsy.in/*",
+    "https://*.flipkart.com/*",
+    "http://localhost:3000/*",
+    "https://api-production-142c.up.railway.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open PriceGraph Side Panel"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  }
+}
