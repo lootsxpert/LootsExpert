@@ -1076,11 +1076,33 @@ bot.on('callback_query', async (callbackQuery) => {
           await bot.sendMessage(chatId, '❌ Failed to scrape product details. Please try again.');
           return;
         }
+
+        // Set targetUrl to the resolved clean canonical URL returned by the API server
+        let targetUrl = (data.url && data.url.startsWith('http')) ? data.url : url;
         
-        // Convert to affiliate URL (check global DB first to avoid redundant API hits)
-        let affUrl = await db.getExistingAffUrl(store, pid);
+        // Convert to affiliate URL
+        let affUrl = null;
+        if (store === 'amazon') {
+          // Amazon checks DB first to avoid API limit hits
+          affUrl = await db.getExistingAffUrl(store, pid);
+          if (!affUrl || affUrl === targetUrl) {
+            affUrl = await affiliate.convert(targetUrl, store);
+          }
+        } else {
+          // For non-Amazon (Earnkaro stores), hit the EarnKaro API every time first
+          try {
+            affUrl = await affiliate.convert(targetUrl, store);
+          } catch (e) {
+            console.error('[Affiliate Conversion Error] Failed Earnkaro conversion:', e.message);
+          }
+          // If EarnKaro API failed or returned original link, fallback to existing DB link
+          if (!affUrl || affUrl === targetUrl) {
+            affUrl = await db.getExistingAffUrl(store, pid);
+          }
+        }
+        // If still no affiliate URL was resolved, fallback to the resolved long URL
         if (!affUrl) {
-          affUrl = await affiliate.convert(url, store);
+          affUrl = targetUrl;
         }
         
         // Add to database
@@ -1089,14 +1111,14 @@ bot.on('callback_query', async (callbackQuery) => {
           store,
           pid,
           data.title,
-          url,
+          targetUrl,
           affUrl,
           data.image,
           parseFloat(data.price)
         );
         
         if (saved) {
-          const clickableName = `<a href="${affUrl || url}"><b>${escapeHTML(data.title)}</b></a>`;
+          const clickableName = `<a href="${affUrl || targetUrl}"><b>${escapeHTML(data.title)}</b></a>`;
           const successMsg = `✅ <b>Product added successfully!</b>\n\n` +
             `📌 ${clickableName}\n\n` +
             `💰 <b>Current Price:</b> ₹${parseFloat(data.price).toLocaleString('en-IN')}\n\n` +
@@ -1392,15 +1414,31 @@ bot.on('message', async (msg) => {
   const productUrl = matches[0];
   let resolvedUrl = productUrl;
   const urlLower = productUrl.toLowerCase();
-  const isShort = !urlLower.includes('amazon.in') && !urlLower.includes('flipkart.com') && 
-                  !urlLower.includes('shopsy.in') && !urlLower.includes('myntra.com') && 
-                  !urlLower.includes('ajio.com') && !urlLower.includes('meesho.com') &&
-                  !urlLower.includes('croma.com') && !urlLower.includes('tatacliq.com') &&
-                  !urlLower.includes('reliancedigital.in') && !urlLower.includes('nykaa.com');
-                  
-  if (isShort) {
+  const isGenericShort = !urlLower.includes('amazon.in') && !urlLower.includes('flipkart.com') && 
+                         !urlLower.includes('shopsy.in') && !urlLower.includes('myntra.com') && 
+                         !urlLower.includes('ajio.com') && !urlLower.includes('meesho.com') &&
+                         !urlLower.includes('croma.com') && !urlLower.includes('tatacliq.com') &&
+                         !urlLower.includes('reliancedigital.in') && !urlLower.includes('nykaa.com');
+                         
+  const isFlipkartShort = urlLower.includes('flipkart.com') && (urlLower.includes('/s/') || urlLower.includes('/dl/s/'));
+  const isShopsyShort = urlLower.includes('shopsy.in') && (urlLower.includes('/s/') || urlLower.includes('/dl/s/'));
+  
+  if (isGenericShort || isFlipkartShort || isShopsyShort) {
     const statusMsg = await bot.sendMessage(chatId, '🔍 Resolving link...');
-    resolvedUrl = await expandUrl(productUrl);
+    try {
+      const res = await axios.get(`${scraperApiUrl}/api/history`, {
+        params: { url: productUrl },
+        timeout: 30000
+      });
+      if (res.data && res.data.success && res.data.url) {
+        resolvedUrl = res.data.url;
+      } else {
+        resolvedUrl = await expandUrl(productUrl);
+      }
+    } catch (e) {
+      console.warn('[Resolving short link via API failed, using fallback]', e.message);
+      resolvedUrl = await expandUrl(productUrl);
+    }
     await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
   }
   const detected = detectPlatformAndPid(resolvedUrl);
@@ -1612,7 +1650,25 @@ function startScheduler() {
                 const diff = newPrice - oldPrice;
                 const pct = ((Math.abs(diff) / oldPrice) * 100).toFixed(1);
                 
-                const currentAffUrl = await affiliate.convert(product.product_url, product.platform);
+                let currentAffUrl = null;
+                if (product.platform === 'amazon') {
+                  currentAffUrl = await db.getExistingAffUrl(product.platform, product.product_id);
+                  if (!currentAffUrl || currentAffUrl === product.product_url) {
+                    currentAffUrl = await affiliate.convert(product.product_url, product.platform);
+                  }
+                } else {
+                  try {
+                    currentAffUrl = await affiliate.convert(product.product_url, product.platform);
+                  } catch (e) {
+                    console.error('[Scheduler Affiliate Error]', e.message);
+                  }
+                  if (!currentAffUrl || currentAffUrl === product.product_url) {
+                    currentAffUrl = await db.getExistingAffUrl(product.platform, product.product_id);
+                  }
+                }
+                if (!currentAffUrl) {
+                  currentAffUrl = product.product_url;
+                }
                 const clickableName = `<a href="${currentAffUrl}"><b>${escapeHTML(product.product_name)}</b></a>`;
                 let notifyMsg = '';
                 if (diff < 0) {

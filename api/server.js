@@ -223,8 +223,11 @@ function getCanonicalUrl(url) {
     
     // Flipkart normalization
     if (parsed.hostname.includes('flipkart.com')) {
-      const pid = parsed.searchParams.get('pid');
       let pathname = parsed.pathname;
+      if (pathname.startsWith('/s/') || pathname.startsWith('/dl/s/')) {
+        return url;
+      }
+      const pid = parsed.searchParams.get('pid');
       if (pathname.startsWith('/dl/')) {
         pathname = pathname.substring(3);
       } else if (pathname === '/dl') {
@@ -399,8 +402,7 @@ app.get('/api/scrape', async (req, res) => {
                   !canonicalUrl.includes('ajio.com') && !canonicalUrl.includes('meesho.com') &&
                   !canonicalUrl.includes('croma.com') && !canonicalUrl.includes('tatacliq.com') &&
                   !canonicalUrl.includes('reliancedigital.in') && !canonicalUrl.includes('nykaa.com')) ||
-                  ((canonicalUrl.includes('shopsy.in') || canonicalUrl.includes('shopsy.com')) && (canonicalUrl.includes('/p/itm') || canonicalUrl.includes('/p/p') || canonicalUrl.includes('/open-menu/p/p'))) ||
-                  (canonicalUrl.includes('ajio.com') && (canonicalUrl.includes('/s/p/') || canonicalUrl.includes('ajio.com/p/')));
+                  canonicalUrl.includes('/s/') || canonicalUrl.includes('/dl/s/');
   if (isShort) {
     console.log(`[API Server] Expanding short URL inside scrape: ${canonicalUrl}`);
     const expanded = await expandUrl(canonicalUrl);
@@ -702,11 +704,8 @@ app.get('/api/history', async (req, res) => {
                          !canonicalUrl.includes('reliancedigital.in') && !canonicalUrl.includes('nykaa.com');
   
   const isShorthand = isHistoryShort || 
-                      canonicalUrl.includes('/p/p') || 
-                      canonicalUrl.includes('/open-menu/p/p') || 
-                      ((canonicalUrl.includes('shopsy.in') || canonicalUrl.includes('shopsy.com')) && canonicalUrl.includes('/p/itm')) ||
-                      (canonicalUrl.includes('ajio.com') && (canonicalUrl.includes('/s/p/') || canonicalUrl.includes('ajio.com/p/'))) ||
-                      (canonicalUrl.includes('tatacliq.com') && (canonicalUrl.includes('/p-mp') || canonicalUrl.match(/\/p-mp[0-9]+$/)));
+                      canonicalUrl.includes('/s/') || 
+                      canonicalUrl.includes('/dl/s/');
 
   if (isShorthand) {
     console.log(`[API Server] Expanding short URL inside history lookup: ${canonicalUrl}`);

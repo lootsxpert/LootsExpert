@@ -346,7 +346,7 @@ async function getProductByPid(platform, pid) {
   try {
     const query = `
       SELECT * FROM products 
-      WHERE platform ILIKE $1 
+      WHERE (platform ILIKE $1 OR platform = 'BuyHatke' OR platform = 'Store')
         AND (url LIKE $2 OR url LIKE $3)
       LIMIT 1
     `;
