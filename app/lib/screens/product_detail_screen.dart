@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
@@ -140,6 +142,57 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         );
       },
     );
+  }
+
+  Future<void> _saveToTrackedProducts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? rawData = prefs.getString('tracked_products_list');
+      List<Map<String, dynamic>> items = [];
+      if (rawData != null && rawData.isNotEmpty) {
+        try {
+          final List<dynamic> decoded = jsonDecode(rawData);
+          items = decoded.cast<Map<String, dynamic>>();
+        } catch (e) {
+          items = [];
+        }
+      }
+
+      final existingIndex = items.indexWhere((it) => it['url'] == widget.productUrl);
+      if (existingIndex >= 0) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Product is already in your tracking list!')),
+          );
+        }
+        return;
+      }
+
+      items.add({
+        'title': _product.title,
+        'image': _product.image,
+        'platform': _product.platform,
+        'price': _product.currentPrice,
+        'url': widget.productUrl,
+        'added_at': DateTime.now().toIso8601String(),
+      });
+
+      await prefs.setString('tracked_products_list', jsonEncode(items));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Added to Tracked Products! Local notifications enabled for price changes.'),
+            backgroundColor: AppTheme.colorGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to track product: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -363,44 +416,64 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       const SizedBox(height: 18),
                       
                       // Action Buttons
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: ElevatedButton.icon(
-                              onPressed: () => _launchUrl(_product.url),
-                              icon: const Icon(Icons.shopping_cart, size: 16),
-                              label: Text('Buy on ${_product.platform}'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.primary,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                      Column: [
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _launchUrl(_product.url),
+                                icon: const Icon(Icons.shopping_cart, size: 16),
+                                label: Text('Buy on ${_product.platform}'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 1,
-                            child: OutlinedButton.icon(
-                              onPressed: _showSetAlertDial,
-                              icon: const Icon(Icons.notifications_none, size: 16),
-                              label: const Text('Set Alert'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.textSecondary,
-                                side: const BorderSide(color: AppTheme.borderClean),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 1,
+                              child: OutlinedButton.icon(
+                                onPressed: _showSetAlertDial,
+                                icon: const Icon(Icons.notifications_none, size: 16),
+                                label: const Text('Set Alert'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.textSecondary,
+                                  side: const BorderSide(color: AppTheme.borderClean),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                               ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _saveToTrackedProducts,
+                            icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+                            label: const Text('Track Product (Auto Price Change Alert)'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.accentIndigo,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

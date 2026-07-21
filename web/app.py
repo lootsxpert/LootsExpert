@@ -390,7 +390,8 @@ def index():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT name, logo_url FROM web_supported_stores ORDER BY name ASC")
+        valid_stores = ['Flipkart', 'Amazon', 'Myntra', 'Meesho', 'Ajio', 'Croma']
+        cur.execute("SELECT name, logo_url FROM web_supported_stores WHERE name = ANY(%s) ORDER BY name ASC", (valid_stores,))
         stores = cur.fetchall()
         cur.execute("SELECT text, logo_url, link FROM web_marquee_items ORDER BY created_at DESC")
         marquees = cur.fetchall()
@@ -1374,26 +1375,50 @@ def outbound_redirect():
         row = cur.fetchone()
         tag = row[0] if row else None
         
-        # Query EarnKaro API Key
-        cur.execute("SELECT tag_value FROM web_affiliate_configs WHERE platform ILIKE 'EarnKaro'")
-        ek_row = cur.fetchone()
-        ek_key = ek_row[0] if ek_row else None
-        
+        # Fallback to env vars if DB config is empty
+        if not tag and 'amazon' in platform.lower():
+            tag = os.getenv("AMAZON_AFF_TAG", "wishlink_923495-21")
+            
+        if not ek_key:
+            ek_key = os.getenv("EARNKARO_API", "")
+            
         conn.commit()
         cur.close()
         conn.close()
     except Exception as e:
         print(f"[Redirect Tracking Error] {str(e)}")
+        if not tag and 'amazon' in platform.lower():
+            tag = os.getenv("AMAZON_AFF_TAG", "wishlink_923495-21")
+        if not ek_key:
+            ek_key = os.getenv("EARNKARO_API", "")
         
     # Build final url applying tag parameter
     final_url = target_url
     lower_platform = platform.lower()
     
+    # Non-Amazon platforms (Flipkart, Myntra, Ajio, Meesho, Croma) convert via EarnKaro
     if 'amazon' not in lower_platform and ek_key:
         try:
+            # Clean Flipkart deep links (/dl/ prefix) so EarnKaro API handles them cleanly
+            clean_target_url = target_url
+            if 'flipkart' in lower_platform or 'flipkart.com' in target_url:
+                try:
+                    p_url = urllib.parse.urlparse(target_url)
+                    p_path = p_url.path
+                    if p_path.startswith('/dl/'):
+                        p_path = p_path[3:]
+                    elif p_path == '/dl':
+                        p_path = '/'
+                    clean_target_url = f"https://www.flipkart.com{p_path}"
+                    q_params = urllib.parse.parse_qs(p_url.query)
+                    if 'pid' in q_params:
+                        clean_target_url += f"?pid={q_params['pid'][0]}"
+                except Exception as fk_clean_err:
+                    print(f"[Flipkart URL Clean Warning] {fk_clean_err}")
+
             ek_url = "https://ekaro-api.affiliaters.in/api/converter/public"
             payload = json.dumps({
-                "deal": target_url,
+                "deal": clean_target_url,
                 "convert_option": "convert_only"
             }).encode('utf-8')
             req = urllib.request.Request(
@@ -1406,12 +1431,13 @@ def outbound_redirect():
                 },
                 method='POST'
             )
-            with urllib.request.urlopen(req, timeout=5) as r:
+            with urllib.request.urlopen(req, timeout=6) as r:
                 if r.status == 200:
                     res_data = json.loads(r.read().decode('utf-8'))
                     if res_data.get("success") == 1 and res_data.get("data"):
                         aff_url = res_data.get("data").strip()
                         if aff_url.startswith('http'):
+                            print(f"[EarnKaro Converter Success] Converted {target_url} -> {aff_url}")
                             return redirect(aff_url)
         except Exception as ek_err:
             print(f"[EarnKaro URL Conversion Error] {ek_err}")
@@ -1487,10 +1513,13 @@ def search_page():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
+        # Platform whitelist: Flipkart, Amazon, Myntra, Meesho, Ajio, Croma
+        valid_platforms = ['flipkart', 'amazon', 'myntra', 'meesho', 'ajio', 'croma']
+        
         # Search matching products from database
         cur.execute(
-            "SELECT * FROM products WHERE title ILIKE %s ORDER BY deal_score DESC LIMIT 40",
-            (f"%{q}%",)
+            "SELECT * FROM products WHERE title ILIKE %s AND LOWER(platform) = ANY(%s) ORDER BY deal_score DESC LIMIT 40",
+            (f"%{q}%", valid_platforms)
         )
         all_matches = cur.fetchall()
         
@@ -1542,12 +1571,12 @@ def search_page():
             # If no other stores found in matches, search the DB generally for alternatives
             if len(group['stores']) < 2 and len(title_words) >= 2:
                 try:
-                    exclude_platforms = [s['platform'] for s in group['stores']]
+                    exclude_platforms = [s['platform'].lower() for s in group['stores']]
                     query_words = " AND ".join(["title ILIKE %s" for _ in title_words])
                     params = [f"%{w}%" for w in title_words]
                     
-                    sql = f"SELECT * FROM products WHERE id != %s AND platform NOT IN %s AND {query_words} LIMIT 5"
-                    cur.execute(sql, [item['id'], tuple(exclude_platforms)] + params)
+                    sql = f"SELECT * FROM products WHERE id != %s AND LOWER(platform) = ANY(%s) AND LOWER(platform) NOT IN %s AND {query_words} LIMIT 5"
+                    cur.execute(sql, [item['id'], valid_platforms, tuple(exclude_platforms)] + params)
                     db_alternatives = cur.fetchall()
                     
                     for alt in db_alternatives:
@@ -1580,9 +1609,10 @@ def api_autocomplete():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
+        valid_platforms = ['flipkart', 'amazon', 'myntra', 'meesho', 'ajio', 'croma']
         cur.execute(
-            "SELECT id, title, image, platform, current_price FROM products WHERE title ILIKE %s LIMIT 6",
-            (f"%{q}%",)
+            "SELECT id, title, image, platform, current_price FROM products WHERE title ILIKE %s AND LOWER(platform) = ANY(%s) LIMIT 6",
+            (f"%{q}%", valid_platforms)
         )
         products = cur.fetchall()
         
