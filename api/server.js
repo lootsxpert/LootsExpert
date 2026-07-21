@@ -462,7 +462,7 @@ app.get('/api/scrape', async (req, res) => {
       }
       
       if (!image) {
-        image = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80';
+        image = '/static/images/logo-removebg-preview.png';
       }
       
       scrapeResult = {
@@ -576,7 +576,7 @@ app.post('/api/extension/save', async (req, res) => {
       originalPrice: originalPrice ? parseFloat(originalPrice) : (price ? parseFloat(price) : null),
       discount: discount || '',
       currency: '₹',
-      image: image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80',
+      image: image || '/static/images/logo-removebg-preview.png',
       rating: rating ? parseFloat(rating) : 4.2,
       url: canonicalUrl
     };
@@ -921,7 +921,7 @@ app.get('/api/history', async (req, res) => {
       originalPrice = 1699;
     }
     if (!image) {
-      image = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80';
+      image = '/static/images/logo-removebg-preview.png';
     }
 
     // Save/Update product and import history in DB

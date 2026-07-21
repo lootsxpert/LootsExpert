@@ -352,11 +352,10 @@ def catch_all_url(target_url):
     elif reconstructed_url.startswith("https:/") and not reconstructed_url.startswith("https://"):
         reconstructed_url = "https://" + reconstructed_url[7:]
     
-    # Verify if it looks like a valid product URL
+    # Verify if it looks like a valid product URL or domain
     url_lower = reconstructed_url.lower()
-    supported_keywords = ["amazon", "flipkart", "myntra", "ajio", "meesho", "shopsy", "croma", "reliancedigital", "tatacliq", "nykaa"]
     
-    if any(keyword in url_lower for keyword in supported_keywords):
+    if reconstructed_url.startswith("http") or "." in reconstructed_url or "/" in reconstructed_url:
         try:
             # Query db for marquee and categories just like homepage "/"
             conn = get_db_connection()
@@ -1481,7 +1480,7 @@ def search_page():
         return redirect("/")
         
     # Check if the query is a URL instead of keywords
-    if q.startswith("http://") or q.startswith("https://") or "flipkart.com" in q or "amazon.in" in q or "shopsy.in" in q or "myntra.com" in q or "ajio.com" in q or "meesho.com" in q:
+    if q.startswith("http://") or q.startswith("https://") or "://" in q or "." in q and "/" in q:
         return redirect(url_for("catch_all_url", target_url=q))
 
     try:

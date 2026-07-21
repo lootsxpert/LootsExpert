@@ -1,4 +1,14 @@
 (function() {
+  // Global Image Error Fallback Handler across the web application
+  window.addEventListener('error', function (e) {
+    if (e.target && e.target.tagName === 'IMG') {
+      if (!e.target.dataset.fallbackApplied) {
+        e.target.dataset.fallbackApplied = 'true';
+        e.target.src = '/static/images/logo-removebg-preview.png';
+      }
+    }
+  }, true);
+
   function initApp() {
   let currentProduct = null;
   const searchForm = document.getElementById('search-form');
@@ -140,7 +150,7 @@
             });
             
             const img = document.createElement('img');
-            img.src = item.image || 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=100&q=80';
+            img.src = item.image || '/static/images/logo-removebg-preview.png';
             img.style.cssText = 'width: 36px; height: 36px; object-fit: contain; border-radius: 4px; background: white;';
             
             const info = document.createElement('div');
@@ -270,52 +280,55 @@
   }
 
   // Fetch product data from our Flask proxy
+  // Fetch product data from our Flask proxy
   async function fetchProductDetails(url) {
     // UI resets
     loader.classList.remove('hidden');
     errorContainer.classList.add('hidden');
     resultView.classList.add('hidden');
+
+    // Auto-scroll down to loader/result area
+    loader.scrollIntoView({ behavior: 'smooth', block: 'start' });
     
     // Progress state variables
     let progress = 0;
     progressBarFill.style.width = '0%';
     progressPercent.textContent = '0%';
     progressText.textContent = 'Initiating crawler...';
-    progressTimer.textContent = 'Time remaining: 30s';
+    progressTimer.textContent = 'Crawling product data...';
     
     const startTime = Date.now();
-    const duration = 30000; // 30 seconds total timeout
     
-    // Progress loop (runs every 100ms)
+    // Smooth progress loop that never terminates prematurely on client side
     const progressInterval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const remainingSeconds = Math.max(0, Math.ceil((duration - elapsed) / 1000));
-      progressTimer.textContent = `Time remaining: ${remainingSeconds}s`;
+      const elapsedSec = Math.floor(elapsed / 1000);
+      progressTimer.textContent = `Crawling time: ${elapsedSec}s`;
       
-      if (elapsed < 20000) {
-        // First 20 seconds: go from 0% to 70%
-        progress = Math.round((elapsed / 20000) * 70);
+      if (elapsed < 15000) {
+        // First 15 seconds: 0% to 60%
+        progress = Math.round((elapsed / 15000) * 60);
         progressText.textContent = 'Scraping product page... Bypass security layers...';
       } else if (elapsed < 30000) {
-        // Next 10 seconds: go from 70% to 95%
-        progress = Math.round(70 + ((elapsed - 20000) / 10000) * 25);
-        progressText.textContent = 'Readying analysis graphs...';
+        // Next 15 seconds: 60% to 88%
+        progress = Math.round(60 + ((elapsed - 15000) / 15000) * 28);
+        progressText.textContent = 'Extracting price history graphs & deals...';
+      } else if (elapsed < 60000) {
+        // Up to 60 seconds: 88% to 96%
+        progress = Math.round(88 + ((elapsed - 30000) / 30000) * 8);
+        progressText.textContent = 'Processing deep crawler API response...';
+      } else {
+        progress = 98;
+        progressText.textContent = 'Waiting for final server API response...';
       }
       
       progressBarFill.style.width = `${progress}%`;
       progressPercent.textContent = `${progress}%`;
     }, 100);
     
-    // Set up AbortController for 30s timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, duration);
-    
     try {
-      const response = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`, {
-        signal: controller.signal
-      });
+      // Fetch directly without client-side AbortController termination
+      const response = await fetch(`/api/scrape?url=${encodeURIComponent(url)}`);
       
       let data;
       try {
@@ -325,9 +338,8 @@
       }
       
       clearInterval(progressInterval);
-      clearTimeout(timeoutId);
       
-      if (!response.ok || !data.success) {
+      if (!response.ok || !data || !data.success) {
         throw new Error(data?.error || `Node API returned HTTP error status: ${response.status}`);
       }
       
@@ -348,25 +360,16 @@
         } finally {
           loader.classList.add('hidden');
         }
-      }, 400);
+      }, 300);
       
     } catch (err) {
       clearInterval(progressInterval);
-      clearTimeout(timeoutId);
       loader.classList.add('hidden');
       
-      console.error('[Client Error]', err);
+      console.error('[Scrape API Error]', err);
       
-      // Handle AbortError specifically as a Timeout
-      if (err.name === 'AbortError') {
-        errorTitle.textContent = 'Request Timeout (30s)';
-        errorMessage.textContent = 'The scraping request took longer than 30 seconds to respond. The product page might be heavily guarded, or the proxy might be experiencing slow response times. Please try again.';
-      } else {
-        errorTitle.textContent = 'Failed to Retrieve Details';
-        // Display the EXACT full error message
-        errorMessage.textContent = err.message || 'An unexpected error occurred while analyzing the product details.';
-      }
-      
+      errorTitle.textContent = 'Failed to Retrieve Details';
+      errorMessage.textContent = err.message || 'An unexpected error occurred while analyzing the product details.';
       errorContainer.classList.remove('hidden');
     }
   }
@@ -864,8 +867,8 @@
   // --- DEALS HUB CONTROLLER LOGIC ---
     // Helper to format e-commerce product image URLs and apply premium fallbacks
   function formatProductImage(imgUrl) {
-    if (!imgUrl || typeof imgUrl !== 'string' || imgUrl.trim() === '') {
-      return 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80';
+    if (!imgUrl || typeof imgUrl !== 'string' || imgUrl.trim() === '' || imgUrl.includes('unsplash.com')) {
+      return '/static/images/logo-removebg-preview.png';
     }
     let formatted = imgUrl.trim();
     if (formatted.startsWith('//')) {
