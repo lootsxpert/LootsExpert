@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import 'search_screen.dart';
 import 'deals_catalog_screen.dart';
 import 'tracked_products_screen.dart';
+import 'profile_screen.dart';
 
 class MainNavigation extends StatefulWidget {
   const MainNavigation({super.key});
@@ -19,6 +20,7 @@ class MainNavigationState extends State<MainNavigation> {
     const SearchScreen(),
     const DealsCatalogScreen(),
     const TrackedProductsScreen(),
+    const ProfileScreen(),
   ];
 
   void switchTab(int index) {
@@ -191,17 +193,22 @@ class MainNavigationState extends State<MainNavigation> {
             BottomNavigationBarItem(
               icon: Icon(Icons.search),
               activeIcon: Icon(Icons.search_rounded),
-              label: 'Search & Scrape',
+              label: 'Search',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.bolt_outlined),
               activeIcon: Icon(Icons.bolt),
-              label: 'Deals Catalog',
+              label: 'Deals',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.bookmark_border_rounded),
               activeIcon: Icon(Icons.bookmark_rounded),
               label: 'Tracked',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline_rounded),
+              activeIcon: Icon(Icons.person_rounded),
+              label: 'Profile',
             ),
           ],
         ),

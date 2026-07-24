@@ -8,6 +8,9 @@ import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/gauge_widget.dart';
 import '../widgets/price_chart.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'auth_screen.dart';
+import 'main_navigation.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product initialProduct;
@@ -145,6 +148,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _saveToTrackedProducts() async {
+    // Force Logged in State
+    if (FirebaseAuth.instance.currentUser == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please sign in to track products.')),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AuthScreen()),
+        ).then((isLoggedIn) {
+          if (isLoggedIn == true) {
+            _saveToTrackedProducts();
+          }
+        });
+      }
+      return;
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? rawData = prefs.getString('tracked_products_list');
@@ -156,6 +177,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         } catch (e) {
           items = [];
         }
+      }
+
+      if (items.length >= 10) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Tracking limit reached! You cannot track more than 10 products.'),
+              backgroundColor: AppTheme.colorRed,
+            ),
+          );
+        }
+        return;
       }
 
       final existingIndex = items.indexWhere((it) => it['url'] == widget.productUrl);
@@ -180,9 +213,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       await prefs.setString('tracked_products_list', jsonEncode(items));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Added to Tracked Products! Local notifications enabled for price changes.'),
+          SnackBar(
+            content: const Text('✅ Added to Tracked Products!'),
             backgroundColor: AppTheme.colorGreen,
+            action: SnackBarAction(
+              label: 'VIEW LIST',
+              textColor: Colors.white,
+              onPressed: () {
+                // Switch tab index to the 2nd tab (Tracked tab index is 2 in main_navigation.dart)
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                // Locate MainNavigationState key or context helper to trigger tab switch
+                try {
+                  final state = context.findAncestorStateOfType<MainNavigationState>();
+                  state?.switchTab(2);
+                } catch (_) {}
+              },
+            ),
           ),
         );
       }
@@ -416,64 +462,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       const SizedBox(height: 18),
                       
                       // Action Buttons
-                      Column: [
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: ElevatedButton.icon(
-                                onPressed: () => _launchUrl(_product.url),
-                                icon: const Icon(Icons.shopping_cart, size: 16),
-                                label: Text('Buy on ${_product.platform}'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primary,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
+                      Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _launchUrl(_product.url),
+                              icon: const Icon(Icons.shopping_cart, size: 16),
+                              label: Text('Buy on Store (${_product.platform})'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              flex: 1,
-                              child: OutlinedButton.icon(
-                                onPressed: _showSetAlertDial,
-                                icon: const Icon(Icons.notifications_none, size: 16),
-                                label: const Text('Set Alert'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.textSecondary,
-                                  side: const BorderSide(color: AppTheme.borderClean),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _saveToTrackedProducts,
-                            icon: const Icon(Icons.bookmark_add_outlined, size: 18),
-                            label: const Text('Track Product (Auto Price Change Alert)'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.accentIndigo,
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: _saveToTrackedProducts,
+                              icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+                              label: const Text('Track Product'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.accentIndigo,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -613,23 +640,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
                         ),
                       ],
-                    ),
-                  ),
-                const SizedBox(height: 12),
-
-                // Footnote Action button to history url
-                if (_product.historyUrl != null && _product.historyUrl!.isNotEmpty)
-                  Center(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _launchUrl(_product.historyUrl!),
-                      icon: const Icon(Icons.open_in_new, size: 12),
-                      label: const Text('View Original History Page', style: TextStyle(fontSize: 11)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.textSecondary,
-                        side: const BorderSide(color: AppTheme.borderClean),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      ),
                     ),
                   ),
                 const SizedBox(height: 30),

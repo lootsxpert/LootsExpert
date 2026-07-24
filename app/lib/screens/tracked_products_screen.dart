@@ -6,6 +6,10 @@ import '../services/api_service.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
+
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
+import 'auth_screen.dart';
 import 'product_detail_screen.dart';
 
 class TrackedProductsScreen extends StatefulWidget {
@@ -19,11 +23,25 @@ class _TrackedProductsScreenState extends State<TrackedProductsScreen> {
   List<Map<String, dynamic>> _trackedItems = [];
   bool _isLoading = true;
   bool _isChecking = false;
+  User? _currentUser;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadTrackedProducts();
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadTrackedProducts();
+    _currentUser = AuthService.currentUser;
+    AuthService.userChanges.listen((user) {
+      if (mounted) {
+        setState(() {
+          _currentUser = user;
+        });
+      }
+    });
   }
 
   Future<void> _loadTrackedProducts() async {
@@ -126,34 +144,73 @@ class _TrackedProductsScreenState extends State<TrackedProductsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bgMain,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Tracked Products',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.extrabold,
-            fontSize: 20,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: _isChecking
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                  )
-                : const Icon(Icons.sync, color: AppTheme.primary),
-            onPressed: _isChecking ? null : _checkPriceChanges,
-            tooltip: 'Check Price Updates',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _trackedItems.isEmpty
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Pull to refresh small box indicator instruction
+            if (_currentUser != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.primary.withOpacity(0.15)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.arrow_downward, size: 14, color: AppTheme.primary),
+                    SizedBox(width: 6),
+                    Text(
+                      'Pull down list to check live prices (Scraping)',
+                      style: TextStyle(fontSize: 11.5, color: AppTheme.primary, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: _currentUser == null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: GlassCard(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.lock_outline_rounded, size: 48, color: AppTheme.textMuted),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Login Required to Track',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'You must sign in with Google or Email to monitor price changes and sync custom alerts.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())),
+                                child: const Text('Go to Login', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _trackedItems.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(32.0),
@@ -202,84 +259,112 @@ class _TrackedProductsScreenState extends State<TrackedProductsScreen> {
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12.0),
-                        child: GlassCard(
-                          padding: const EdgeInsets.all(12),
-                          child: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Container(
-                                  width: 60,
-                                  height: 60,
-                                  color: Colors.white,
-                                  child: image.isNotEmpty
-                                      ? Image.network(
-                                          image,
-                                          fit: BoxFit.contain,
-                                          errorBuilder: (context, error, stackTrace) =>
-                                              const Icon(Icons.shopping_bag_outlined,
-                                                  color: AppTheme.textMuted),
-                                        )
-                                      : const Icon(Icons.shopping_bag_outlined,
-                                          color: AppTheme.textMuted),
+                        child: GestureDetector(
+                          onTap: () {
+                            // Create dummy initial product for quick loading fallback
+                            final dummyProduct = Product(
+                              title: title,
+                              image: image,
+                              platform: platform,
+                              currentPrice: price,
+                              originalPrice: price,
+                              discount: '0%',
+                              dealScore: 50,
+                              rating: 4.0,
+                              url: url,
+                              history: [],
+                            );
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ProductDetailScreen(
+                                  initialProduct: dummyProduct,
+                                  productUrl: url,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primary.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        platform.toUpperCase(),
-                                        style: const TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.extrabold,
-                                          color: AppTheme.primary,
+                            );
+                          },
+                          child: GlassCard(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: Colors.white,
+                                    child: image.isNotEmpty
+                                        ? Image.network(
+                                            image,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (context, error, stackTrace) =>
+                                                Image.asset('assets/logo.png', fit: BoxFit.contain),
+                                          )
+                                        : Image.asset('assets/logo.png', fit: BoxFit.contain),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primary.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          platform.toUpperCase(),
+                                          style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primary,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textPrimary,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textPrimary,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '₹${price.toInt()}',
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.extrabold,
-                                        color: AppTheme.accentIndigo,
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '₹${price.toInt()}',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppTheme.accentIndigo,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: Colors.redAccent, size: 20),
-                                onPressed: () => _removeTrackedProduct(index),
-                              ),
-                            ],
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline,
+                                      color: Colors.redAccent, size: 20),
+                                  onPressed: () => _removeTrackedProduct(index),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );
                     },
                   ),
                 ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

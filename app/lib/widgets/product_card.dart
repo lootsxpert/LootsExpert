@@ -92,9 +92,9 @@ class ProductCard extends StatelessWidget {
                                 product.image,
                                 fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.image_not_supported, color: AppTheme.textMuted),
+                                    Image.asset('assets/logo.png', fit: BoxFit.contain),
                               )
-                            : const Icon(Icons.image, color: AppTheme.textMuted),
+                            : Image.asset('assets/logo.png', fit: BoxFit.contain),
                       ),
                       
                       // Platform Badge

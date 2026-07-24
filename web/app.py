@@ -1393,70 +1393,19 @@ def outbound_redirect():
             ek_key = os.getenv("EARNKARO_API", "")
         
     # Build final url applying tag parameter
-    final_url = target_url
     lower_platform = platform.lower()
-    
-    # Non-Amazon platforms (Flipkart, Myntra, Ajio, Meesho, Croma) convert via EarnKaro
-    if 'amazon' not in lower_platform and ek_key:
-        try:
-            # Clean Flipkart deep links (/dl/ prefix) so EarnKaro API handles them cleanly
-            clean_target_url = target_url
-            if 'flipkart' in lower_platform or 'flipkart.com' in target_url:
-                try:
-                    p_url = urllib.parse.urlparse(target_url)
-                    p_path = p_url.path
-                    if p_path.startswith('/dl/'):
-                        p_path = p_path[3:]
-                    elif p_path == '/dl':
-                        p_path = '/'
-                    clean_target_url = f"https://www.flipkart.com{p_path}"
-                    q_params = urllib.parse.parse_qs(p_url.query)
-                    if 'pid' in q_params:
-                        clean_target_url += f"?pid={q_params['pid'][0]}"
-                except Exception as fk_clean_err:
-                    print(f"[Flipkart URL Clean Warning] {fk_clean_err}")
+    lower_url = target_url.lower()
 
-            ek_url = "https://ekaro-api.affiliaters.in/api/converter/public"
-            payload = json.dumps({
-                "deal": clean_target_url,
-                "convert_option": "convert_only"
-            }).encode('utf-8')
-            req = urllib.request.Request(
-                ek_url, 
-                data=payload,
-                headers={
-                    'Authorization': f'Bearer {ek_key}',
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'Mozilla/5.0'
-                },
-                method='POST'
-            )
-            with urllib.request.urlopen(req, timeout=6) as r:
-                if r.status == 200:
-                    res_data = json.loads(r.read().decode('utf-8'))
-                    if res_data.get("success") == 1 and res_data.get("data"):
-                        aff_url = res_data.get("data").strip()
-                        if aff_url.startswith('http'):
-                            print(f"[EarnKaro Converter Success] Converted {target_url} -> {aff_url}")
-                            return redirect(aff_url)
-        except Exception as ek_err:
-            print(f"[EarnKaro URL Conversion Error] {ek_err}")
-            
-    if tag:
+    if 'amazon' in lower_platform or 'amazon.in' in lower_url or 'amzn.to' in lower_url:
+        # For amazon: amazonProductlink?{AffiliateCode} or query tag parameter
         try:
             parsed_url = urllib.parse.urlparse(target_url)
             query_params = urllib.parse.parse_qs(parsed_url.query)
             
-            if 'amazon' in lower_platform:
-                query_params['tag'] = [tag]
-            elif 'flipkart' in lower_platform:
-                query_params['affid'] = [tag]
-            elif 'myntra' in lower_platform:
-                query_params['utm_source'] = ['affiliate']
-                query_params['utm_campaign'] = [tag]
-            else:
-                query_params['subid'] = [tag]
-                
+            # Use admin tag if present, otherwise default to config tag or env tag
+            aff_tag = tag if tag else os.getenv("AMAZON_AFF_TAG", "pricegraph-21")
+            query_params['tag'] = [aff_tag]
+            
             new_query = urllib.parse.urlencode(query_params, doseq=True)
             final_url = urllib.parse.urlunparse((
                 parsed_url.scheme,
@@ -1467,8 +1416,14 @@ def outbound_redirect():
                 parsed_url.fragment
             ))
         except Exception as e:
-            print(f"[Affiliate URL Injection Error] {str(e)}")
-            
+            print(f"[Amazon Affiliate Injection Error] {str(e)}")
+            final_url = target_url
+    else:
+        # Non-Amazon stores: https://linksredirect.com/?cid=229404&&url={UnshortenedProductURL}
+        # Use CID if defined in affiliate configs or defaults to 229404
+        cid = tag if tag else "229404"
+        final_url = f"https://linksredirect.com/?cid={cid}&&url={urllib.parse.quote(target_url)}"
+
     return redirect(final_url)
 
 @app.route("/admin/affiliate/save", methods=["POST"])
@@ -1807,6 +1762,49 @@ def page_not_found(e):
 def internal_server_error(e):
     return render_template("error.html", error_code="500", error_title="Internal Error", error_desc="A server error occurred. We are looking into it!"), 500
 
+# ==============================================================================
+# Database Maintenance: Background Deletion Scheduler
+# ==============================================================================
+def start_db_maintenance_thread():
+    import threading
+    import datetime
+    
+    def cleanup_old_products_job():
+        while True:
+            try:
+                # Perform product cleanup once every 24 hours
+                print("[Maintenance Job] Running daily database cleanup process...")
+                conn = get_db_connection()
+                cur = conn.cursor()
+                
+                # Delete products older than 30 days that are NOT active deals or telegram tracked products
+                # (Active deals might have deal_score > 80, so we preserve products with high deal score or tagged deals)
+                thirty_days_ago = datetime.datetime.now() - datetime.timedelta(days=30)
+                
+                cur.execute("""
+                    DELETE FROM products 
+                    WHERE created_at < %s 
+                    AND (deal_score IS NULL OR deal_score < 75) 
+                    AND url NOT IN (
+                        SELECT url FROM telegram_products WHERE tracking_status = 'active'
+                    )
+                """, (thirty_days_ago,))
+                
+                deleted_rows = cur.rowcount
+                conn.commit()
+                cur.close()
+                conn.close()
+                print(f"[Maintenance Job] Success: Deleted {deleted_rows} search-generated old products.")
+            except Exception as maintenance_err:
+                print(f"[Maintenance Job Error] Cleanup execution failed: {maintenance_err}")
+                
+            # Sleep for 24 hours
+            time.sleep(86400)
+            
+    maintenance_thread = threading.Thread(target=cleanup_old_products_job, daemon=True)
+    maintenance_thread.start()
+
 if __name__ == "__main__":
+    start_db_maintenance_thread()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=True, use_reloader=False)

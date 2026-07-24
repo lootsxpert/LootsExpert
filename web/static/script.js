@@ -523,18 +523,24 @@
       // Show history source footnote & external tracker link button
       if (data && data.historySource) {
         const verb = data.historySource === 'PriceBefore' ? 'imported from' : 'tracked from';
-        historySourceInfo.innerHTML = `<i class="fa-solid fa-circle-info"></i> Historical prices ${verb} ${data.historySource}`;
-        historySourceInfo.classList.remove('hidden');
+        if (historySourceInfo) {
+          historySourceInfo.innerHTML = `<i class="fa-solid fa-circle-info"></i> Historical prices ${verb} ${data.historySource}`;
+          historySourceInfo.classList.remove('hidden');
+        }
       } else {
-        historySourceInfo.classList.add('hidden');
+        if (historySourceInfo) historySourceInfo.classList.add('hidden');
       }
 
       if (data && data.historyUrl) {
-        historySourceBtn.href = data.historyUrl;
-        historySourceBtn.classList.remove('hidden');
+        if (historySourceBtn) {
+          historySourceBtn.href = data.historyUrl;
+          historySourceBtn.classList.remove('hidden');
+        }
       } else {
-        historySourceBtn.href = '#';
-        historySourceBtn.classList.add('hidden');
+        if (historySourceBtn) {
+          historySourceBtn.href = '#';
+          historySourceBtn.classList.add('hidden');
+        }
       }
     } else {
       // Fallback: Generate a 180-day random walk simulation
@@ -558,8 +564,8 @@
       fullHistoryData[fullHistoryData.length - 1].price = currentPrice;
 
       // Hide footnote & button because we are using simulated fallback
-      historySourceInfo.classList.add('hidden');
-      historySourceBtn.classList.add('hidden');
+      if (historySourceInfo) historySourceInfo.classList.add('hidden');
+      if (historySourceBtn) historySourceBtn.classList.add('hidden');
     }
     
     // Calculate stats
@@ -791,9 +797,9 @@
 
     // Generate comparison prices
     const compData = filteredPlatforms.map((platform, idx) => {
-      let price = currentPrice;
       let isCurrent = platform.name.toLowerCase() === currentPlatform.toLowerCase();
-      let url = isCurrent ? '#' : `${platform.searchUrl}${encodeURIComponent(productName)}`;
+      let price = currentPrice;
+      let url = isCurrent ? '#' : `/redirect?url=${encodeURIComponent(platform.searchUrl + encodeURIComponent(productName))}&platform=${encodeURIComponent(platform.name)}&title=${encodeURIComponent(productName)}`;
       let isDbMatch = false;
 
       // Check if we have a real matched product in the DB for this platform
@@ -1114,6 +1120,12 @@
            </div>
          `;
          
+         card.style.cursor = 'pointer';
+         card.addEventListener('click', () => {
+           const redirectUrl = `/redirect?url=${encodeURIComponent(deal.url)}&platform=${encodeURIComponent(deal.platform)}&title=${encodeURIComponent(deal.title)}&price=${deal.current_price}`;
+           window.open(redirectUrl, '_blank');
+         });
+
          const priceGraphBtn = card.querySelector('.price-graph-btn');
          priceGraphBtn.addEventListener('click', (e) => {
            e.stopPropagation();
@@ -1374,7 +1386,7 @@ if (document.readyState === 'loading') {
 
 // Global functions for mobile banner
 window.showIosAlert = function() {
-  alert("🍎 Price Graph iOS App is currently under development. Stay tuned!");
+  alert("iOS App is not published yet. We are working hard to bring it to the App Store soon!");
 };
 
 window.closeMobileBanner = function() {
